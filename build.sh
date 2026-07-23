@@ -261,6 +261,9 @@ uninstall)
 
     rm -rf "${DESTDIR}${PREFIX}/share/${program}/models"
     rmdir "${DESTDIR}${PREFIX}/share/${program}" 2>/dev/null || true
+    rm -f "${DESTDIR}${PREFIX}/share/bash-completion/completions/${program}"
+    rm -f "${DESTDIR}${PREFIX}/share/zsh/site-functions/_${program}"
+    rm -f "${DESTDIR}${PREFIX}/share/fish/vendor_completions.d/${program}.fish"
 
     uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
     uninstall_opt "etc" "${DESTDIR}/etc/${program}"
@@ -290,6 +293,15 @@ install)
     install_opt \
         -Dm644 "${program}.1" \
         "${DESTDIR}${PREFIX}/man/man1/${program}.1"
+    install_opt \
+        -Dm644 "completions/${program}" \
+        "${DESTDIR}${PREFIX}/share/bash-completion/completions/${program}"
+    install_opt \
+        -Dm644 "completions/_${program}" \
+        "${DESTDIR}${PREFIX}/share/zsh/site-functions/_${program}"
+    install_opt \
+        -Dm644 "completions/${program}.fish" \
+        "${DESTDIR}${PREFIX}/share/fish/vendor_completions.d/${program}.fish"
     install_opt -dm755 "etc" "${DESTDIR}/etc/${program}"
     install_opt -Dm755 \
         "${program}.desktop" \

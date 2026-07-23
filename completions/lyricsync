@@ -1,0 +1,181 @@
+# bash completion for lyricsync
+
+_lyricsync_filedir()
+{
+    if declare -F _filedir >/dev/null 2>&1; then
+        _filedir
+    else
+        COMPREPLY=( $(compgen -f -- "$cur") )
+    fi
+}
+
+_lyricsync_compgen_equals()
+{
+    local opt=$1
+    local value=$2
+    local choices=$3
+
+    COMPREPLY=( $(compgen -W "$choices" -P "$opt=" -- "$value") )
+}
+
+_lyricsync_filedir_equals()
+{
+    local opt=$1
+    local value=$2
+    local completion
+    local -a completions
+
+    completions=( $(compgen -f -- "$value") )
+    COMPREPLY=()
+    for completion in "${completions[@]}"; do
+        COMPREPLY+=( "$opt=$completion" )
+    done
+}
+
+_lyricsync()
+{
+    local cur prev words cword opt value
+    local value_options flag_options all_options
+
+    if declare -F _init_completion >/dev/null 2>&1; then
+        _init_completion -n = || return
+    else
+        COMPREPLY=()
+        words=( "${COMP_WORDS[@]}" )
+        cword=$COMP_CWORD
+        cur=${COMP_WORDS[COMP_CWORD]}
+        prev=${COMP_WORDS[COMP_CWORD-1]}
+    fi
+
+    value_options="
+        --input-song --input-vocals --output-vocals --input-lyrics
+        --output-lrc --model-vocal --model-ctc --tokenizer
+        --onnx-provider --onnx-device --ffmpeg --temp-dir
+        --vocals-format --chunk-seconds --margin-seconds --compensate
+        --n-fft --hop --dim-f --dim-t --model-output --clip-mode
+        --ctc-debug-dump --split-size --star-frequency --romanization
+        --language --emissions --vocals-output --lyrics -l --output -o
+        --format
+    "
+    flag_options="
+        --help -h --denoise --keep-temp-files --romanize
+    "
+    all_options="$value_options $flag_options"
+
+    case "$cur" in
+    --onnx-provider=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" "auto cpu cuda"
+        return
+        ;;
+    --vocals-format=*|--format=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" "wav flac mp3 opus"
+        return
+        ;;
+    --model-output=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" "vocals instrumental"
+        return
+        ;;
+    --clip-mode=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" "clamp none"
+        return
+        ;;
+    --split-size=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" "current word char sentence"
+        return
+        ;;
+    --star-frequency=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" "none edges segment"
+        return
+        ;;
+    --romanization=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" "off icu"
+        return
+        ;;
+    --emissions=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_compgen_equals "$opt" "$value" \
+            "log-probabilities logits probabilities"
+        return
+        ;;
+    --input-song=*|--input-vocals=*|--output-vocals=*|--input-lyrics=*|\
+    --output-lrc=*|--model-vocal=*|--model-ctc=*|--tokenizer=*|\
+    --ffmpeg=*|--temp-dir=*|--ctc-debug-dump=*|--vocals-output=*|\
+    --lyrics=*|--output=*)
+        opt=${cur%%=*}
+        value=${cur#*=}
+        _lyricsync_filedir_equals "$opt" "$value"
+        return
+        ;;
+    esac
+
+    case "$prev" in
+    --onnx-provider)
+        COMPREPLY=( $(compgen -W "auto cpu cuda" -- "$cur") )
+        return
+        ;;
+    --vocals-format|--format)
+        COMPREPLY=( $(compgen -W "wav flac mp3 opus" -- "$cur") )
+        return
+        ;;
+    --model-output)
+        COMPREPLY=( $(compgen -W "vocals instrumental" -- "$cur") )
+        return
+        ;;
+    --clip-mode)
+        COMPREPLY=( $(compgen -W "clamp none" -- "$cur") )
+        return
+        ;;
+    --split-size)
+        COMPREPLY=( $(compgen -W "current word char sentence" -- "$cur") )
+        return
+        ;;
+    --star-frequency)
+        COMPREPLY=( $(compgen -W "none edges segment" -- "$cur") )
+        return
+        ;;
+    --romanization)
+        COMPREPLY=( $(compgen -W "off icu" -- "$cur") )
+        return
+        ;;
+    --emissions)
+        COMPREPLY=( $(compgen -W "log-probabilities logits probabilities" \
+            -- "$cur") )
+        return
+        ;;
+    --input-song|--input-vocals|--output-vocals|--input-lyrics|\
+    --output-lrc|--model-vocal|--model-ctc|--tokenizer|--ffmpeg|\
+    --temp-dir|--ctc-debug-dump|--vocals-output|--lyrics|-l|\
+    --output|-o)
+        _lyricsync_filedir
+        return
+        ;;
+    --onnx-device|--chunk-seconds|--margin-seconds|--compensate|\
+    --n-fft|--hop|--dim-f|--dim-t|--language)
+        return
+        ;;
+    esac
+
+    if [[ $cur == -* ]]; then
+        COMPREPLY=( $(compgen -W "$all_options" -- "$cur") )
+        return
+    fi
+
+    _lyricsync_filedir
+}
+
+complete -F _lyricsync lyricsync

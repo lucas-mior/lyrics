@@ -1,0 +1,50 @@
+#compdef lyricsync
+
+_lyricsync()
+{
+    local -a options
+
+    options=(
+        {-h,--help}'[show this help]'
+        '--input-song[original song to process]:song:_files'
+        '--input-vocals[already extracted vocals to use]:vocals:_files'
+        '--output-vocals[save extracted vocals at path]:vocals:_files'
+        '--input-lyrics[plain-text lyrics to align]:lyrics:_files'
+        '--output-lrc[synced lyrics output path]:lrc:_files'
+        '--model-vocal[MDX-Net ONNX model]:model:_files'
+        '--model-ctc[CTC ONNX model]:model:_files'
+        '--tokenizer[CTC tokenizer tokens file]:tokens:_files'
+        '--onnx-provider[ONNX provider]:provider:(auto cpu cuda)'
+        '--onnx-device[CUDA device id]:device id:'
+        '--ffmpeg[ffmpeg executable]:ffmpeg:_command_names -e'
+        '--temp-dir[temporary directory]:directory:_directories'
+        '--vocals-format[extracted vocals container]:format:(wav flac mp3 opus)'
+        '--chunk-seconds[MDX chunk size in seconds]:seconds:'
+        '--margin-seconds[MDX chunk margin in seconds]:seconds:'
+        '--compensate[output gain]:gain:'
+        '--n-fft[STFT size]:size:'
+        '--hop[STFT hop]:samples:'
+        '--dim-f[override model frequency bins]:bins:'
+        '--dim-t[override model time frames]:frames:'
+        '--model-output[model output stem]:stem:(vocals instrumental)'
+        '--clip-mode[final clipping policy]:mode:(clamp none)'
+        '--ctc-debug-dump[write CTC parity debug dump]:dump:_files'
+        '--split-size[lyrics split size]:size:(current word char sentence)'
+        '--star-frequency[star-token placement]:frequency:(none edges segment)'
+        '--romanization[romanization backend]:backend:(off icu)'
+        '--language[3-letter language code]:code:'
+        '--emissions[model emission values]:kind:(log-probabilities logits probabilities)'
+        '--vocals-output[save extracted vocals at path]:vocals:_files'
+        {--lyrics,-l}'[plain-text lyrics to align]:lyrics:_files'
+        {--output,-o}'[synced lyrics output path]:lrc:_files'
+        '--format[extracted vocals container]:format:(wav flac mp3 opus)'
+        '--denoise[run denoising inference mode]'
+        '--keep-temp-files[keep generated temporary files]'
+        '--romanize[select ICU romanization]'
+        '*:file:_files'
+    )
+
+    _arguments -s -S "$options[@]"
+}
+
+_lyricsync "$@"
