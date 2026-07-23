@@ -135,10 +135,8 @@ mdx_config_prepare(MdxConfig *config) {
     chunk_size = config->hop*(config->dim_t - 1);
     trim = config->n_fft/2;
     if (chunk_size <= 2*trim) {
-        error2(
-            "MDX gen_size must be positive; got chunk=%d trim=%d\n",
-            chunk_size,
-            trim);
+        error2("MDX gen_size must be positive; got chunk=%d trim=%d\n",
+               chunk_size, trim);
         return false;
     }
 
