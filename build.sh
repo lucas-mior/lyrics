@@ -13,18 +13,19 @@ alias trace_on='set -x'
 alias trace_off='{ set +x; } 2>/dev/null'
 
 dir=$(dirname "$(readlink -f "$0")")
+program=$(basename "$(readlink -f "$(dirname "$0")")")
+exe="bin/program"
 cd "$dir" || exit
 
 target=${1:-debug}
 target_arg=${2:-}
 
 APP=${APP:-${target_arg:-all}}
-GET_VOICE_PROGRAM=${GET_VOICE_PROGRAM:-bin/get_voice}
-GEN_LRC_RAW_PROGRAM=${GEN_LRC_RAW_PROGRAM:-bin/gen_lrc_raw}
-GEN_LRC_PROGRAM=${GEN_LRC_PROGRAM:-bin/gen_lrc}
-MODEL=${MODEL:-models/identity.onnx}
-INPUT=${INPUT:-song.mp3}
-OUTPUT=${OUTPUT:-vocals.wav}
+GET_VOICE_PROGRAM="bin/${program}-get-voice"
+GEN_LRC_RAW_PROGRAM="bin/${program}-gen-lyrics"
+GEN_LRC_PROGRAM="bin/$program"
+LIBRARY="${program}.so"
+
 DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
 
 requested_cc=${CC:-}
@@ -144,11 +145,6 @@ commands:
 environment:
     CC                   C compiler, default: cc or tcc for tests
     APP                  app to build/run, default: all for build
-    GET_VOICE_PROGRAM    get_voice executable, default: bin/get_voice
-    GEN_LRC_RAW_PROGRAM  raw LRC executable, default: bin/gen_lrc_raw
-    GEN_LRC_PROGRAM      full LRC executable, default: bin/gen_lrc
-    INPUT                run command input path, default: song.mp3
-    OUTPUT               get_voice run output path, default: vocals.wav
     CFLAGS               extra compiler flags
     DEFAULT_LDLIBS       default libraries, default: -lm
 
@@ -358,26 +354,60 @@ run_tests() {
     done
 }
 
+install_opt () {
+    mode="$1"
+    file="$2"
+    dest="$3"
+
+    if [ -f "$file" ]; then
+        install "$mode" "$file" "$dest"
+    elif [ -d "$file" ]; then
+        install "$mode" "$dest"
+        cp -rp "$file/." "$dest/"
+    fi
+}
+
+uninstall_opt () {
+    file="$1"
+    dest="$2"
+
+    if [ -e "$file" ]; then
+        rm -rf "$dest"
+    fi
+}
+
 case "$target" in
 build|all)
     build_program
     ;;
-run)
-    if [ "$APP" = all ]; then
-        APP=get_voice
-    fi
-    build_program
-    output=$(app_program "$APP")
+"uninstall")
     trace_on
-    case "$APP" in
-    get_voice)
-        "$output" -i "$INPUT" -o "$OUTPUT" --model-vocal "$MODEL"
-        ;;
-    gen_lrc_raw|gen_lrc)
-        "$output"
-        ;;
-    esac
+
+    rm -f "${DESTDIR}${PREFIX}/bin/${program}"
+    uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
+    uninstall_opt "etc" "${DESTDIR}/etc/${program}"
+    uninstall_opt \
+        "${program}.desktop" "${DESTDIR}/usr/share/applications/${program}.desktop"
+
     trace_off
+    exit
+    ;;
+"install")
+    trace_on
+
+    if [ ! -f "$exe" ]; then
+        "$0" build
+    fi
+
+    install -Dm755 "$exe" "${DESTDIR}${PREFIX}/bin/${program}"
+    install_opt -Dm644 "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
+    install_opt -dm755 "etc" "${DESTDIR}/etc/${program}"
+    install_opt -Dm755 \
+        "${program}.desktop" \
+        "${DESTDIR}/usr/share/applications/${program}.desktop"
+
+    trace_off
+    exit
     ;;
 test)
     run_tests
