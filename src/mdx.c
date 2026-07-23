@@ -8,11 +8,7 @@
 #endif
 
 static float
-mdx_output_sample(
-    MdxConfig *config,
-    float input_sample,
-    float model_sample
-) {
+mdx_output_sample(MdxConfig *config, float input_sample, float model_sample) {
     float sample = model_sample;
 
     if (config->model_output == MDX_MODEL_OUTPUT_INSTRUMENTAL) {
