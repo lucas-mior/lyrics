@@ -1,0 +1,287 @@
+.TH LYRICSYNC 1 "August 2026" "lyricsync" "User Commands"
+.SH NAME
+lyricsync \- generate synchronized LRC lyrics from audio and plain text lyrics
+.SH SYNOPSIS
+.B lyricsync
+.RB ( \-\-input-song
+.IR song " | " \-\-input-vocals
+.IR vocals )
+.RI [ options ]
+.SH DESCRIPTION
+.B lyricsync
+aligns a plain-text lyrics file to an audio track and writes synchronized LRC
+lyrics.
+It can either extract vocals from an original song before alignment, or skip
+vocal extraction when an existing vocals file is supplied.
+.P
+Exactly one of
+.B \-\-input-song
+or
+.B \-\-input-vocals
+is required.
+If
+.B \-\-input-lyrics
+is omitted,
+.B lyricsync
+derives it from the input path by removing the final extension and appending
+.IR .txt .
+If
+.B \-\-output-lrc
+is omitted,
+.B lyricsync
+derives it from the input path by removing the final extension and appending
+.IR .lrc .
+A defaulted LRC output path is rejected when the file already exists.
+.SH TASK OPTIONS
+.TP
+.BI \-\-input-song " PATH"
+Original song to process. Vocals are extracted before lyrics alignment.
+.TP
+.BI \-\-input-vocals " PATH"
+Already extracted vocals to use. This skips vocal extraction.
+.TP
+.BI \-\-output-vocals " PATH"
+Save extracted vocals at
+.IR PATH .
+When
+.B \-\-input-vocals
+is used, this option is ignored with a warning.
+.TP
+.BI \-\-input-lyrics " PATH"
+Plain-text lyrics to align.
+.TP
+.BI \-\-output-lrc " PATH"
+Synced lyrics output path.
+.TP
+.BI \-l " PATH" ", " \-\-lyrics " PATH"
+Alias for
+.BR \-\-input-lyrics .
+.TP
+.BI \-o " PATH" ", " \-\-output " PATH"
+Alias for
+.BR \-\-output-lrc .
+.TP
+.BI \-\-vocals-output " PATH"
+Alias for
+.BR \-\-output-vocals .
+.SH MODEL OPTIONS
+.TP
+.BI \-\-model-vocal " PATH"
+MDX-Net ONNX model used for vocal extraction.
+.TP
+.BI \-\-model-ctc " PATH"
+CTC ONNX model used for lyrics alignment.
+.TP
+.BI \-\-tokenizer " PATH"
+CTC tokenizer tokens file.
+.TP
+.BI \-\-onnx-provider " KIND"
+ONNX Runtime execution provider.
+.I KIND
+must be one of
+.BR auto ,
+.BR cpu ,
+or
+.BR cuda .
+The default is
+.BR auto .
+.TP
+.BI \-\-onnx-device " N"
+CUDA device id. The default is
+.BR 0 .
+.SH AUDIO OPTIONS
+.TP
+.BI \-\-ffmpeg " PATH"
+FFmpeg executable. The default is
+.BR ffmpeg .
+.TP
+.BI \-\-temp-dir " PATH"
+Directory used for temporary files. The default is
+.BR /tmp .
+.TP
+.BI \-\-vocals-format " KIND"
+Extracted vocals container format.
+.I KIND
+must be one of
+.BR wav ,
+.BR flac ,
+.BR mp3 ,
+or
+.BR opus .
+The default is inferred from
+.B \-\-output-vocals
+when possible, otherwise
+.BR wav .
+.TP
+.BI \-\-format " KIND"
+Alias for
+.BR \-\-vocals-format .
+.TP
+.BI \-\-chunk-seconds " N"
+MDX chunk size in seconds. The default is
+.BR 30 .
+.TP
+.BI \-\-margin-seconds " N"
+MDX chunk margin in seconds. The default is
+.BR 3 .
+.TP
+.BI \-\-compensate " X"
+Output gain. The default is
+.BR 1.035 .
+.TP
+.BI \-\-n-fft " N"
+STFT size. The default is
+.BR 6144 .
+.TP
+.BI \-\-hop " N"
+STFT hop size. The default is
+.BR 1024 .
+.TP
+.BI \-\-dim-f " N"
+Override model frequency bins.
+.TP
+.BI \-\-dim-t " N"
+Override model time frames.
+.TP
+.BI \-\-model-output " KIND"
+Model output stem.
+.I KIND
+must be
+.B vocals
+or
+.BR instrumental .
+The default is
+.BR vocals .
+.TP
+.BI \-\-clip-mode " KIND"
+Final clipping policy.
+.I KIND
+must be
+.B clamp
+or
+.BR none .
+The default is
+.BR clamp .
+.TP
+.B \-\-denoise
+Run denoising inference mode.
+.SH LYRICS OPTIONS
+.TP
+.BI \-\-ctc-debug-dump " PATH"
+Write a CTC parity debug dump to
+.IR PATH .
+.TP
+.BI \-\-split-size " KIND"
+Lyrics split size.
+.I KIND
+must be one of
+.BR current ,
+.BR word ,
+.BR char ,
+or
+.BR sentence .
+The default is
+.BR word .
+.TP
+.BI \-\-star-frequency " KIND"
+Star-token placement.
+.I KIND
+must be one of
+.BR none ,
+.BR edges ,
+or
+.BR segment .
+The default is
+.BR edges .
+.TP
+.BI \-\-romanization " KIND"
+Romanization backend.
+.I KIND
+must be
+.B off
+or
+.BR icu .
+The default is
+.BR icu .
+.TP
+.BI \-\-language " CODE"
+Three-letter language code used by lyrics preprocessing. The default is
+.BR eng .
+.TP
+.BI \-\-emissions " KIND"
+Model emission values.
+.I KIND
+must be one of
+.BR log-probabilities ,
+.BR logits ,
+or
+.BR probabilities .
+The default is
+.BR logits .
+.TP
+.B \-\-keep-temp-files
+Keep generated temporary files.
+.TP
+.B \-\-romanize
+Select ICU romanization. This is equivalent to
+.BR "\-\-romanization icu" .
+.SH GENERAL OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show usage information and exit.
+.SH ENVIRONMENT
+.TP
+.B LRC_VOCALS_MODEL
+Default vocal extraction model path.
+.TP
+.B LRC_CTC_MODEL
+Default CTC alignment model path.
+.TP
+.B LRC_CTC_TOKENIZER
+Default CTC tokenizer path.
+.TP
+.B LRC_ONNX_PROVIDER
+Default ONNX provider, unless
+.B \-\-onnx-provider
+is passed.
+.TP
+.B LRC_ONNX_DEVICE
+Default ONNX CUDA device id, unless
+.B \-\-onnx-device
+is passed.
+.SH FILES
+.TP
+.I models/UVR-MDX-NET-Voc_FT.onnx
+Development-tree default vocal extraction model.
+.TP
+.I models/mms-onnx/onnx/model.onnx
+Development-tree default CTC alignment model.
+.TP
+.I models/mms-onnx/tokens.txt
+Development-tree default CTC tokenizer.
+.TP
+.I /usr/share/lyricsync/models
+System model directory fallback.
+.TP
+.I /usr/local/share/lyricsync/models
+Local system model directory fallback.
+.SH EXAMPLES
+.P
+Extract vocals from a song and generate synced lyrics:
+.P
+.EX
+lyricsync --input-song song.mp3 \e
+    --input-lyrics full_lyrics.txt \e
+    --output-vocals vocals.opus \e
+    --output-lrc synced_lyrics.lrc
+.EE
+.P
+Generate synced lyrics from already extracted vocals:
+.P
+.EX
+lyricsync --input-vocals vocals.opus \e
+    --input-lyrics full_lyrics.txt \e
+    --output-lrc synced_lyrics.lrc
+.EE
+.SH SEE ALSO
+.BR ffmpeg (1)

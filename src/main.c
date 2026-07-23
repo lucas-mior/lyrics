@@ -126,7 +126,7 @@ typedef struct MainOptions {
       "write CTC parity debug dump", NULL, \
       MAIN_VALUE_STRING, MAIN_FIELD(config.ctc_debug_dump_path)) \
     X(SPLIT_SIZE, "--split-size", "KIND", \
-      "lyrics split size (current|word|char)", "word", \
+      "lyrics split size (current|word|char|sentence)", "word", \
       MAIN_VALUE_SPLIT_SIZE, MAIN_NO_FIELD) \
     X(STAR_FREQUENCY, "--star-frequency", "KIND", \
       "star-token placement (none|edges|segment)", "edges", \

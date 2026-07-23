@@ -60,9 +60,9 @@ CFLAGS="$CFLAGS -Wno-cast-qual"
 CFLAGS="$CFLAGS -Wno-unknown-pragmas"
 CFLAGS="$CFLAGS -Wno-char-subscripts"
 CFLAGS="$CFLAGS -Wno-padded"
-# CFLAGS="$CFLAGS -Wno-unused-function"
 CFLAGS="$CFLAGS -Wno-reserved-identifier"
 CFLAGS="$CFLAGS -Wno-documentation"
+CFLAGS="$CFLAGS -Wno-unused-function"
 
 OS=$(uname -a)
 GNUSOURCE=
@@ -141,7 +141,7 @@ usage: ./build.sh [command] [args]
 commands:
     build    build the executable
     lib      build the shared library
-    install  install the executable, shared library, and public header
+    install  install program, library, header, models, man page, completions
     run      build and run the executable with the remaining args
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
@@ -265,7 +265,9 @@ uninstall)
     rm -f "${DESTDIR}${PREFIX}/share/zsh/site-functions/_${program}"
     rm -f "${DESTDIR}${PREFIX}/share/fish/vendor_completions.d/${program}.fish"
 
-    uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
+    uninstall_opt \
+        "${program}.1" \
+        "${DESTDIR}${PREFIX}/share/man/man1/${program}.1"
     uninstall_opt "etc" "${DESTDIR}/etc/${program}"
     uninstall_opt \
         "${program}.desktop" \
@@ -278,12 +280,8 @@ install)
     trace_on
 
     DEFAULT_MODEL_DIR="${PREFIX}/share/${program}/models"
-    if [ ! -f "$program_path" ]; then
-        build_program
-    fi
-    if [ ! -f "$library_path" ]; then
-        build_library
-    fi
+    build_program
+    build_library
 
     install -Dm755 "$program_path" "${DESTDIR}${PREFIX}/bin/${program}"
     install -Dm755 "$library_path" "${DESTDIR}${PREFIX}/lib/${program}.so"
@@ -292,7 +290,7 @@ install)
         "${DESTDIR}${PREFIX}/share/${program}/models"
     install_opt \
         -Dm644 "${program}.1" \
-        "${DESTDIR}${PREFIX}/man/man1/${program}.1"
+        "${DESTDIR}${PREFIX}/share/man/man1/${program}.1"
     install_opt \
         -Dm644 "completions/${program}" \
         "${DESTDIR}${PREFIX}/share/bash-completion/completions/${program}"

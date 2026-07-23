@@ -1,6 +1,7 @@
-# lrc_gen
+# lyricsync
 
-C prototype for the lyric timestamp generation pipeline.
+C prototype for generating synchronized LRC lyrics from audio and plain-text
+lyrics.
 
 The repository now builds a single executable from `src/main.c`. Runtime mode is
 selected by the input arguments:
@@ -77,10 +78,11 @@ prefix as their primary default.
 ```sh
 ./build.sh build         # build the executable
 ./build.sh lib           # build the shared library
-./build.sh install       # install program, library, header, and models
-./build.sh uninstall     # remove installed program, library, header, models
+./build.sh install       # install program, library, header, models, man page, completions
+./build.sh uninstall     # remove installed program, library, header, models, man page, completions
 ./build.sh run [args]    # build and run the executable
 ./build.sh test [module] # build and run embedded module tests
+./build.sh debug         # build with debug flags and UBSan
 ./build.sh check         # run GCC and Clang static analyzers
 ./build.sh clean         # remove generated build outputs
 ```
@@ -132,6 +134,12 @@ The install target copies the repository `models/` tree to:
 
 ```text
 ${DESTDIR}${PREFIX}/share/lyricsync/models
+```
+
+It also installs the man page to:
+
+```text
+${DESTDIR}${PREFIX}/share/man/man1/lyricsync.1
 ```
 
 `DESTDIR` is only a staging root and is not compiled into the binaries.
