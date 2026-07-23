@@ -135,7 +135,6 @@ usage: ./build.sh [command] [app-or-test]
 
 commands:
     build    build all executables, or one selected app
-    run      build and run one selected app
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
     check    build with GCC and Clang static analyzers
