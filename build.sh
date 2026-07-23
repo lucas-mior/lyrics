@@ -24,7 +24,7 @@ APP=${APP:-${target_arg:-all}}
 GET_VOICE_PROGRAM="bin/${program}-get-voice"
 GEN_LRC_RAW_PROGRAM="bin/${program}-gen-lyrics"
 GEN_LRC_PROGRAM="bin/$program"
-LIBRARY="${program}.so"
+LIBRARY="bin/${program}.so"
 
 DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
 
