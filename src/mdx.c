@@ -843,14 +843,6 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
 #include "fftw.c"
 #include "audio.c"
 
-#define MDX_TEST_CHECK(CONDITION, NAME) \
-    do { \
-        if (!(CONDITION)) { \
-            error2("mdx test failed: %s\n", NAME); \
-            fatal(EXIT_FAILURE); \
-        } \
-    } while (0)
-
 typedef struct MdxTestStderrSilence {
     int32 saved_stderr;
     int32 null_fd;
@@ -861,12 +853,12 @@ mdx_test_stderr_silence_begin(MdxTestStderrSilence *silence) {
     fflush(stderr);
 
     silence->saved_stderr = dup(STDERR_FILENO);
-    MDX_TEST_CHECK(silence->saved_stderr >= 0, "save stderr");
+    ASSERT(silence->saved_stderr >= 0);
 
     silence->null_fd = open("/dev/null", O_WRONLY);
     if (silence->null_fd < 0) {
         XCLOSE(&silence->saved_stderr);
-        MDX_TEST_CHECK(false, "open null stderr");
+        ASSERT(false);
     }
 
     xdup2(silence->null_fd, STDERR_FILENO);
@@ -884,14 +876,14 @@ mdx_test_stderr_silence_end(MdxTestStderrSilence *silence) {
     return;
 }
 
-#define MDX_TEST_CHECK_SILENT_FAILURE(EXPRESSION, NAME) \
+#define ASSERT_SILENT_FAILURE(EXPRESSION, NAME) \
     do { \
         MdxTestStderrSilence silence; \
         bool expression_result; \
         mdx_test_stderr_silence_begin(&silence); \
         expression_result = (EXPRESSION); \
         mdx_test_stderr_silence_end(&silence); \
-        MDX_TEST_CHECK(!expression_result, NAME); \
+        ASSERT(!expression_result); \
     } while (0)
 
 static bool
@@ -925,37 +917,23 @@ main(void) {
     ort_context_init_empty(&context);
 
     mdx_config_init(&config);
-    MDX_TEST_CHECK(config.sample_rate == 44100, "sample rate");
-    MDX_TEST_CHECK(config.channel_count == 2, "channel count");
-    MDX_TEST_CHECK(config.dim_c == 4, "dim_c");
-    MDX_TEST_CHECK(config.n_fft == 6144, "n_fft");
-    MDX_TEST_CHECK(config.hop == 1024, "hop");
-    MDX_TEST_CHECK(config.chunk_size == 0, "empty chunk size");
-    MDX_TEST_CHECK(config.trim == 0, "empty trim");
-    MDX_TEST_CHECK(config.gen_size == 0, "empty gen_size");
-    MDX_TEST_CHECK(config.model_output == MDX_MODEL_OUTPUT_VOCALS,
-                   "default model output");
-    MDX_TEST_CHECK(config.clip_mode == MDX_CLIP_MODE_CLAMP,
-                   "default clip mode");
-    MDX_TEST_CHECK(mdx_float_close(
-        mdx_output_sample(&config, 0.75f, 0.5f),
-        0.5175f
-    ), "vocal output compensated");
+    ASSERT(config.sample_rate == 44100);
+    ASSERT(config.channel_count == 2);
+    ASSERT(config.dim_c == 4);
+    ASSERT(config.n_fft == 6144);
+    ASSERT(config.hop == 1024);
+    ASSERT(config.chunk_size == 0);
+    ASSERT(config.trim == 0);
+    ASSERT(config.gen_size == 0);
+    ASSERT(config.model_output == MDX_MODEL_OUTPUT_VOCALS);
+    ASSERT(config.clip_mode == MDX_CLIP_MODE_CLAMP);
+    ASSERT(mdx_float_close(mdx_output_sample(&config, 0.75f, 0.5f), 0.5175f));
     config.model_output = MDX_MODEL_OUTPUT_INSTRUMENTAL;
-    MDX_TEST_CHECK(mdx_float_close(
-        mdx_output_sample(&config, 0.75f, 0.5f),
-        0.25875f
-    ), "instrumental output inverted");
+    ASSERT(mdx_float_close(mdx_output_sample(&config, 0.75f, 0.5f), 0.25875f));
     config.compensate = 2.0f;
-    MDX_TEST_CHECK(mdx_float_close(
-        mdx_output_sample(&config, 0.75f, 0.0f),
-        1.0f
-    ), "clamped output");
+    ASSERT(mdx_float_close(mdx_output_sample(&config, 0.75f, 0.0f), 1.0f));
     config.clip_mode = MDX_CLIP_MODE_NONE;
-    MDX_TEST_CHECK(mdx_float_close(
-        mdx_output_sample(&config, 0.75f, 0.0f),
-        1.5f
-    ), "unclamped output");
+    ASSERT(mdx_float_close(mdx_output_sample(&config, 0.75f, 0.0f), 1.5f));
 
 
     ort_model_init_empty(&model);
@@ -974,114 +952,99 @@ main(void) {
     model.output_shape[2] = 3072;
     model.output_shape[3] = 256;
 
-    MDX_TEST_CHECK(mdx_model_inspect(&info, &config, &model), "inspect");
-    MDX_TEST_CHECK(config.dim_f == 3072, "derived dim_f");
-    MDX_TEST_CHECK(config.dim_t == 256, "derived dim_t");
-    MDX_TEST_CHECK(info.input_name == model.input_name, "input name");
-    MDX_TEST_CHECK(info.output_name == model.output_name, "output name");
-    MDX_TEST_CHECK(!info.input_shape_dynamic, "static input");
-    MDX_TEST_CHECK(!info.output_shape_dynamic, "static output");
-    MDX_TEST_CHECK(mdx_config_prepare(&config), "prepare config");
-    MDX_TEST_CHECK(config.chunk_size == 261120, "chunk size");
-    MDX_TEST_CHECK(config.trim == 3072, "trim");
-    MDX_TEST_CHECK(config.gen_size == 254976, "gen_size");
+    ASSERT(mdx_model_inspect(&info, &config, &model));
+    ASSERT(config.dim_f == 3072);
+    ASSERT(config.dim_t == 256);
+    ASSERT(info.input_name == model.input_name);
+    ASSERT(info.output_name == model.output_name);
+    ASSERT(!info.input_shape_dynamic);
+    ASSERT(!info.output_shape_dynamic);
+    ASSERT(mdx_config_prepare(&config));
+    ASSERT(config.chunk_size == 261120);
+    ASSERT(config.trim == 3072);
+    ASSERT(config.gen_size == 254976);
 
     config.dim_f = 2048;
-    MDX_TEST_CHECK_SILENT_FAILURE(mdx_model_inspect(&info,
-                                                    &config,
-                                                    &model),
-                                  "dim_f mismatch");
+    ASSERT_SILENT_FAILURE(mdx_model_inspect(&info, &config, &model),
+                          "dim_f mismatch");
 
     mdx_config_init(&config);
     model.input_shape[2] = -1;
-    MDX_TEST_CHECK(mdx_model_inspect(&info, &config, &model),
-                   "derive dim_f from output");
-    MDX_TEST_CHECK(config.dim_f == 3072, "output dim_f");
-    MDX_TEST_CHECK(info.input_shape_dynamic, "dynamic input");
+    ASSERT(mdx_model_inspect(&info, &config, &model));
+    ASSERT(config.dim_f == 3072);
+    ASSERT(info.input_shape_dynamic);
 
     mdx_config_init(&config);
     model.output_shape[2] = -1;
-    MDX_TEST_CHECK_SILENT_FAILURE(mdx_model_inspect(&info,
-                                                    &config,
-                                                    &model),
-                                  "dynamic dim_f missing override");
+    ASSERT_SILENT_FAILURE(mdx_model_inspect(&info, &config, &model),
+                          "dynamic dim_f missing override");
     config.dim_f = 3072;
-    MDX_TEST_CHECK(mdx_model_inspect(&info, &config, &model),
-                   "dynamic dim_f override");
+    ASSERT(mdx_model_inspect(&info, &config, &model));
 
     model.input_shape_len = 2;
-    MDX_TEST_CHECK_SILENT_FAILURE(mdx_model_inspect(&info,
-                                                    &config,
-                                                    &model),
-                                  "reject non-mdx rank");
+    ASSERT_SILENT_FAILURE(mdx_model_inspect(&info, &config, &model),
+                          "reject non-mdx rank");
 
     mdx_config_init(&config);
     config.dim_f = 3074;
     config.dim_t = 256;
-    MDX_TEST_CHECK_SILENT_FAILURE(mdx_config_prepare(&config),
+    ASSERT_SILENT_FAILURE(mdx_config_prepare(&config),
                                   "reject too many bins");
 
     mdx_config_init(&config);
     config.dim_f = 3072;
     config.dim_t = 4;
-    MDX_TEST_CHECK_SILENT_FAILURE(mdx_config_prepare(&config),
+    ASSERT_SILENT_FAILURE(mdx_config_prepare(&config),
                                   "reject small dim_t");
 
     mdx_config_init(&config);
-    MDX_TEST_CHECK(mdx_input_tensor_len(&config) < 0,
-                   "empty tensor len rejected");
+    ASSERT(mdx_input_tensor_len(&config) < 0);
     config.n_fft = 8;
     config.hop = 4;
     config.dim_f = 3;
     config.dim_t = 4;
-    MDX_TEST_CHECK(mdx_config_prepare(&config), "small pack config");
-    MDX_TEST_CHECK(mdx_input_tensor_len(&config) == 48, "tensor len");
+    ASSERT(mdx_config_prepare(&config));
+    ASSERT(mdx_input_tensor_len(&config) == 48);
 
     stft_plan_init_empty(&stft_plan);
-    MDX_TEST_CHECK(stft_plan_init(&stft_plan, config.n_fft, config.hop),
-                   "pack stft plan");
+    ASSERT(stft_plan_init(&stft_plan, config.n_fft, config.hop));
     for (int32 i = 0; i < config.chunk_size; i += 1) {
         left[i] = (float)(i + 1);
         right[i] = (float)(config.chunk_size - i);
     }
-    MDX_TEST_CHECK(!mdx_pack_input(&config,
-                                   &stft_plan,
-                                   left,
-                                   right,
-                                   config.chunk_size - 1,
-                                   tensor,
-                                   mdx_input_tensor_len(&config)),
-                   "reject short frame count");
-    MDX_TEST_CHECK(!mdx_pack_input(&config,
-                                   &stft_plan,
-                                   left,
-                                   right,
-                                   config.chunk_size,
-                                   too_small,
-                                   mdx_input_tensor_len(&config) - 1),
-                   "reject short tensor");
-    MDX_TEST_CHECK(mdx_pack_input(&config,
-                                  &stft_plan,
-                                  left,
-                                  right,
-                                  config.chunk_size,
-                                  tensor,
-                                  mdx_input_tensor_len(&config)),
-                   "pack input");
-    MDX_TEST_CHECK(stft_forward_channel(&stft_plan,
-                                        left,
-                                        config.chunk_size,
-                                        left_real,
-                                        left_imag,
-                                        config.dim_t),
-                   "expected left stft");
-    MDX_TEST_CHECK(stft_forward_channel(&stft_plan,
-                                        right,
-                                        config.chunk_size,
-                                        right_real,
-                                        right_imag,
-                                        config.dim_t),
-                   "expected right stft");
+    ASSERT(!mdx_pack_input(&config,
+                           &stft_plan,
+                           left,
+                           right,
+                           config.chunk_size - 1,
+                           tensor,
+                           mdx_input_tensor_len(&config)));
+    ASSERT(!mdx_pack_input(&config,
+                           &stft_plan,
+                           left,
+                           right,
+                           config.chunk_size,
+                           too_small,
+                           mdx_input_tensor_len(&config) - 1));
+    ASSERT(mdx_pack_input(&config,
+                          &stft_plan,
+                          left,
+                          right,
+                          config.chunk_size,
+                          tensor,
+                          mdx_input_tensor_len(&config)));
+    ASSERT(stft_forward_channel(&stft_plan,
+                                left,
+                                config.chunk_size,
+                                left_real,
+                                left_imag,
+                                config.dim_t));
+    ASSERT(stft_forward_channel(&stft_plan,
+                                right,
+                                config.chunk_size,
+                                right_real,
+                                right_imag,
+                                config.dim_t));
 
     channel_stride = (int64)config.dim_f*(int64)config.dim_t;
     for (int32 bin = 0; bin < config.dim_f; bin += 1) {
@@ -1089,56 +1052,44 @@ main(void) {
             int64 input_index = (int64)bin*(int64)config.dim_t + (int64)frame;
             int64 output_index = (int64)bin*(int64)config.dim_t + (int64)frame;
 
-            MDX_TEST_CHECK(mdx_float_close(tensor[output_index],
-                                           left_real[input_index]),
-                           "left real tensor channel");
-            MDX_TEST_CHECK(mdx_float_close(tensor[channel_stride
-                                                 + output_index],
-                                           left_imag[input_index]),
-                           "left imag tensor channel");
-            MDX_TEST_CHECK(mdx_float_close(tensor[2*channel_stride
-                                                 + output_index],
-                                           right_real[input_index]),
-                           "right real tensor channel");
-            MDX_TEST_CHECK(mdx_float_close(tensor[3*channel_stride
-                                                 + output_index],
-                                           right_imag[input_index]),
-                           "right imag tensor channel");
+            ASSERT(mdx_float_close(tensor[output_index],
+                                   left_real[input_index]));
+            ASSERT(mdx_float_close(tensor[channel_stride + output_index],
+                                   left_imag[input_index]));
+            ASSERT(mdx_float_close(tensor[2*channel_stride + output_index],
+                                   right_real[input_index]));
+            ASSERT(mdx_float_close(tensor[3*channel_stride + output_index],
+                                   right_imag[input_index]));
         }
     }
 
     for (int64 i = 0; i < mdx_input_tensor_len(&config); i += 1) {
         tensor[i] = 0.0f;
     }
-    MDX_TEST_CHECK(!mdx_unpack_output(&config,
-                                      &stft_plan,
-                                      tensor,
-                                      mdx_input_tensor_len(&config),
-                                      unpack_left,
-                                      unpack_right,
-                                      config.chunk_size - 1),
-                   "reject short unpack frame count");
-    MDX_TEST_CHECK(!mdx_unpack_output(&config,
-                                      &stft_plan,
-                                      too_small,
-                                      mdx_input_tensor_len(&config) - 1,
-                                      unpack_left,
-                                      unpack_right,
-                                      config.chunk_size),
-                   "reject short unpack tensor");
-    MDX_TEST_CHECK(mdx_unpack_output(&config,
-                                     &stft_plan,
-                                     tensor,
-                                     mdx_input_tensor_len(&config),
-                                     unpack_left,
-                                     unpack_right,
-                                     config.chunk_size),
-                   "unpack zero output");
+    ASSERT(!mdx_unpack_output(&config,
+                              &stft_plan,
+                              tensor,
+                              mdx_input_tensor_len(&config),
+                              unpack_left,
+                              unpack_right,
+                              config.chunk_size - 1));
+    ASSERT(!mdx_unpack_output(&config,
+                              &stft_plan,
+                              too_small,
+                              mdx_input_tensor_len(&config) - 1,
+                              unpack_left,
+                              unpack_right,
+                              config.chunk_size));
+    ASSERT(mdx_unpack_output(&config,
+                             &stft_plan,
+                             tensor,
+                             mdx_input_tensor_len(&config),
+                             unpack_left,
+                             unpack_right,
+                             config.chunk_size));
     for (int32 i = 0; i < config.chunk_size; i += 1) {
-        MDX_TEST_CHECK(mdx_float_close(unpack_left[i], 0.0f),
-                       "zero left unpack");
-        MDX_TEST_CHECK(mdx_float_close(unpack_right[i], 0.0f),
-                       "zero right unpack");
+        ASSERT(mdx_float_close(unpack_left[i], 0.0f));
+        ASSERT(mdx_float_close(unpack_right[i], 0.0f));
     }
 
     stft_plan_destroy(&stft_plan);
@@ -1147,58 +1098,48 @@ main(void) {
     config.hop = 4;
     config.dim_f = 5;
     config.dim_t = 4;
-    MDX_TEST_CHECK(mdx_config_prepare(&config), "full-bin unpack config");
-    MDX_TEST_CHECK(stft_plan_init(&stft_plan, config.n_fft, config.hop),
-                   "full-bin stft plan");
+    ASSERT(mdx_config_prepare(&config));
+    ASSERT(stft_plan_init(&stft_plan, config.n_fft, config.hop));
     for (int32 i = 0; i < config.chunk_size; i += 1) {
         left[i] = (float)i/8.0f - 0.5f;
         right[i] = 0.25f - (float)i/16.0f;
     }
-    MDX_TEST_CHECK(mdx_pack_input(&config,
-                                  &stft_plan,
-                                  left,
-                                  right,
-                                  config.chunk_size,
-                                  tensor,
-                                  mdx_input_tensor_len(&config)),
-                   "pack full-bin input");
-    MDX_TEST_CHECK(mdx_unpack_output(&config,
-                                     &stft_plan,
-                                     tensor,
-                                     mdx_input_tensor_len(&config),
-                                     unpack_left,
-                                     unpack_right,
-                                     config.chunk_size),
-                   "unpack full-bin output");
+    ASSERT(mdx_pack_input(&config,
+                          &stft_plan,
+                          left,
+                          right,
+                          config.chunk_size,
+                          tensor,
+                          mdx_input_tensor_len(&config)));
+    ASSERT(mdx_unpack_output(&config,
+                             &stft_plan,
+                             tensor,
+                             mdx_input_tensor_len(&config),
+                             unpack_left,
+                             unpack_right,
+                             config.chunk_size));
     for (int32 i = 0; i < config.chunk_size; i += 1) {
-        MDX_TEST_CHECK(mdx_float_close(unpack_left[i], left[i]),
-                       "full-bin left roundtrip");
-        MDX_TEST_CHECK(mdx_float_close(unpack_right[i], right[i]),
-                       "full-bin right roundtrip");
+        ASSERT(mdx_float_close(unpack_left[i], left[i]));
+        ASSERT(mdx_float_close(unpack_right[i], right[i]));
     }
 
     empty_input.sample_rate = config.sample_rate;
     empty_input.channel_count = config.channel_count;
-    MDX_TEST_CHECK(!mdx_process_song(NULL,
-                                     &stft_plan,
-                                     &context,
-                                     &model,
-                                     &empty_input,
-                                     &empty_output),
-                   "reject missing process config");
-    MDX_TEST_CHECK(mdx_process_song(&config,
-                                    &stft_plan,
-                                    &context,
-                                    &model,
-                                    &empty_input,
-                                    &empty_output),
-                   "process empty song");
-    MDX_TEST_CHECK(empty_output.sample_rate == config.sample_rate,
-                   "empty output sample rate");
-    MDX_TEST_CHECK(empty_output.channel_count == config.channel_count,
-                   "empty output channels");
-    MDX_TEST_CHECK(empty_output.frame_count == 0,
-                   "empty output frames");
+    ASSERT(!mdx_process_song(NULL,
+                             &stft_plan,
+                             &context,
+                             &model,
+                             &empty_input,
+                             &empty_output));
+    ASSERT(mdx_process_song(&config,
+                            &stft_plan,
+                            &context,
+                            &model,
+                            &empty_input,
+                            &empty_output));
+    ASSERT(empty_output.sample_rate == config.sample_rate);
+    ASSERT(empty_output.channel_count == config.channel_count);
+    ASSERT(empty_output.frame_count == 0);
 
     audio_buffer_destroy(&empty_output);
     audio_buffer_destroy(&empty_input);
