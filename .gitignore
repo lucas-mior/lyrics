@@ -8,3 +8,4 @@ mistral
 *.cmd
 *.zip
 *.tar.gz
+step-*
