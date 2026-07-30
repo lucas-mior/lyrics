@@ -13,8 +13,8 @@ from ctc_forced_aligner import (
 )
 
 def generate_lrc_with_ctc():
-    audio_path = "Paranoid_vocals.opus"
-    text_path = "Paranoid.txt"
+    audio_path = "maxwell_vocals.opus"
+    text_path = "maxwell.txt"
     language = "eng" # ISO-639-3 code
 
     # 1. Load the dedicated Wav2Vec2/MMS CTC Alignment Model
@@ -51,7 +51,7 @@ def generate_lrc_with_ctc():
     # Split the original text back into its individual lines
     original_lines = text.split('\n')
 
-    with open("Paranoid-2.lrc", "w", encoding="utf-8") as f:
+    with open("maxwell.lrc", "w", encoding="utf-8") as f:
         word_idx = 0
 
         for line_str in original_lines:
