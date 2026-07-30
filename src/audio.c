@@ -6,15 +6,6 @@
 #define TESTING_audio 0
 #endif
 
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
 void
 audio_buffer_init(AudioBuffer *audio) {
     audio->left = 0;

@@ -6,11 +6,6 @@
 #define TESTING_mdx 0
 #endif
 
-#include <limits.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 static float
 mdx_output_sample(
     MdxConfig *config,

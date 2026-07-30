@@ -7,8 +7,6 @@
 #endif
 
 #include <fftw3.h>
-#include <math.h>
-#include <stdio.h>
 
 void
 fftw_real_plan_init_empty(FftwRealPlan *plan) {
