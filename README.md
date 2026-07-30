@@ -1,19 +1,26 @@
-# ONNX Runtime C identity example
+# lrc_gen
 
-A minimal Linux C application that exercises the ONNX Runtime C API without
-introducing model-specific preprocessing or prediction logic.
+C prototype for the lyric timestamp generation pipeline.
 
-The included model has one `float32[1,4]` input named `input`, one
-`float32[1,4]` output named `output`, and a single `Identity` node. The program:
+The repository is organized around three executable entry points:
 
-1. Initializes the ONNX Runtime API.
-2. Creates an environment, session options, and session.
-3. Creates a tensor backed by a C array.
-4. Runs inference.
-5. Checks output type, shape, element count, and values.
-6. Releases every ONNX Runtime object.
+1. `src/main_get_voice.c`
+   - Takes an original music file and extracts the voice stem.
+   - This is what the previous `src/main.c` executable did.
+2. `src/main_gen_lrc_raw.c`
+   - Takes an already extracted voice audio file plus plain-text lyrics and
+     writes an `.lrc` file.
+   - This is a dummy executable for now.
+3. `src/main_gen_lrc.c`
+   - Takes original music plus plain-text lyrics, extracts the voice, and then
+     writes an `.lrc` file.
+   - This is a dummy executable for now.
+
+`src/main.c` is kept as a compatibility wrapper for `src/main_get_voice.c`.
+New build commands use the explicit main files above.
 
 ## Reference working for separating vocals
+
 ```sh
 pip install "audio-separator[gpu]" "audio-separator[cpu]"
 audio-separator Paranoid.flac \
@@ -28,37 +35,60 @@ audio-separator Paranoid.flac \
 - Linux on x86-64 or AArch64
 - A C11 compiler
 - `pkg-config`
+- FFmpeg at runtime for audio decoding/encoding
 - Python 3, only to regenerate the tiny ONNX model
 - `curl` and `tar`, only for the setup helper
 
 ## Build and run
 
+Set up ONNX Runtime and the identity model:
+
 ```sh
 ./build.sh setup
-./build.sh run
 ```
 
-`./build.sh setup` downloads the CPU-only ONNX Runtime 1.28.0 release into
-`third_party/onnxruntime`, writes a local `onnxruntime.pc` file, and generates
-`models/identity.onnx` without external Python packages. Later `build` and `run`
-commands use `pkg-config` to obtain ONNX Runtime compiler and linker flags.
+Build all configured executables:
 
-Expected output:
-
-```text
-input : 1 -2.5 3.25 8
-output: 1 -2.5 3.25 8
-identity model verification passed
+```sh
+./build.sh build
 ```
+
+Build one executable:
+
+```sh
+./build.sh build get_voice
+./build.sh build gen_lrc_raw
+./build.sh build gen_lrc
+```
+
+Run the current voice extraction executable:
+
+```sh
+./build.sh run get_voice
+```
+
+The raw and full LRC executables are intentionally dummy programs right now.
+They compile, print their expected command-line shape, and report that the real
+functionality is not implemented yet.
 
 ## Commands
 
 ```sh
-./build.sh build    # build the model and executable
-./build.sh run      # build and run the example
-./build.sh model    # regenerate models/identity.onnx
-./build.sh setup    # download ONNX Runtime and regenerate the model
-./build.sh clean    # remove generated build outputs
+./build.sh build [app]    # build all executables, or one selected app
+./build.sh run [app]      # build and run one selected app
+./build.sh test [module]  # build and run embedded module tests
+./build.sh model          # regenerate models/identity.onnx
+./build.sh setup          # download ONNX Runtime and regenerate the model
+./build.sh clean          # remove generated build outputs
+```
+
+Available app names:
+
+```text
+all
+get_voice
+gen_lrc_raw
+gen_lrc
 ```
 
 `./build.sh` without arguments is the same as `./build.sh build`.
@@ -70,15 +100,14 @@ Install an ONNX Runtime package that provides a pkg-config file, or point
 
 ```sh
 ./build.sh clean
-PKG_CONFIG_PATH=/opt/onnxruntime/lib/pkgconfig ./build.sh build
-LD_LIBRARY_PATH=/opt/onnxruntime/lib ./bin/ort-identity models/identity.onnx
+PKG_CONFIG_PATH=/opt/onnxruntime/lib/pkgconfig ./build.sh build get_voice
 ```
 
 If your installation uses a different pkg-config package name, set
 `ONNXRUNTIME_PKG_CONFIG_NAME`:
 
 ```sh
-ONNXRUNTIME_PKG_CONFIG_NAME=libonnxruntime ./build.sh build
+ONNXRUNTIME_PKG_CONFIG_NAME=libonnxruntime ./build.sh build get_voice
 ```
 
 ## Regenerate the model

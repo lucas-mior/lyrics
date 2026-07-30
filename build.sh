@@ -23,8 +23,10 @@ PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 ONNXRUNTIME_PKG_CONFIG_NAME=${ONNXRUNTIME_PKG_CONFIG_NAME:-onnxruntime}
 FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
-PROGRAM=${PROGRAM:-bin/uvr-c}
-PROGRAM_SOURCE=${PROGRAM_SOURCE:-src/main.c}
+APP=${APP:-${2:-all}}
+GET_VOICE_PROGRAM=${GET_VOICE_PROGRAM:-bin/get_voice}
+GEN_LRC_RAW_PROGRAM=${GEN_LRC_RAW_PROGRAM:-bin/gen_lrc_raw}
+GEN_LRC_PROGRAM=${GEN_LRC_PROGRAM:-bin/gen_lrc}
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
@@ -97,6 +99,7 @@ clang|*/clang)
     CFLAGS="$CFLAGS -Wno-assign-enum"
     CFLAGS="$CFLAGS -Wno-cast-function-type-strict"
     CFLAGS="$CFLAGS -Wno-bad-function-cast"
+    CFLAGS="$CFLAGS -Wno-fixed-enum-extension"
     CFLAGS="$CFLAGS -Wno-char-subscripts"
     ;;
 esac
@@ -138,11 +141,11 @@ fi
 
 usage() {
     cat <<'USAGE'
-usage: ./build.sh [command] [test]
+usage: ./build.sh [command] [app-or-test]
 
 commands:
-    build    build the executable (default)
-    run      build and run the CLI parser
+    build    build all executables, or one selected app
+    run      build and run one selected app
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
     check    build with GCC static analyzer
@@ -157,13 +160,21 @@ environment:
     PKG_CONFIG                   pkg-config program, default: pkg-config
     ONNXRUNTIME_PKG_CONFIG_NAME  pkg-config package, default: onnxruntime
     FFTW_PKG_CONFIG_NAME         pkg-config package, default: fftw3f
-    PROGRAM                      output executable, default: bin/uvr-c
-    PROGRAM_SOURCE               unity source, default: src/main.c
+    APP                          app to build/run, default: all for build
+    GET_VOICE_PROGRAM            get_voice executable, default: bin/get_voice
+    GEN_LRC_RAW_PROGRAM          raw LRC executable, default: bin/gen_lrc_raw
+    GEN_LRC_PROGRAM              full LRC executable, default: bin/gen_lrc
     MODEL                        ONNX model path, default: models/identity.onnx
     INPUT                        run command input path, default: song.mp3
-    OUTPUT                       run command output path, default: vocals.wav
+    OUTPUT                       get_voice run output path, default: vocals.wav
     CFLAGS                       extra compiler flags
     DEFAULT_LDLIBS               default libraries, default: -lm
+
+available apps:
+    all
+    get_voice
+    gen_lrc_raw
+    gen_lrc
 USAGE
 }
 
@@ -307,20 +318,95 @@ build_model() {
     "$PYTHON" scripts/create_identity_model.py "$MODEL"
 }
 
-build_program() {
-    mkdir -p "$(dirname "$PROGRAM")"
-    dep_cflags=$(dependency_cflags)
-    dep_ldlibs=$(dependency_ldlibs)
+app_source() {
+    case "$1" in
+    get_voice)
+        printf '%s\n' src/main_get_voice.c
+        ;;
+    gen_lrc_raw)
+        printf '%s\n' src/main_gen_lrc_raw.c
+        ;;
+    gen_lrc)
+        printf '%s\n' src/main_gen_lrc.c
+        ;;
+    *)
+        echo "unknown app: $1" >&2
+        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
+        exit 1
+        ;;
+    esac
+}
+
+app_program() {
+    case "$1" in
+    get_voice)
+        printf '%s\n' "$GET_VOICE_PROGRAM"
+        ;;
+    gen_lrc_raw)
+        printf '%s\n' "$GEN_LRC_RAW_PROGRAM"
+        ;;
+    gen_lrc)
+        printf '%s\n' "$GEN_LRC_PROGRAM"
+        ;;
+    *)
+        echo "unknown app: $1" >&2
+        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
+        exit 1
+        ;;
+    esac
+}
+
+app_needs_audio_model() {
+    case "$1" in
+    get_voice)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
+    esac
+}
+
+build_app() {
+    app="$1"
+    source=$(app_source "$app")
+    output=$(app_program "$app")
+    dep_cflags=
+    dep_ldlibs=
+
+    mkdir -p "$(dirname "$output")"
+    if app_needs_audio_model "$app"; then
+        dep_cflags=$(dependency_cflags)
+        dep_ldlibs=$(dependency_ldlibs)
+    fi
 
     trace_on
-    $CC $CPPFLAGS $CFLAGS $dep_cflags "$PROGRAM_SOURCE" \
+    $CC $CPPFLAGS $CFLAGS $dep_cflags "$source" \
         $LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
-        -o "$PROGRAM"
+        -o "$output"
     trace_off
 }
 
+build_program() {
+    case "$APP" in
+    all)
+        build_app get_voice
+        build_app gen_lrc_raw
+        build_app gen_lrc
+        ;;
+    get_voice|gen_lrc_raw|gen_lrc)
+        build_app "$APP"
+        ;;
+    *)
+        echo "unknown app: $APP" >&2
+        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
+        exit 1
+        ;;
+    esac
+}
+
 run_tests() {
-    find src -iname "*.c" | grep -v '/main\.c$' | sort \
+    find src -iname "*.c" | grep -v '/main[^/]*\.c$' | sort \
         | while read -r module; do
         name=$(basename "$module" | sed 's/\.c$//')
         test_exe="/tmp/${name}_test"
@@ -362,9 +448,20 @@ build|all)
     build_program
     ;;
 run)
+    if [ "$APP" = all ]; then
+        APP=get_voice
+    fi
     build_program
+    output=$(app_program "$APP")
     trace_on
-    "$PROGRAM" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
+    case "$APP" in
+    get_voice)
+        "$output" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
+        ;;
+    gen_lrc_raw|gen_lrc)
+        "$output"
+        ;;
+    esac
     trace_off
     ;;
 test)
