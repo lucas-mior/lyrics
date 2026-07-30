@@ -5,10 +5,13 @@
 
 #include <stdbool.h>
 
+#define ORT_TENSOR_MAX_RANK 8
+
 typedef struct OrtContext {
     void *api;
     void *environment;
     void *memory_info;
+    void *allocator;
 } OrtContext;
 
 typedef struct OrtModel {
@@ -16,7 +19,25 @@ typedef struct OrtModel {
 
     char *input_name;
     char *output_name;
+
+    int64 input_shape[ORT_TENSOR_MAX_RANK];
+    int64 output_shape[ORT_TENSOR_MAX_RANK];
+
+    int32 input_shape_len;
+    int32 output_shape_len;
+    int32 input_count;
+    int32 output_count;
 } OrtModel;
+
+typedef struct OrtTensor {
+    void *value;
+
+    float *data;
+    int64 data_len;
+
+    int64 shape[ORT_TENSOR_MAX_RANK];
+    int32 shape_len;
+} OrtTensor;
 
 void ort_context_init_empty(OrtContext *context);
 bool ort_context_init(OrtContext *context);
@@ -24,6 +45,24 @@ void ort_context_destroy(OrtContext *context);
 
 void ort_model_init_empty(OrtModel *model);
 bool ort_model_load(OrtContext *context, OrtModel *model, char *model_path);
+bool ort_model_get_io_info(OrtContext *context, OrtModel *model);
 void ort_model_destroy(OrtContext *context, OrtModel *model);
+
+void ort_tensor_init_empty(OrtTensor *tensor);
+bool ort_tensor_create_f32(
+    OrtContext *context,
+    OrtTensor *tensor,
+    float *data,
+    int64 data_len,
+    int64 *shape,
+    int32 shape_len
+);
+bool ort_model_run_f32(
+    OrtContext *context,
+    OrtModel *model,
+    OrtTensor *input,
+    OrtTensor *output
+);
+void ort_tensor_destroy(OrtContext *context, OrtTensor *tensor);
 
 #endif /* ORT_H */
