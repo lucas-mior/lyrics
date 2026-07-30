@@ -5,7 +5,16 @@
 #include "cbase.h"
 #include "ort.h"
 
+#if CC_CLANG
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshift-sign-overflow"
+#endif
+
 #include <onnxruntime_c_api.h>
+
+#if CC_CLANG
+#pragma clang diagnostic pop
+#endif
 
 static bool
 ort_check(OrtContext *context, OrtStatus *status, char *operation) {
