@@ -6,6 +6,8 @@
 #define TESTING_audio 0
 #endif
 
+#define AUDIO_TEST_TWO_PI 6.283185307179586476925286766559
+
 static void
 audio_io_format_init(AudioIoFormat *format) {
     format->sample_rate = 44100;
@@ -27,6 +29,174 @@ audio_io_format_valid(AudioIoFormat *format) {
     }
 
     return true;
+}
+
+static void
+audio_file_info_init(AudioFileInfo *info) {
+    info->sample_rate = 0;
+    info->channel_count = 0;
+    info->estimated_frame_count = 0;
+
+    info->duration_seconds = 0.0;
+
+    return;
+}
+
+static bool
+audio_parse_int32_field(char *value, int32 *out) {
+    char *end;
+    int64 parsed;
+
+    errno = 0;
+    end = NULL;
+    parsed = strtoll(value, &end, 10);
+    if ((errno != 0) || (end == value) || (*end != '\0')) {
+        return false;
+    }
+    if ((parsed < 0) || (parsed >= MAXOF(*out))) {
+        return false;
+    }
+
+    *out = (int32)parsed;
+
+    return true;
+}
+
+static bool
+audio_parse_double_field(char *value, double *out) {
+    char *end;
+    double parsed;
+
+    errno = 0;
+    end = NULL;
+    parsed = strtod(value, &end);
+    if ((errno != 0) || (end == value) || (*end != '\0')) {
+        return false;
+    }
+    if (!isfinite(parsed) || (parsed < 0.0)) {
+        return false;
+    }
+
+    *out = parsed;
+
+    return true;
+}
+
+static bool
+audio_file_info_parse(AudioFileInfo *info, char *output) {
+    bool duration_found;
+    bool sample_rate_found;
+    bool channels_found;
+
+    audio_file_info_init(info);
+    duration_found = false;
+    sample_rate_found = false;
+    channels_found = false;
+
+    for (int32 start = 0; output[start] != '\0'; start += 1) {
+        char *line;
+        char *value;
+        char saved;
+        int32 end;
+
+        end = start;
+        while ((output[end] != '\0') && (output[end] != '\n')) {
+            end += 1;
+        }
+
+        line = output + start;
+        saved = output[end];
+        output[end] = '\0';
+
+        if (strncmp32(line, "sample_rate=", 12) == 0) {
+            value = line + 12;
+            if (!audio_parse_int32_field(value, &info->sample_rate)) {
+                return false;
+            }
+            sample_rate_found = true;
+        } else if (strncmp32(line, "channels=", 9) == 0) {
+            value = line + 9;
+            if (!audio_parse_int32_field(value, &info->channel_count)) {
+                return false;
+            }
+            channels_found = true;
+        } else if (strncmp32(line, "duration=", 9) == 0) {
+            value = line + 9;
+            if (!audio_parse_double_field(value, &info->duration_seconds)) {
+                return false;
+            }
+            duration_found = true;
+        }
+
+        if (saved == '\0') {
+            break;
+        }
+        start = end;
+    }
+
+    if (!sample_rate_found || !channels_found || !duration_found) {
+        return false;
+    }
+    if (info->sample_rate <= 0) {
+        return false;
+    }
+    if ((info->channel_count != 1) && (info->channel_count != 2)) {
+        return false;
+    }
+
+    info->estimated_frame_count =
+        (int64)(info->duration_seconds*(double)info->sample_rate + 0.5);
+
+    return true;
+}
+
+static bool
+audio_file_info_read(
+    AudioFileInfo *info,
+    char *path,
+    char *ffprobe_path
+) {
+    char *argv[] = {
+        ffprobe_path,
+        "-v",
+        "error",
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=sample_rate,channels:format=duration",
+        "-of",
+        "default=noprint_wrappers=1",
+        path,
+        NULL,
+    };
+    Command command = {0};
+    bool result = false;
+
+    if ((info == NULL) || (path == NULL) || (ffprobe_path == NULL)) {
+        return false;
+    }
+
+    audio_file_info_init(info);
+    command_push_array(&command, LENGTH(argv) - 1, argv);
+    if (!command_run_capture_all(&command)) {
+        goto cleanup;
+    }
+    if (!command.result.exited || (command.result.exit_status != 0)) {
+        goto cleanup;
+    }
+    if (command.result.stdout_output == NULL) {
+        goto cleanup;
+    }
+
+    result = audio_file_info_parse(info, command.result.stdout_output);
+
+cleanup:
+    command_free(&command);
+    if (!result) {
+        audio_file_info_init(info);
+    }
+
+    return result;
 }
 
 static void
@@ -425,6 +595,105 @@ audio_write_file_format(
 
     return WEXITSTATUS(status) == 0;
 }
+
+#if TESTING
+static void
+audio_test_sine_options_init(AudioTestSineOptions *options) {
+    audio_io_format_init(&options->format);
+
+    options->duration_seconds = 0.25;
+    options->frequency_hz = 440.0;
+    options->amplitude = 0.25f;
+
+    return;
+}
+
+static bool
+audio_test_sine_options_valid(AudioTestSineOptions *options) {
+    if (options == NULL) {
+        return false;
+    }
+    if (!audio_io_format_valid(&options->format)) {
+        return false;
+    }
+    if (!isfinite(options->duration_seconds)
+        || (options->duration_seconds <= 0.0)) {
+        return false;
+    }
+    if (!isfinite(options->frequency_hz) || (options->frequency_hz <= 0.0)) {
+        return false;
+    }
+    if (!isfinite((double)options->amplitude)
+        || (options->amplitude < 0.0f)
+        || (options->amplitude > 1.0f)) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+audio_test_generate_sine_wav(
+    char *path,
+    AudioTestSineOptions *options,
+    char *ffmpeg_path
+) {
+    AudioBuffer audio;
+    int64 allocation_size;
+    int64 frame_count;
+    bool result;
+
+    if ((path == NULL) || (ffmpeg_path == NULL)) {
+        return false;
+    }
+    if (!audio_test_sine_options_valid(options)) {
+        return false;
+    }
+
+    frame_count = (int64)(options->duration_seconds
+                          *(double)options->format.sample_rate + 0.5);
+    if (frame_count <= 0) {
+        return false;
+    }
+    if (frame_count > INT64_MAX/SIZEOF(*audio.left)) {
+        return false;
+    }
+
+    audio_buffer_init(&audio);
+    audio.frame_count = frame_count;
+    audio.sample_rate = options->format.sample_rate;
+    audio.channel_count = options->format.channel_count;
+
+    allocation_size = frame_count*SIZEOF(*audio.left);
+    audio.left = malloc2(allocation_size);
+    if (audio.channel_count == 2) {
+        audio.right = malloc2(allocation_size);
+    }
+
+    for (int64 i = 0; i < frame_count; i += 1) {
+        double phase;
+        float sample;
+
+        phase = AUDIO_TEST_TWO_PI*options->frequency_hz
+                *(double)i/(double)options->format.sample_rate;
+        sample = (float)(sin(phase)*(double)options->amplitude);
+
+        audio.left[i] = sample;
+        if (audio.channel_count == 2) {
+            audio.right[i] = sample;
+        }
+    }
+
+    result = audio_write_file_format(&audio,
+                                     path,
+                                     "wav",
+                                     &options->format,
+                                     ffmpeg_path);
+    audio_buffer_destroy(&audio);
+
+    return result;
+}
+#endif
 
 
 static void
@@ -1035,6 +1304,138 @@ audio_test_compare_helpers(void) {
     return 0;
 }
 
+static bool
+audio_test_double_close(double a, double b, double max_error) {
+    double diff;
+
+    diff = fabs(a - b);
+
+    return diff <= max_error;
+}
+
+static int32
+audio_test_generated_wave_helpers(void) {
+    AudioBuffer decoded;
+    AudioFileInfo info;
+    AudioIoFormat decode_format;
+    AudioTestSineOptions options;
+    char mono_path[PATH_MAX];
+    char stereo_path[PATH_MAX];
+    char temp_dir[PATH_MAX];
+    int32 len;
+
+    if (!test_command_exists("ffmpeg") || !test_command_exists("ffprobe")) {
+        return 0;
+    }
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "audio_generated");
+    len = snprintf2(mono_path, SIZEOF(mono_path), "%s/mono.wav", temp_dir);
+    if ((len <= 0) || (len >= SIZEOF(mono_path))) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("mono generated path");
+    }
+    len = snprintf2(stereo_path, SIZEOF(stereo_path),
+                    "%s/stereo.wav", temp_dir);
+    if ((len <= 0) || (len >= SIZEOF(stereo_path))) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("stereo generated path");
+    }
+
+    audio_test_sine_options_init(&options);
+    options.format.sample_rate = 16000;
+    options.format.channel_count = 1;
+    options.duration_seconds = 0.20;
+    options.frequency_hz = 220.0;
+    options.amplitude = 0.5f;
+    if (!audio_test_generate_sine_wav(mono_path, &options, "ffmpeg")) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generate mono sine wav");
+    }
+
+    if (!audio_file_info_read(&info, mono_path, "ffprobe")) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("probe generated mono wav");
+    }
+    if (info.sample_rate != 16000) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generated mono sample rate");
+    }
+    if (info.channel_count != 1) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generated mono channels");
+    }
+    if (!audio_test_double_close(info.duration_seconds, 0.20, 0.02)) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generated mono duration");
+    }
+    if ((info.estimated_frame_count < 3000)
+        || (info.estimated_frame_count > 3400)) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generated mono estimated frames");
+    }
+
+    audio_test_sine_options_init(&options);
+    options.format.sample_rate = 48000;
+    options.format.channel_count = 2;
+    options.duration_seconds = 0.125;
+    options.frequency_hz = 880.0;
+    if (!audio_test_generate_sine_wav(stereo_path, &options, "ffmpeg")) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generate stereo sine wav");
+    }
+
+    if (!audio_file_info_read(&info, stereo_path, "ffprobe")) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("probe generated stereo wav");
+    }
+    if (info.sample_rate != 48000) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generated stereo sample rate");
+    }
+    if (info.channel_count != 2) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generated stereo channels");
+    }
+    if (!audio_test_double_close(info.duration_seconds, 0.125, 0.02)) {
+        test_remove_tree(temp_dir);
+        return audio_test_fail("generated stereo duration");
+    }
+
+    audio_buffer_init(&decoded);
+    audio_io_format_init(&decode_format);
+    decode_format.sample_rate = 48000;
+    decode_format.channel_count = 2;
+    if (!audio_read_file_format(&decoded,
+                                stereo_path,
+                                &decode_format,
+                                "ffmpeg")) {
+        audio_buffer_destroy(&decoded);
+        test_remove_tree(temp_dir);
+        return audio_test_fail("decode generated stereo wav");
+    }
+    if (decoded.frame_count != 6000) {
+        audio_buffer_destroy(&decoded);
+        test_remove_tree(temp_dir);
+        return audio_test_fail("decoded generated stereo frames");
+    }
+    if ((decoded.sample_rate != 48000) || (decoded.channel_count != 2)) {
+        audio_buffer_destroy(&decoded);
+        test_remove_tree(temp_dir);
+        return audio_test_fail("decoded generated stereo format");
+    }
+    if ((decoded.left[0] < -1.0f) || (decoded.left[0] > 1.0f)
+        || (decoded.right[100] < -1.0f) || (decoded.right[100] > 1.0f)) {
+        audio_buffer_destroy(&decoded);
+        test_remove_tree(temp_dir);
+        return audio_test_fail("decoded generated stereo range");
+    }
+
+    audio_buffer_destroy(&decoded);
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
 int
 main(void) {
     AudioBuffer audio;
@@ -1100,6 +1501,9 @@ main(void) {
     audio_buffer_destroy(&audio);
 
     if (audio_test_compare_helpers() != 0) {
+        exit(1);
+    }
+    if (audio_test_generated_wave_helpers() != 0) {
         exit(1);
     }
 

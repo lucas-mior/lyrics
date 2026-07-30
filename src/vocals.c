@@ -480,21 +480,6 @@ vocals_test_fail(char *name) {
     return 1;
 }
 
-static bool
-vocals_test_run_command(char **argv, int32 argc) {
-    Command command = {0};
-    bool ok;
-
-    command_push_array(&command, argc, argv);
-    ok = command_run_capture_all(&command);
-    if (ok) {
-        ok = command.result.exited && (command.result.exit_status == 0);
-    }
-    command_free(&command);
-
-    return ok;
-}
-
 static int32
 vocals_test_request_defaults(void) {
     LrcVocalsExtractRequest request;
@@ -607,12 +592,11 @@ vocals_test_optional_real_extraction(void) {
     LrcVocalsExtractRequest request;
     LrcVocalsExtractResult result;
     AudioBuffer decoded_output;
+    AudioTestSineOptions sine_options;
     char input_path[PATH_MAX];
     char output_path[PATH_MAX];
     char temp_dir[PATH_MAX];
     char *model_path;
-    char *argv[18];
-    int32 argc;
     int32 len;
 
     model_path = getenv("UVR_TEST_MDX_MODEL");
@@ -636,23 +620,11 @@ vocals_test_optional_real_extraction(void) {
         return vocals_test_fail("output path too long");
     }
 
-    argc = 0;
-    argv[argc++] = "ffmpeg";
-    argv[argc++] = "-v";
-    argv[argc++] = "error";
-    argv[argc++] = "-y";
-    argv[argc++] = "-f";
-    argv[argc++] = "lavfi";
-    argv[argc++] = "-i";
-    argv[argc++] = "sine=frequency=440:duration=0.25";
-    argv[argc++] = "-ac";
-    argv[argc++] = "2";
-    argv[argc++] = "-ar";
-    argv[argc++] = "44100";
-    argv[argc++] = input_path;
-    ASSERT(argc < (int32)LENGTH(argv));
-
-    if (!vocals_test_run_command(argv, argc)) {
+    audio_test_sine_options_init(&sine_options);
+    sine_options.duration_seconds = 0.25;
+    sine_options.format.sample_rate = 44100;
+    sine_options.format.channel_count = 2;
+    if (!audio_test_generate_sine_wav(input_path, &sine_options, "ffmpeg")) {
         test_remove_tree(temp_dir);
         return vocals_test_fail("generated input audio");
     }
