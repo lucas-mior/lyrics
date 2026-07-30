@@ -233,9 +233,10 @@ stft_plan_destroy(StftPlan *plan) {
 }
 
 #if TESTING_stft
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
+#include "fftw.c"
 
 static int32
 stft_test_fail(char *name) {

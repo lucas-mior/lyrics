@@ -830,9 +830,13 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
 }
 
 #if TESTING_mdx
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
+#include "ort.c"
+#include "stft.c"
+#include "fftw.c"
+#include "audio.c"
 
 #define MDX_TEST_CHECK(CONDITION, NAME) \
     do { \
