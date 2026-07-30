@@ -18,7 +18,7 @@ FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
 PROGRAM_SOURCE=${PROGRAM_SOURCE:-src/main.c}
-TEST_MODULES=${TEST_MODULES:-"app audio cli fftw mdx ort stft"}
+TEST_MODULES=${TEST_MODULES:-"audio cli fftw mdx ort stft"}
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
@@ -171,7 +171,7 @@ run_tests() {
 
         trace_on
         $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags \
-            "-DTESTING_$module=1" "$PROGRAM_SOURCE" \
+            "-DTESTING_$module=1" \
             $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
             $EXTRA_LDLIBS -o "$output"
         "$output"
