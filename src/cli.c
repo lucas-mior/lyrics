@@ -1,6 +1,6 @@
 #include "cli.h"
 
-#include "../cbase/base_macros.h"
+#include "cbase.h"
 
 #if !defined(TESTING_cli)
 #define TESTING_cli 0

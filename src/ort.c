@@ -4,7 +4,7 @@
 #define TESTING_ort 0
 #endif
 
-#include "../cbase/base_macros.h"
+#include "cbase.h"
 
 #include <limits.h>
 #include <onnxruntime_c_api.h>

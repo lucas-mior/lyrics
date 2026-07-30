@@ -1,6 +1,6 @@
 #include "fftw.h"
 
-#include "../cbase/base_macros.h"
+#include "cbase.h"
 
 #if !defined(TESTING_fftw)
 #define TESTING_fftw 0
