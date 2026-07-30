@@ -227,7 +227,7 @@ module_needs_onnxruntime() {
         ;;
     esac
 
-    grep -Eq 'onnxruntime_c_api.h|"ort\\.c"|"ort\\.h"' "$1"
+    grep -Eq 'onnxruntime_c_api.h|"ort\.c"|"ort\.h"' "$1"
 }
 
 module_needs_fftw() {
@@ -237,7 +237,7 @@ module_needs_fftw() {
         ;;
     esac
 
-    grep -Eq 'fftw3.h|"fftw\\.c"|"fftw\\.h"|"stft\\.c"|"stft\\.h"' "$1"
+    grep -Eq 'fftw3.h|"fftw\.c"|"fftw\.h"|"stft\.c"|"stft\.h"' "$1"
 }
 
 dependency_cflags() {
@@ -271,11 +271,8 @@ dependency_ldlibs() {
 
 dependency_cflags_for_module() {
     module="$1"
-    packages=""
+    packages="$(resolve_onnxruntime_package)"
 
-    if module_needs_onnxruntime "$module"; then
-        packages="$packages $(resolve_onnxruntime_package)"
-    fi
     if module_needs_fftw "$module"; then
         fftw_package=$(resolve_fftw_package)
         if [ -n "$fftw_package" ]; then

@@ -277,11 +277,11 @@ main(void) {
     VocalsExtractionConfig config;
 
     vocals_extraction_config_init(&config);
-    TEST(config.model_path == NULL);
-    TEST(strequal(config.ffmpeg_path, "ffmpeg"));
-    TEST(config.print_info);
-    TEST(config.mdx_config.sample_rate == 44100);
-    TEST(config.mdx_config.channel_count == 2);
+    ASSERT(config.model_path == NULL);
+    ASSERT(strequal(config.ffmpeg_path, "ffmpeg"));
+    ASSERT(config.print_info);
+    ASSERT(config.mdx_config.sample_rate == 44100);
+    ASSERT(config.mdx_config.channel_count == 2);
 
     return 0;
 }
