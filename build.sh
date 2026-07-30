@@ -15,7 +15,6 @@ alias trace_off='{ set +x; } 2>/dev/null'
 dir=$(dirname "$(readlink -f "$0")")
 cd "$dir" || exit
 
-script=$(basename "$0")
 command=${1:-build}
 test_filter=${2:-}
 
@@ -132,9 +131,9 @@ if [ -d third_party/onnxruntime/lib/pkgconfig ]; then
 fi
 
 if command -v xsel >/dev/null 2>&1; then
-    xsel=xsel
+    xsel="xsel"
 else
-    xsel=cat
+    xsel="cat"
 fi
 
 usage() {
