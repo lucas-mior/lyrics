@@ -550,7 +550,7 @@ audio_compare_buffers(
     AudioCompareOptions *options
 ) {
     AudioCompareOptions default_options;
-    AudioCompareResult best_result;
+    AudioCompareResult best_result = {0};
     int64 max_offset;
     bool have_best;
 

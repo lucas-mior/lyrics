@@ -56,8 +56,7 @@ main(int32 argc, char **argv) {
         return EXIT_SUCCESS;
     }
     if (parse_result < 0) {
-        cli_print_usage(argv[0]);
-        return EXIT_FAILURE;
+        cli_print_usage(stderr);
     }
 
     result = EXIT_FAILURE;

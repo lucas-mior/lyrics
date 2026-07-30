@@ -378,7 +378,7 @@ cli_parse(CliOptions *options, int32 argc, char **argv) {
     for (i = 1; i < argc; i += 1) {
         if (strequal(argv[i], "-h")
             || strequal(argv[i], "--help")) {
-            cli_print_usage(argv[0]);
+            cli_print_usage(stdout);
             return 1;
         }
         if (strequal(argv[i], "--denoise")) {
@@ -414,7 +414,7 @@ cli_parse(CliOptions *options, int32 argc, char **argv) {
 }
 
 static void
-cli_print_usage(char *program) {
+cli_print_usage(FILE *stream) {
     error2(
         "usage: %s -i INPUT -o OUTPUT -m MODEL [options]\n"
         "\n"
@@ -437,8 +437,7 @@ cli_print_usage(char *program) {
         "    --model-output vocals|instrumental [vocals]\n"
         "    --clip-mode clamp|none       final clipping policy [clamp]\n",
         program);
-
-    return;
+    exit(stream == stdin);
 }
 
 static void
