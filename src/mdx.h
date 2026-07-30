@@ -2,6 +2,7 @@
 #define MDX_H
 
 #include "../cbase/primitives.h"
+#include "audio.h"
 #include "ort.h"
 #include "stft.h"
 
@@ -66,6 +67,14 @@ bool mdx_unpack_output(
     float *left,
     float *right,
     int64 frame_count
+);
+bool mdx_process_song(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    OrtContext *ort_context,
+    OrtModel *ort_model,
+    AudioBuffer *input,
+    AudioBuffer *output
 );
 void mdx_model_info_init_empty(MdxModelInfo *info);
 bool mdx_model_inspect(

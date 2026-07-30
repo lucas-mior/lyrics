@@ -413,6 +413,269 @@ mdx_unpack_output(
     return true;
 }
 
+
+bool
+mdx_process_song(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    OrtContext *ort_context,
+    OrtModel *ort_model,
+    AudioBuffer *input,
+    AudioBuffer *output
+) {
+    OrtTensor input_tensor;
+    OrtTensor output_tensor;
+    float *input_data;
+    float *window_left;
+    float *window_right;
+    float *window_output_left;
+    float *window_output_right;
+    int64 model_shape[4];
+    int64 tensor_len;
+    int64 song_chunk_size;
+    int64 margin_size;
+    int64 total_windows;
+    int64 processed_windows;
+    bool result;
+
+    if (config == NULL || stft_plan == NULL || ort_context == NULL
+        || ort_model == NULL || input == NULL || output == NULL) {
+        return false;
+    }
+    if (config->chunk_size <= 0 || config->gen_size <= 0
+        || config->trim <= 0) {
+        return false;
+    }
+    if (stft_plan->n_fft != config->n_fft || stft_plan->hop != config->hop) {
+        return false;
+    }
+    if (input->sample_rate != config->sample_rate
+        || input->channel_count != config->channel_count) {
+        return false;
+    }
+    if (input->frame_count < 0) {
+        return false;
+    }
+    if (input->frame_count > 0 && (input->left == NULL
+                                   || input->right == NULL)) {
+        return false;
+    }
+
+    audio_buffer_destroy(output);
+    output->sample_rate = config->sample_rate;
+    output->channel_count = config->channel_count;
+    output->frame_count = input->frame_count;
+    if (input->frame_count == 0) {
+        return true;
+    }
+    if (input->frame_count > INT64_MAX/(int64)sizeof(*output->left)) {
+        audio_buffer_destroy(output);
+        return false;
+    }
+
+    output->left = malloc(
+        (size_t)(input->frame_count*sizeof(*output->left))
+    );
+    output->right = malloc(
+        (size_t)(input->frame_count*sizeof(*output->right))
+    );
+    if (output->left == NULL || output->right == NULL) {
+        audio_buffer_destroy(output);
+        return false;
+    }
+    for (int64 i = 0; i < input->frame_count; i += 1) {
+        output->left[i] = 0.0f;
+        output->right[i] = 0.0f;
+    }
+
+    tensor_len = mdx_input_tensor_len(config);
+    if (tensor_len <= 0) {
+        audio_buffer_destroy(output);
+        return false;
+    }
+    if (tensor_len > INT64_MAX/(int64)sizeof(*input_data)) {
+        audio_buffer_destroy(output);
+        return false;
+    }
+    input_data = malloc((size_t)(tensor_len*sizeof(*input_data)));
+    window_left = malloc((size_t)(config->chunk_size*sizeof(*window_left)));
+    window_right = malloc((size_t)(config->chunk_size*sizeof(*window_right)));
+    window_output_left = malloc(
+        (size_t)(config->chunk_size*sizeof(*window_output_left))
+    );
+    window_output_right = malloc(
+        (size_t)(config->chunk_size*sizeof(*window_output_right))
+    );
+    if (input_data == NULL || window_left == NULL || window_right == NULL
+        || window_output_left == NULL || window_output_right == NULL) {
+        free(input_data);
+        free(window_left);
+        free(window_right);
+        free(window_output_left);
+        free(window_output_right);
+        audio_buffer_destroy(output);
+        return false;
+    }
+
+    model_shape[0] = 1;
+    model_shape[1] = config->dim_c;
+    model_shape[2] = config->dim_f;
+    model_shape[3] = config->dim_t;
+    song_chunk_size = (int64)config->chunk_seconds
+                      *(int64)config->sample_rate;
+    margin_size = (int64)config->margin_seconds
+                  *(int64)config->sample_rate;
+    total_windows = 0;
+    for (int64 region_start = 0;
+         region_start < input->frame_count;
+         region_start += song_chunk_size) {
+        int64 region_end;
+        int64 region_len;
+
+        region_end = region_start + song_chunk_size;
+        if (region_end > input->frame_count) {
+            region_end = input->frame_count;
+        }
+        region_len = region_end - region_start;
+        total_windows += (region_len + config->gen_size - 1)
+                         /(int64)config->gen_size;
+    }
+
+    result = false;
+    processed_windows = 0;
+    ort_tensor_init_empty(&input_tensor);
+    ort_tensor_init_empty(&output_tensor);
+    for (int64 region_start = 0;
+         region_start < input->frame_count;
+         region_start += song_chunk_size) {
+        int64 region_end;
+        int64 region_source_start;
+        int64 region_source_end;
+
+        region_end = region_start + song_chunk_size;
+        if (region_end > input->frame_count) {
+            region_end = input->frame_count;
+        }
+        region_source_start = region_start - margin_size;
+        if (region_source_start < 0) {
+            region_source_start = 0;
+        }
+        region_source_end = region_end + margin_size;
+        if (region_source_end > input->frame_count) {
+            region_source_end = input->frame_count;
+        }
+
+        for (int64 output_start = region_start;
+             output_start < region_end;
+             output_start += config->gen_size) {
+            int64 output_count;
+            int64 source_start;
+
+            output_count = region_end - output_start;
+            if (output_count > config->gen_size) {
+                output_count = config->gen_size;
+            }
+            source_start = output_start - config->trim;
+            for (int32 i = 0; i < config->chunk_size; i += 1) {
+                int64 source_index;
+
+                source_index = source_start + (int64)i;
+                if (source_index < 0 || source_index >= input->frame_count
+                    || source_index < region_source_start
+                    || source_index >= region_source_end) {
+                    window_left[i] = 0.0f;
+                    window_right[i] = 0.0f;
+                } else {
+                    window_left[i] = input->left[source_index];
+                    window_right[i] = input->right[source_index];
+                }
+            }
+
+            if (!mdx_pack_input(config,
+                                stft_plan,
+                                window_left,
+                                window_right,
+                                config->chunk_size,
+                                input_data,
+                                tensor_len)) {
+                goto cleanup;
+            }
+            if (!ort_tensor_create_f32(ort_context,
+                                       &input_tensor,
+                                       input_data,
+                                       tensor_len,
+                                       model_shape,
+                                       4)) {
+                goto cleanup;
+            }
+            if (!ort_model_run_f32(ort_context,
+                                   ort_model,
+                                   &input_tensor,
+                                   &output_tensor)) {
+                goto cleanup;
+            }
+            if (output_tensor.data_len != tensor_len
+                || output_tensor.shape_len != 4
+                || output_tensor.shape[0] != 1
+                || output_tensor.shape[1] != config->dim_c
+                || output_tensor.shape[2] != config->dim_f
+                || output_tensor.shape[3] != config->dim_t) {
+                fprintf(stderr,
+                        "ONNX model returned unexpected output shape\n");
+                goto cleanup;
+            }
+            if (!mdx_unpack_output(config,
+                                   stft_plan,
+                                   output_tensor.data,
+                                   output_tensor.data_len,
+                                   window_output_left,
+                                   window_output_right,
+                                   config->chunk_size)) {
+                goto cleanup;
+            }
+
+            for (int64 i = 0; i < output_count; i += 1) {
+                int64 output_index;
+                int64 window_index;
+
+                output_index = output_start + i;
+                window_index = (int64)config->trim + i;
+                output->left[output_index] =
+                    window_output_left[window_index];
+                output->right[output_index] =
+                    window_output_right[window_index];
+            }
+
+            ort_tensor_destroy(ort_context, &output_tensor);
+            ort_tensor_destroy(ort_context, &input_tensor);
+            processed_windows += 1;
+            if ((processed_windows == total_windows)
+                || ((processed_windows % 10) == 0)) {
+                fprintf(stderr,
+                        "processed %lld / %lld chunks\n",
+                        processed_windows,
+                        total_windows);
+            }
+        }
+    }
+
+    result = true;
+
+cleanup:
+    ort_tensor_destroy(ort_context, &output_tensor);
+    ort_tensor_destroy(ort_context, &input_tensor);
+    free(input_data);
+    free(window_left);
+    free(window_right);
+    free(window_output_left);
+    free(window_output_right);
+    if (!result) {
+        audio_buffer_destroy(output);
+    }
+
+    return result;
+}
+
 bool
 mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     int64 input_batch;
@@ -574,8 +837,11 @@ mdx_float_close(float a, float b) {
 
 int
 main(void) {
+    AudioBuffer empty_input;
+    AudioBuffer empty_output;
     MdxConfig config;
     MdxModelInfo info;
+    OrtContext context;
     OrtModel model;
     StftPlan stft_plan;
     float left[12];
@@ -589,6 +855,10 @@ main(void) {
     float unpack_left[12];
     float unpack_right[12];
     int64 channel_stride;
+
+    audio_buffer_init(&empty_input);
+    audio_buffer_init(&empty_output);
+    ort_context_init_empty(&context);
 
     mdx_config_init(&config);
     MDX_TEST_CHECK(config.sample_rate == 44100, "sample rate");
@@ -813,6 +1083,31 @@ main(void) {
                        "full-bin right roundtrip");
     }
 
+    empty_input.sample_rate = config.sample_rate;
+    empty_input.channel_count = config.channel_count;
+    MDX_TEST_CHECK(!mdx_process_song(NULL,
+                                     &stft_plan,
+                                     &context,
+                                     &model,
+                                     &empty_input,
+                                     &empty_output),
+                   "reject missing process config");
+    MDX_TEST_CHECK(mdx_process_song(&config,
+                                    &stft_plan,
+                                    &context,
+                                    &model,
+                                    &empty_input,
+                                    &empty_output),
+                   "process empty song");
+    MDX_TEST_CHECK(empty_output.sample_rate == config.sample_rate,
+                   "empty output sample rate");
+    MDX_TEST_CHECK(empty_output.channel_count == config.channel_count,
+                   "empty output channels");
+    MDX_TEST_CHECK(empty_output.frame_count == 0,
+                   "empty output frames");
+
+    audio_buffer_destroy(&empty_output);
+    audio_buffer_destroy(&empty_input);
     stft_plan_destroy(&stft_plan);
 
     return 0;

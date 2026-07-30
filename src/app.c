@@ -2,7 +2,6 @@
 
 #include "audio.h"
 #include "cli.h"
-#include "fftw.h"
 #include "mdx.h"
 #include "ort.h"
 
@@ -12,8 +11,9 @@
 int32
 app_run(int argc, char **argv) {
     AudioBuffer input_audio;
+    AudioBuffer output_audio;
     CliOptions options;
-    FftwRealPlan fftw_plan;
+    StftPlan stft_plan;
     MdxConfig mdx_config;
     MdxModelInfo mdx_info;
     OrtContext ort_context;
@@ -34,7 +34,8 @@ app_run(int argc, char **argv) {
 
     result = EXIT_FAILURE;
     audio_buffer_init(&input_audio);
-    fftw_real_plan_init_empty(&fftw_plan);
+    audio_buffer_init(&output_audio);
+    stft_plan_init_empty(&stft_plan);
     mdx_config_init(&mdx_config);
     mdx_model_info_init_empty(&mdx_info);
     ort_context_init_empty(&ort_context);
@@ -71,9 +72,11 @@ app_run(int argc, char **argv) {
     }
     fclose(model_file);
 
-    if (!fftw_real_plan_init(&fftw_plan, mdx_config.n_fft)) {
-        fprintf(stderr, "could not initialize FFTW plan for n_fft=%d\n",
-                mdx_config.n_fft);
+    if (!stft_plan_init(&stft_plan, mdx_config.n_fft, mdx_config.hop)) {
+        fprintf(stderr,
+                "could not initialize STFT plan for n_fft=%d hop=%d\n",
+                mdx_config.n_fft,
+                mdx_config.hop);
         goto cleanup;
     }
 
@@ -133,7 +136,17 @@ app_run(int argc, char **argv) {
             input_audio.channel_count,
             input_audio.frame_count);
 
-    if (!audio_write_file(&input_audio,
+    if (!mdx_process_song(&mdx_config,
+                          &stft_plan,
+                          &ort_context,
+                          &ort_model,
+                          &input_audio,
+                          &output_audio)) {
+        fprintf(stderr, "could not process audio through MDX model\n");
+        goto cleanup;
+    }
+
+    if (!audio_write_file(&output_audio,
                           options.output_path,
                           options.format,
                           options.ffmpeg_path)) {
@@ -142,15 +155,15 @@ app_run(int argc, char **argv) {
         goto cleanup;
     }
 
-    fprintf(stderr, "wrote decoded audio copy: %s\n", options.output_path);
-    fprintf(stderr, "audio extraction is not implemented yet\n");
+    fprintf(stderr, "wrote extracted model output: %s\n", options.output_path);
     result = EXIT_SUCCESS;
 
 cleanup:
+    audio_buffer_destroy(&output_audio);
     audio_buffer_destroy(&input_audio);
     ort_model_destroy(&ort_context, &ort_model);
     ort_context_destroy(&ort_context);
-    fftw_real_plan_destroy(&fftw_plan);
+    stft_plan_destroy(&stft_plan);
 
     return result;
 }
