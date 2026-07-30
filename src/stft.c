@@ -1,6 +1,5 @@
-#include "stft.h"
-
 #include "cbase.h"
+#include "stft.h"
 
 #if !defined(TESTING_stft)
 #define TESTING_stft 0

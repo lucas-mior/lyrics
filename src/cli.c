@@ -1,6 +1,5 @@
-#include "cli.h"
-
 #include "cbase.h"
+#include "cli.h"
 
 #if !defined(TESTING_cli)
 #define TESTING_cli 0

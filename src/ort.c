@@ -1,10 +1,9 @@
-#include "ort.h"
-
 #if !defined(TESTING_ort)
 #define TESTING_ort 0
 #endif
 
 #include "cbase.h"
+#include "ort.h"
 
 #include <onnxruntime_c_api.h>
 

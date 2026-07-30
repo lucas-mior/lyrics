@@ -1,6 +1,5 @@
-#include "fftw.h"
-
 #include "cbase.h"
+#include "fftw.h"
 
 #if !defined(TESTING_fftw)
 #define TESTING_fftw 0

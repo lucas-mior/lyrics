@@ -1,6 +1,5 @@
-#include "mdx.h"
-
 #include "cbase.h"
+#include "mdx.h"
 
 #if !defined(TESTING_mdx)
 #define TESTING_mdx 0
