@@ -4,8 +4,6 @@
 #include "cbase.h"
 #include "fftw.h"
 
-#include <stdbool.h>
-
 typedef struct StftPlan {
     int32 n_fft;
     int32 hop;

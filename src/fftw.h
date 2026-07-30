@@ -3,8 +3,6 @@
 
 #include "cbase.h"
 
-#include <stdbool.h>
-
 typedef struct FftwRealPlan {
     int32 n_fft;
     int32 complex_count;

@@ -3,8 +3,6 @@
 
 #include "cbase.h"
 
-#include <stdbool.h>
-
 typedef struct AudioBuffer {
     float *left;
     float *right;

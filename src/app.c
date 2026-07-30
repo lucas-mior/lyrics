@@ -9,9 +9,6 @@
 #include "mdx.h"
 #include "ort.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
 int32
 app_run(int argc, char **argv) {
     AudioBuffer input_audio;

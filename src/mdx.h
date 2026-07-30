@@ -6,8 +6,6 @@
 #include "ort.h"
 #include "stft.h"
 
-#include <stdbool.h>
-
 enum MdxModelOutput {
     MDX_MODEL_OUTPUT_VOCALS,
     MDX_MODEL_OUTPUT_INSTRUMENTAL,

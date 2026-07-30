@@ -3,8 +3,6 @@
 
 #include "cbase.h"
 
-#include <stdbool.h>
-
 enum CliModelOutput {
     CLI_MODEL_OUTPUT_VOCALS,
     CLI_MODEL_OUTPUT_INSTRUMENTAL,

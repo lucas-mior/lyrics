@@ -3,8 +3,6 @@
 
 #include "cbase.h"
 
-#include <stdbool.h>
-
 #define ORT_TENSOR_MAX_RANK 8
 
 typedef struct OrtContext {
