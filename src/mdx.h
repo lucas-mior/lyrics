@@ -14,12 +14,17 @@ enum MdxModelOutput {
 typedef struct MdxConfig {
     int32 sample_rate;
     int32 channel_count;
+    int32 dim_c;
     int32 n_fft;
     int32 hop;
     int32 dim_f;
     int32 dim_t;
     int32 chunk_seconds;
     int32 margin_seconds;
+
+    int32 chunk_size;
+    int32 trim;
+    int32 gen_size;
 
     float compensate;
     bool denoise;
@@ -41,6 +46,7 @@ typedef struct MdxModelInfo {
 } MdxModelInfo;
 
 void mdx_config_init(MdxConfig *config);
+bool mdx_config_prepare(MdxConfig *config);
 void mdx_model_info_init_empty(MdxModelInfo *info);
 bool mdx_model_inspect(
     MdxModelInfo *info,

@@ -69,9 +69,9 @@ app_run(int argc, char **argv) {
     }
     fclose(model_file);
 
-    if (!fftw_real_plan_init(&fftw_plan, options.n_fft)) {
+    if (!fftw_real_plan_init(&fftw_plan, mdx_config.n_fft)) {
         fprintf(stderr, "could not initialize FFTW plan for n_fft=%d\n",
-                options.n_fft);
+                mdx_config.n_fft);
         goto cleanup;
     }
 
@@ -92,6 +92,11 @@ app_run(int argc, char **argv) {
         goto cleanup;
     }
 
+    if (!mdx_config_prepare(&mdx_config)) {
+        fprintf(stderr, "could not prepare MDX configuration\n");
+        goto cleanup;
+    }
+
     cli_print_options(&options);
     fprintf(stderr,
             "MDX model: input=%s output=%s shape=[%d, %d, %d, %d]\n",
@@ -101,6 +106,17 @@ app_run(int argc, char **argv) {
             mdx_info.channel_count,
             mdx_info.dim_f,
             mdx_info.dim_t);
+    fprintf(stderr,
+            "MDX config: sample_rate=%d channels=%d dim_c=%d n_fft=%d "
+            "hop=%d chunk_size=%d trim=%d gen_size=%d\n",
+            mdx_config.sample_rate,
+            mdx_config.channel_count,
+            mdx_config.dim_c,
+            mdx_config.n_fft,
+            mdx_config.hop,
+            mdx_config.chunk_size,
+            mdx_config.trim,
+            mdx_config.gen_size);
     fprintf(stderr, "audio extraction is not implemented yet\n");
     result = EXIT_SUCCESS;
 

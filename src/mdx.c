@@ -7,6 +7,7 @@ void
 mdx_config_init(MdxConfig *config) {
     config->sample_rate = 44100;
     config->channel_count = 2;
+    config->dim_c = 4;
     config->n_fft = 6144;
     config->hop = 1024;
     config->dim_f = 0;
@@ -14,12 +15,111 @@ mdx_config_init(MdxConfig *config) {
     config->chunk_seconds = 30;
     config->margin_seconds = 3;
 
+    config->chunk_size = 0;
+    config->trim = 0;
+    config->gen_size = 0;
+
     config->compensate = 1.035f;
     config->denoise = false;
 
     config->model_output = MDX_MODEL_OUTPUT_VOCALS;
 
     return;
+}
+
+bool
+mdx_config_prepare(MdxConfig *config) {
+    int32 max_dim_f;
+    int32 chunk_size;
+    int32 trim;
+
+    if (config == NULL) {
+        fprintf(stderr, "MDX configuration is missing\n");
+        return false;
+    }
+    if (config->sample_rate != 44100) {
+        fprintf(stderr, "MDX sample rate must be 44100, got %d\n",
+                config->sample_rate);
+        return false;
+    }
+    if (config->channel_count != 2) {
+        fprintf(stderr, "MDX audio channel count must be 2, got %d\n",
+                config->channel_count);
+        return false;
+    }
+    if (config->dim_c != 4) {
+        fprintf(stderr, "MDX spectrogram channel count must be 4, got %d\n",
+                config->dim_c);
+        return false;
+    }
+    if (config->n_fft <= 0) {
+        fprintf(stderr, "MDX n_fft must be greater than zero\n");
+        return false;
+    }
+    if ((config->n_fft & 1) != 0) {
+        fprintf(stderr, "MDX n_fft must be even, got %d\n",
+                config->n_fft);
+        return false;
+    }
+    if (config->hop <= 0) {
+        fprintf(stderr, "MDX hop must be greater than zero\n");
+        return false;
+    }
+    if (config->hop > config->n_fft) {
+        fprintf(stderr, "MDX hop must not exceed n_fft, got %d/%d\n",
+                config->hop,
+                config->n_fft);
+        return false;
+    }
+    if (config->dim_f <= 0) {
+        fprintf(stderr, "MDX dim_f must be known before preparing config\n");
+        return false;
+    }
+    if (config->dim_t <= 1) {
+        fprintf(stderr, "MDX dim_t must be greater than 1, got %d\n",
+                config->dim_t);
+        return false;
+    }
+    if (config->chunk_seconds <= 0) {
+        fprintf(stderr, "MDX chunk seconds must be greater than zero\n");
+        return false;
+    }
+    if (config->margin_seconds < 0) {
+        fprintf(stderr, "MDX margin seconds must not be negative\n");
+        return false;
+    }
+    if (config->compensate < 0.0f) {
+        fprintf(stderr, "MDX compensate must not be negative\n");
+        return false;
+    }
+
+    max_dim_f = config->n_fft/2 + 1;
+    if (config->dim_f > max_dim_f) {
+        fprintf(stderr, "MDX dim_f=%d exceeds STFT bins=%d\n",
+                config->dim_f,
+                max_dim_f);
+        return false;
+    }
+    if ((config->dim_t - 1) > INT_MAX/config->hop) {
+        fprintf(stderr, "MDX chunk size overflows int32\n");
+        return false;
+    }
+
+    chunk_size = config->hop*(config->dim_t - 1);
+    trim = config->n_fft/2;
+    if (chunk_size <= 2*trim) {
+        fprintf(stderr,
+                "MDX gen_size must be positive; got chunk=%d trim=%d\n",
+                chunk_size,
+                trim);
+        return false;
+    }
+
+    config->chunk_size = chunk_size;
+    config->trim = trim;
+    config->gen_size = chunk_size - 2*trim;
+
+    return true;
 }
 
 void
@@ -95,13 +195,15 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
                 output_batch);
         return false;
     }
-    if (input_channels > 0 && input_channels != 4) {
-        fprintf(stderr, "MDX model input channels must be 4, got %lld\n",
+    if (input_channels > 0 && input_channels != config->dim_c) {
+        fprintf(stderr, "MDX model input channels must be %d, got %lld\n",
+                config->dim_c,
                 input_channels);
         return false;
     }
-    if (output_channels > 0 && output_channels != 4) {
-        fprintf(stderr, "MDX model output channels must be 4, got %lld\n",
+    if (output_channels > 0 && output_channels != config->dim_c) {
+        fprintf(stderr, "MDX model output channels must be %d, got %lld\n",
+                config->dim_c,
                 output_channels);
         return false;
     }
@@ -165,7 +267,7 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     info->input_name = model->input_name;
     info->output_name = model->output_name;
     info->batch_size = 1;
-    info->channel_count = 4;
+    info->channel_count = config->dim_c;
     info->dim_f = config->dim_f;
     info->dim_t = config->dim_t;
     info->input_shape_dynamic = input_batch <= 0
@@ -199,8 +301,12 @@ main(void) {
     mdx_config_init(&config);
     MDX_TEST_CHECK(config.sample_rate == 44100, "sample rate");
     MDX_TEST_CHECK(config.channel_count == 2, "channel count");
+    MDX_TEST_CHECK(config.dim_c == 4, "dim_c");
     MDX_TEST_CHECK(config.n_fft == 6144, "n_fft");
     MDX_TEST_CHECK(config.hop == 1024, "hop");
+    MDX_TEST_CHECK(config.chunk_size == 0, "empty chunk size");
+    MDX_TEST_CHECK(config.trim == 0, "empty trim");
+    MDX_TEST_CHECK(config.gen_size == 0, "empty gen_size");
 
     ort_model_init_empty(&model);
     model.input_name = "input";
@@ -225,6 +331,10 @@ main(void) {
     MDX_TEST_CHECK(info.output_name == model.output_name, "output name");
     MDX_TEST_CHECK(info.input_shape_dynamic == false, "static input");
     MDX_TEST_CHECK(info.output_shape_dynamic == false, "static output");
+    MDX_TEST_CHECK(mdx_config_prepare(&config), "prepare config");
+    MDX_TEST_CHECK(config.chunk_size == 261120, "chunk size");
+    MDX_TEST_CHECK(config.trim == 3072, "trim");
+    MDX_TEST_CHECK(config.gen_size == 254976, "gen_size");
 
     config.dim_f = 2048;
     MDX_TEST_CHECK(!mdx_model_inspect(&info, &config, &model),
@@ -248,6 +358,16 @@ main(void) {
     model.input_shape_len = 2;
     MDX_TEST_CHECK(!mdx_model_inspect(&info, &config, &model),
                    "reject non-mdx rank");
+
+    mdx_config_init(&config);
+    config.dim_f = 3074;
+    config.dim_t = 256;
+    MDX_TEST_CHECK(!mdx_config_prepare(&config), "reject too many bins");
+
+    mdx_config_init(&config);
+    config.dim_f = 3072;
+    config.dim_t = 4;
+    MDX_TEST_CHECK(!mdx_config_prepare(&config), "reject small dim_t");
 
     return 0;
 }
