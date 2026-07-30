@@ -149,8 +149,6 @@ commands:
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
     check    build with GCC static analyzer
-    model    regenerate models/identity.onnx
-    setup    download ONNX Runtime and regenerate the identity model
     clean    remove generated build outputs
     help     show this message
 
@@ -164,7 +162,6 @@ environment:
     GET_VOICE_PROGRAM            get_voice executable, default: bin/get_voice
     GEN_LRC_RAW_PROGRAM          raw LRC executable, default: bin/gen_lrc_raw
     GEN_LRC_PROGRAM              full LRC executable, default: bin/gen_lrc
-    MODEL                        ONNX model path, default: models/identity.onnx
     INPUT                        run command input path, default: song.mp3
     OUTPUT                       get_voice run output path, default: vocals.wav
     CFLAGS                       extra compiler flags
@@ -310,12 +307,6 @@ dependency_ldlibs_for_module() {
     if [ -n "$libs" ]; then
         printf '%s\n' "$libs"
     fi
-}
-
-build_model() {
-    require_command "$PYTHON"
-    mkdir -p "$(dirname "$MODEL")"
-    "$PYTHON" scripts/create_identity_model.py "$MODEL"
 }
 
 app_source() {
@@ -472,13 +463,6 @@ debug)
     ;;
 check)
     build_program
-    ;;
-model)
-    build_model
-    ;;
-setup)
-    ./scripts/get_onnxruntime.sh
-    build_model
     ;;
 clean)
     rm -rf bin

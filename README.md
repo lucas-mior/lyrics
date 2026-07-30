@@ -41,12 +41,6 @@ audio-separator Paranoid.flac \
 
 ## Build and run
 
-Set up ONNX Runtime and the identity model:
-
-```sh
-./build.sh setup
-```
-
 Build all configured executables:
 
 ```sh
