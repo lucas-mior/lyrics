@@ -11,6 +11,7 @@
 
 int32
 app_run(int argc, char **argv) {
+    AudioBuffer input_audio;
     CliOptions options;
     FftwRealPlan fftw_plan;
     MdxConfig mdx_config;
@@ -32,6 +33,7 @@ app_run(int argc, char **argv) {
     }
 
     result = EXIT_FAILURE;
+    audio_buffer_init(&input_audio);
     fftw_real_plan_init_empty(&fftw_plan);
     mdx_config_init(&mdx_config);
     mdx_model_info_init_empty(&mdx_info);
@@ -97,6 +99,14 @@ app_run(int argc, char **argv) {
         goto cleanup;
     }
 
+    if (!audio_read_file(&input_audio,
+                         options.input_path,
+                         options.ffmpeg_path)) {
+        fprintf(stderr, "could not decode input audio: %s\n",
+                options.input_path);
+        goto cleanup;
+    }
+
     cli_print_options(&options);
     fprintf(stderr,
             "MDX model: input=%s output=%s shape=[%d, %d, %d, %d]\n",
@@ -117,10 +127,16 @@ app_run(int argc, char **argv) {
             mdx_config.chunk_size,
             mdx_config.trim,
             mdx_config.gen_size);
+    fprintf(stderr,
+            "decoded audio: sample_rate=%d channels=%d frames=%lld\n",
+            input_audio.sample_rate,
+            input_audio.channel_count,
+            input_audio.frame_count);
     fprintf(stderr, "audio extraction is not implemented yet\n");
     result = EXIT_SUCCESS;
 
 cleanup:
+    audio_buffer_destroy(&input_audio);
     ort_model_destroy(&ort_context, &ort_model);
     ort_context_destroy(&ort_context);
     fftw_real_plan_destroy(&fftw_plan);
