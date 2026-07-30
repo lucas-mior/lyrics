@@ -7,7 +7,10 @@ PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 ONNXRUNTIME_PKG_CONFIG_NAME=${ONNXRUNTIME_PKG_CONFIG_NAME:-onnxruntime}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
-SOURCES=${SOURCES:-"src/main.c src/cli.c"}
+DEFAULT_SOURCES="src/main.c src/app.c src/cli.c src/audio.c"
+DEFAULT_SOURCES="$DEFAULT_SOURCES src/ort.c src/mdx.c"
+DEFAULT_SOURCES="$DEFAULT_SOURCES src/stft.c src/fftw.c"
+SOURCES=${SOURCES:-$DEFAULT_SOURCES}
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
