@@ -19,6 +19,7 @@ typedef struct CliOptions {
     char *model_path;
     char *ffmpeg_path;
     char *format;
+    char *temp_dir;
 
     int32 chunk_seconds;
     int32 margin_seconds;

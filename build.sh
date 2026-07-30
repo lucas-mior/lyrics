@@ -271,8 +271,11 @@ dependency_ldlibs() {
 
 dependency_cflags_for_module() {
     module="$1"
-    packages="$(resolve_onnxruntime_package)"
+    packages=""
 
+    if module_needs_onnxruntime "$module"; then
+        packages="$packages $(resolve_onnxruntime_package)"
+    fi
     if module_needs_fftw "$module"; then
         fftw_package=$(resolve_fftw_package)
         if [ -n "$fftw_package" ]; then

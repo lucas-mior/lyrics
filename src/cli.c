@@ -34,6 +34,7 @@ is_value_option(char *arg) {
            || strequal(arg, "--model")
            || strequal(arg, "--ffmpeg")
            || strequal(arg, "--format")
+           || strequal(arg, "--temp-dir")
            || strequal(arg, "--chunk-seconds")
            || strequal(arg, "--margin-seconds")
            || strequal(arg, "--n-fft")
@@ -240,6 +241,10 @@ parse_value_option(CliOptions *options, char *arg, char *value) {
     if (strequal(arg, "--format")) {
         return parse_format(options, value);
     }
+    if (strequal(arg, "--temp-dir")) {
+        options->temp_dir = value;
+        return 0;
+    }
     if (strequal(arg, "--chunk-seconds")) {
         return parse_positive_int32(value, arg, &options->chunk_seconds);
     }
@@ -294,6 +299,10 @@ parse_long_value_option(CliOptions *options, char *arg) {
     }
     if (long_option_value(arg, "--format", &value)) {
         return parse_format(options, value);
+    }
+    if (long_option_value(arg, "--temp-dir", &value)) {
+        options->temp_dir = value;
+        return 0;
     }
     if (long_option_value(arg, "--chunk-seconds", &value)) {
         return parse_positive_int32(value, "--chunk-seconds",
@@ -353,6 +362,7 @@ cli_options_init(CliOptions *options) {
     options->model_path = NULL;
     options->ffmpeg_path = "ffmpeg";
     options->format = "wav";
+    options->temp_dir = "/tmp";
 
     options->chunk_seconds = 30;
     options->margin_seconds = 3;
@@ -425,6 +435,7 @@ cli_print_usage(FILE *stream) {
         "options:\n"
         "    --ffmpeg PATH                ffmpeg executable [ffmpeg]\n"
         "    --format wav|flac|mp3        output format [wav]\n"
+        "    --temp-dir PATH              temporary directory [/tmp]\n"
         "    --chunk-seconds N            chunk size in seconds [30]\n"
         "    --margin-seconds N           chunk margin in seconds [3]\n"
         "    --denoise                    run denoising inference mode\n"
@@ -446,6 +457,7 @@ cli_print_options(CliOptions *options) {
     printf("model: %s\n", string_or_empty(options->model_path));
     printf("ffmpeg: %s\n", options->ffmpeg_path);
     printf("format: %s\n", options->format);
+    printf("temp_dir: %s\n", options->temp_dir);
     printf("chunk_seconds: %d\n", options->chunk_seconds);
     printf("margin_seconds: %d\n", options->margin_seconds);
     if (options->denoise) {
@@ -490,6 +502,8 @@ cli_test_successful_parse(void) {
         "ffmpeg-custom",
         "--format",
         "flac",
+        "--temp-dir",
+        "/tmp/uvr-test",
         "--chunk-seconds=45",
         "--margin-seconds",
         "0",
@@ -527,6 +541,9 @@ cli_test_successful_parse(void) {
     }
     if (!strequal(options.format, "flac")) {
         return cli_test_fail("format");
+    }
+    if (!strequal(options.temp_dir, "/tmp/uvr-test")) {
+        return cli_test_fail("temp dir");
     }
     if (options.chunk_seconds != 45) {
         return cli_test_fail("chunk seconds");
@@ -586,6 +603,9 @@ cli_test_default_parse(void) {
     }
     if (!strequal(options.format, "wav")) {
         return cli_test_fail("default format");
+    }
+    if (!strequal(options.temp_dir, "/tmp")) {
+        return cli_test_fail("default temp dir");
     }
     if (options.chunk_seconds != 30) {
         return cli_test_fail("default chunk seconds");
