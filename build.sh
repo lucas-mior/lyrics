@@ -245,11 +245,15 @@ dependency_cflags() {
     fftw_package=$(resolve_fftw_package)
 
     if [ -n "$fftw_package" ]; then
+        trace_on
         $PKG_CONFIG --cflags "$ort_package" "$fftw_package"
+        trace_off
         return 0
     fi
 
+    trace_on
     $PKG_CONFIG --cflags "$ort_package"
+    trace_off
 }
 
 dependency_ldlibs() {
