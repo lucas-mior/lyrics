@@ -16,6 +16,8 @@ typedef struct AudioBuffer {
 
 void audio_buffer_init(AudioBuffer *audio);
 void audio_buffer_destroy(AudioBuffer *audio);
+bool audio_check_ffmpeg(char *ffmpeg_path);
+bool audio_can_decode_file(char *path, char *ffmpeg_path);
 bool audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path);
 bool audio_write_file(
     AudioBuffer *audio,

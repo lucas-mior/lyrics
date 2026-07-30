@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 typedef struct OrtContext {
+    void *api;
     void *environment;
     void *memory_info;
 } OrtContext;
