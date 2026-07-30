@@ -1,8 +1,10 @@
-#!/bin/sh
+#!/bin/sh -e
 
 # shellcheck disable=SC2086
 
-if [ -n "$BASH_VERSION" ]; then
+set -eu
+
+if [ -n "${BASH_VERSION:-}" ]; then
     # shellcheck disable=SC3044
     shopt -s expand_aliases
 fi
@@ -10,9 +12,13 @@ fi
 alias trace_on='set -x'
 alias trace_off='{ set +x; } 2>/dev/null'
 
-set -eu
+dir=$(dirname "$(readlink -f "$0")")
+cd "$dir" || exit
 
-CC=${CC:-cc}
+script=$(basename "$0")
+command=${1:-build}
+test_filter=${2:-}
+
 PYTHON=${PYTHON:-python3}
 PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 ONNXRUNTIME_PKG_CONFIG_NAME=${ONNXRUNTIME_PKG_CONFIG_NAME:-onnxruntime}
@@ -20,21 +26,105 @@ FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
 PROGRAM_SOURCE=${PROGRAM_SOURCE:-src/main.c}
-TEST_MODULES=$(find src -iname "*.c" | grep -v "main.c")
+TEST_MODULES=${TEST_MODULES:-}
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
 
-CFLAGS=${CFLAGS:-}
-CPPFLAGS="${CPPFLAGS:-}"
-LDFLAGS="${LDFLAGS:-}"
+requested_cc=${CC:-}
+if [ "$command" = "test" ] \
+   && [ -z "$requested_cc" ] \
+   && command -v tcc >/dev/null 2>&1; then
+    CC=tcc
+else
+    CC=${requested_cc:-cc}
+fi
 
-CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700"
+CPPFLAGS="${CPPFLAGS:-}"
+CFLAGS="${CFLAGS:-}"
+LDFLAGS="${LDFLAGS:-}"
+DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
+
+CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE"
 CPPFLAGS="$CPPFLAGS -Icbase -I. -Isrc"
 
-CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Wvla -Wno-unused-function"}
+CFLAGS="$CFLAGS -std=c11"
+CFLAGS="$CFLAGS -Wfatal-errors"
+CFLAGS="$CFLAGS -Wextra -Wall -Wvla"
+CFLAGS="$CFLAGS -Wno-format-pedantic"
+CFLAGS="$CFLAGS -Wno-unknown-warning-option"
+CFLAGS="$CFLAGS -Wno-gnu-union-cast"
+CFLAGS="$CFLAGS -Wno-unused-macros"
+CFLAGS="$CFLAGS -Wno-constant-logical-operand"
+CFLAGS="$CFLAGS -Wno-float-equal"
+CFLAGS="$CFLAGS -Wno-undefined-internal"
+CFLAGS="$CFLAGS -Wno-cast-qual"
+CFLAGS="$CFLAGS -Wno-unknown-pragmas"
+CFLAGS="$CFLAGS -Wno-char-subscripts"
+CFLAGS="$CFLAGS -Wno-padded"
+CFLAGS="$CFLAGS -Wno-unused-function"
+CFLAGS="$CFLAGS -Wno-reserved-identifier"
+CFLAGS="$CFLAGS -Wno-documentation"
 
-DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
+OS=$(uname -a)
+GNUSOURCE=
+if echo "$OS" | grep -q "Linux"; then
+    if echo "$OS" | grep -q "GNU"; then
+        GNUSOURCE="-D_GNU_SOURCE"
+    fi
+fi
+
+case "$OS" in
+*Linux*)
+    CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE=700"
+    ;;
+*Darwin*)
+    CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE=700 -D_DARWIN_C_SOURCE"
+    ;;
+esac
+
+case "$CC" in
+clang|*/clang)
+    CFLAGS="$CFLAGS -Weverything"
+    CFLAGS="$CFLAGS -Wno-unsafe-buffer-usage"
+    CFLAGS="$CFLAGS -Wno-format-nonliteral"
+    CFLAGS="$CFLAGS -Wno-disabled-macro-expansion"
+    CFLAGS="$CFLAGS -Wno-c++-keyword"
+    CFLAGS="$CFLAGS -Wno-pre-c11-compat"
+    CFLAGS="$CFLAGS -Wno-implicit-void-ptr-cast"
+    CFLAGS="$CFLAGS -Wno-ignored-attributes"
+    CFLAGS="$CFLAGS -Wno-covered-switch-default"
+    CFLAGS="$CFLAGS -Wno-used-but-marked-unused"
+    CFLAGS="$CFLAGS -Wno-implicit-int-enum-cast"
+    CFLAGS="$CFLAGS -Wno-assign-enum"
+    CFLAGS="$CFLAGS -Wno-cast-function-type-strict"
+    CFLAGS="$CFLAGS -Wno-bad-function-cast"
+    CFLAGS="$CFLAGS -Wno-char-subscripts"
+    ;;
+esac
+
+case "$command" in
+build|all|run)
+    CFLAGS="$CFLAGS $GNUSOURCE -O2 -g"
+    ;;
+debug)
+    CFLAGS="$CFLAGS $GNUSOURCE -g3 -O0 -fsanitize=undefined"
+    CPPFLAGS="$CPPFLAGS -DDEBUGGING=1 -Wno-unused-function"
+    ;;
+test)
+    CFLAGS="$CFLAGS $GNUSOURCE -g3 -O0 -DDEBUGGING=1"
+    CFLAGS="$CFLAGS -Wno-unused-function -Wno-unused-variable"
+    if [ "$CC" != "tcc" ]; then
+        CFLAGS="$CFLAGS -fsanitize=undefined -Wno-address"
+    fi
+    ;;
+check)
+    CC=gcc
+    CFLAGS="$CFLAGS $GNUSOURCE -DDEBUGGING=1 -fanalyzer"
+    ;;
+*)
+    ;;
+esac
 
 if [ -d third_party/onnxruntime/lib/pkgconfig ]; then
     ort_pc=third_party/onnxruntime/lib/pkgconfig
@@ -42,32 +132,40 @@ if [ -d third_party/onnxruntime/lib/pkgconfig ]; then
     export PKG_CONFIG_PATH
 fi
 
+if command -v xsel >/dev/null 2>&1; then
+    xsel=xsel
+else
+    xsel=cat
+fi
+
 usage() {
     cat <<'USAGE'
-usage: ./build.sh [command]
+usage: ./build.sh [command] [test]
 
 commands:
     build    build the executable (default)
     run      build and run the CLI parser
-    test     build and run all embedded module tests
+    test     build and run embedded module tests
+    debug    build with debug flags and UBSan
+    check    build with GCC static analyzer
     model    regenerate models/identity.onnx
     setup    download ONNX Runtime and regenerate the identity model
     clean    remove generated build outputs
     help     show this message
 
 environment:
-    CC                           C compiler, default: cc
+    CC                           C compiler, default: cc or tcc for tests
     PYTHON                       Python interpreter, default: python3
     PKG_CONFIG                   pkg-config program, default: pkg-config
     ONNXRUNTIME_PKG_CONFIG_NAME  pkg-config package, default: onnxruntime
-    FFTW_PKG_CONFIG_NAME          pkg-config package, default: fftw3f
+    FFTW_PKG_CONFIG_NAME         pkg-config package, default: fftw3f
     PROGRAM                      output executable, default: bin/uvr-c
     PROGRAM_SOURCE               unity source, default: src/main.c
     TEST_MODULES                 modules whose tests are run
     MODEL                        ONNX model path, default: models/identity.onnx
     INPUT                        run command input path, default: song.mp3
     OUTPUT                       run command output path, default: vocals.wav
-    CFLAGS                       compiler flags
+    CFLAGS                       extra compiler flags
     DEFAULT_LDLIBS               default libraries, default: -lm
 USAGE
 }
@@ -87,8 +185,8 @@ resolve_onnxruntime_package() {
         return 0
     fi
 
-    if [ "$ONNXRUNTIME_PKG_CONFIG_NAME" = onnxruntime ] && \
-            $PKG_CONFIG --exists libonnxruntime; then
+    if [ "$ONNXRUNTIME_PKG_CONFIG_NAME" = onnxruntime ] \
+       && $PKG_CONFIG --exists libonnxruntime; then
         printf '%s\n' libonnxruntime
         return 0
     fi
@@ -107,14 +205,34 @@ resolve_fftw_package() {
         return 0
     fi
 
-    if [ "$FFTW_PKG_CONFIG_NAME" = fftw3f ] && \
-            $PKG_CONFIG --exists fftw3; then
+    if [ "$FFTW_PKG_CONFIG_NAME" = fftw3f ] \
+       && $PKG_CONFIG --exists fftw3; then
         printf '%s\n' fftw3
         return 0
     fi
 
     printf '%s\n' ""
     return 0
+}
+
+module_needs_onnxruntime() {
+    case "$1" in
+    */mdx.c|*/ort.c)
+        return 0
+        ;;
+    esac
+
+    grep -Eq 'onnxruntime_c_api.h|"ort\\.c"|"ort\\.h"' "$1"
+}
+
+module_needs_fftw() {
+    case "$1" in
+    */fftw.c|*/mdx.c|*/stft.c)
+        return 0
+        ;;
+    esac
+
+    grep -Eq 'fftw3.h|"fftw\\.c"|"fftw\\.h"|"stft\\.c"|"stft\\.h"' "$1"
 }
 
 dependency_cflags() {
@@ -142,6 +260,50 @@ dependency_ldlibs() {
     printf ' %s\n' '-lfftw3f'
 }
 
+dependency_cflags_for_module() {
+    module="$1"
+    packages=""
+
+    if module_needs_onnxruntime "$module"; then
+        packages="$packages $(resolve_onnxruntime_package)"
+    fi
+    if module_needs_fftw "$module"; then
+        fftw_package=$(resolve_fftw_package)
+        if [ -n "$fftw_package" ]; then
+            packages="$packages $fftw_package"
+        fi
+    fi
+
+    if [ -n "$packages" ]; then
+        $PKG_CONFIG --cflags $packages
+    fi
+}
+
+dependency_ldlibs_for_module() {
+    module="$1"
+    packages=""
+    libs=""
+
+    if module_needs_onnxruntime "$module"; then
+        packages="$packages $(resolve_onnxruntime_package)"
+    fi
+    if module_needs_fftw "$module"; then
+        fftw_package=$(resolve_fftw_package)
+        if [ -n "$fftw_package" ]; then
+            packages="$packages $fftw_package"
+        else
+            libs="$libs -lfftw3f"
+        fi
+    fi
+
+    if [ -n "$packages" ]; then
+        $PKG_CONFIG --libs $packages
+    fi
+    if [ -n "$libs" ]; then
+        printf '%s\n' "$libs"
+    fi
+}
+
 build_model() {
     require_command "$PYTHON"
     mkdir -p "$(dirname "$MODEL")"
@@ -154,61 +316,92 @@ build_program() {
     dep_ldlibs=$(dependency_ldlibs)
 
     trace_on
-    $CC $CPPFLAGS $CFLAGS $dep_cflags $PROGRAM_SOURCE \
+    $CC $CPPFLAGS $CFLAGS $dep_cflags "$PROGRAM_SOURCE" \
         $LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
-        -o $PROGRAM
+        -o "$PROGRAM"
     trace_off
 }
 
-run_tests() {
-    for module in $TEST_MODULES; do
-        name=$(basename "$module" | sed 's/.c//g')
-        output="bin/test_$name"
+test_modules() {
+    if [ -n "$TEST_MODULES" ]; then
+        printf '%s\n' $TEST_MODULES
+        return 0
+    fi
 
-        mkdir -p bin
-        dep_cflags=$(dependency_cflags)
-        dep_ldlibs=$(dependency_ldlibs)
+    find src -iname "*.c" | grep -v '/main\.c$' | sort
+}
+
+run_tests() {
+    test_modules | while read -r module; do
+        name=$(basename "$module" | sed 's/\.c$//')
+        test_exe="/tmp/${name}_test"
+
+        if [ -n "$test_filter" ] \
+           && [ "$test_filter" != "$name" ] \
+           && [ "$test_filter" != "${name}.c" ]; then
+            continue
+        fi
+
+        printf '\nTesting %s ...\n' "$module"
+
+        flags=$(awk '/\/\/ flags:/ { $1=$2=""; print $0 }' "$module")
+        dep_cflags=$(dependency_cflags_for_module "$module")
+        dep_ldlibs=$(dependency_ldlibs_for_module "$module")
 
         trace_on
-        $CC $CPPFLAGS $CFLAGS $dep_cflags \
-            "-DTESTING_$name=1" "$module" \
-            $dep_ldlibs $DEFAULT_LDLIBS \
-            -o $output
-        "$output"
+        if $CC $CPPFLAGS $CFLAGS $dep_cflags \
+              "-DTESTING_$name=1" -DTESTING=1 "$module" \
+              $LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS $flags \
+              -o "$test_exe"; then
+            if ! "$test_exe"; then
+                if command -v gdb >/dev/null 2>&1; then
+                    gdb --quiet \
+                        -ex run -ex backtrace -ex quit \
+                        "$test_exe" 2>&1 | $xsel
+                fi
+                exit 1
+            fi
+        else
+            exit 1
+        fi
         trace_off
     done
 }
 
-command=${1:-build}
-
 case "$command" in
-    build|all)
-        build_program
-        ;;
-    run)
-        build_program
-        trace_on
-        "$PROGRAM" -i "$INPUT" -o $OUTPUT -m "$MODEL"
-        trace_off
-        ;;
-    test)
-        run_tests
-        ;;
-    model)
-        build_model
-        ;;
-    setup)
-        ./scripts/get_onnxruntime.sh
-        build_model
-        ;;
-    clean)
-        rm -rf bin
-        ;;
-    help|-h|--help)
-        usage
-        ;;
-    *)
-        usage >&2
-        exit 1
-        ;;
+build|all)
+    build_program
+    ;;
+run)
+    build_program
+    trace_on
+    "$PROGRAM" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
+    trace_off
+    ;;
+test)
+    run_tests
+    ;;
+debug)
+    build_program
+    ;;
+check)
+    build_program
+    ;;
+model)
+    build_model
+    ;;
+setup)
+    ./scripts/get_onnxruntime.sh
+    build_model
+    ;;
+clean)
+    rm -rf bin
+    ;;
+help|-h|--help)
+    usage
+    ;;
+*)
+    usage >&2
+    exit 1
+    ;;
 esac
