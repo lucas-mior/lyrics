@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# shellcheck disable=SC2086
+
 if [ -n "$BASH_VERSION" ]; then
     # shellcheck disable=SC3044
     shopt -s expand_aliases
@@ -18,7 +20,7 @@ FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
 PROGRAM_SOURCE=${PROGRAM_SOURCE:-src/main.c}
-TEST_MODULES=${TEST_MODULES:-"audio cli fftw mdx ort stft"}
+TEST_MODULES=$(find src -iname "*.c")
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
@@ -81,15 +83,15 @@ require_command() {
 }
 
 resolve_onnxruntime_package() {
-    require_command "$PKG_CONFIG"
+    require_command $PKG_CONFIG
 
-    if "$PKG_CONFIG" --exists "$ONNXRUNTIME_PKG_CONFIG_NAME"; then
+    if $PKG_CONFIG --exists "$ONNXRUNTIME_PKG_CONFIG_NAME"; then
         printf '%s\n' "$ONNXRUNTIME_PKG_CONFIG_NAME"
         return 0
     fi
 
     if [ "$ONNXRUNTIME_PKG_CONFIG_NAME" = onnxruntime ] && \
-            "$PKG_CONFIG" --exists libonnxruntime; then
+            $PKG_CONFIG --exists libonnxruntime; then
         printf '%s\n' libonnxruntime
         return 0
     fi
@@ -101,15 +103,15 @@ resolve_onnxruntime_package() {
 }
 
 resolve_fftw_package() {
-    require_command "$PKG_CONFIG"
+    require_command $PKG_CONFIG
 
-    if "$PKG_CONFIG" --exists "$FFTW_PKG_CONFIG_NAME"; then
+    if $PKG_CONFIG --exists "$FFTW_PKG_CONFIG_NAME"; then
         printf '%s\n' "$FFTW_PKG_CONFIG_NAME"
         return 0
     fi
 
     if [ "$FFTW_PKG_CONFIG_NAME" = fftw3f ] && \
-            "$PKG_CONFIG" --exists fftw3; then
+            $PKG_CONFIG --exists fftw3; then
         printf '%s\n' fftw3
         return 0
     fi
@@ -123,11 +125,11 @@ dependency_cflags() {
     fftw_package=$(resolve_fftw_package)
 
     if [ -n "$fftw_package" ]; then
-        "$PKG_CONFIG" --cflags "$ort_package" "$fftw_package"
+        $PKG_CONFIG --cflags "$ort_package" "$fftw_package"
         return 0
     fi
 
-    "$PKG_CONFIG" --cflags "$ort_package"
+    $PKG_CONFIG --cflags "$ort_package"
 }
 
 dependency_ldlibs() {
@@ -135,11 +137,11 @@ dependency_ldlibs() {
     fftw_package=$(resolve_fftw_package)
 
     if [ -n "$fftw_package" ]; then
-        "$PKG_CONFIG" --libs "$ort_package" "$fftw_package"
+        $PKG_CONFIG --libs "$ort_package" "$fftw_package"
         return 0
     fi
 
-    "$PKG_CONFIG" --libs "$ort_package"
+    $PKG_CONFIG --libs "$ort_package"
     printf ' %s\n' '-lfftw3f'
 }
 
@@ -171,7 +173,7 @@ run_tests() {
 
         trace_on
         $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags \
-            "-DTESTING_$module=1" \
+            "-DTESTING_$module=1" "$module" \
             $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
             $EXTRA_LDLIBS -o "$output"
         "$output"
