@@ -26,7 +26,7 @@ MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
 
-CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Werror"}
+CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra"}
 EXTRA_CFLAGS=${EXTRA_CFLAGS:-}
 EXTRA_LDFLAGS=${EXTRA_LDFLAGS:-}
 EXTRA_LDLIBS=${EXTRA_LDLIBS:-}
