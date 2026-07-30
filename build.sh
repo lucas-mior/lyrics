@@ -14,6 +14,7 @@ CC=${CC:-cc}
 PYTHON=${PYTHON:-python3}
 PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 ONNXRUNTIME_PKG_CONFIG_NAME=${ONNXRUNTIME_PKG_CONFIG_NAME:-onnxruntime}
+FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
 APP_SOURCES="src/app.c src/cli.c src/audio.c src/ort.c"
@@ -28,7 +29,8 @@ OUTPUT=${OUTPUT:-vocals.wav}
 CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Werror"}
 EXTRA_CFLAGS=${EXTRA_CFLAGS:-}
 EXTRA_LDFLAGS=${EXTRA_LDFLAGS:-}
-EXTRA_LDLIBS=${EXTRA_LDLIBS:-"-lm"}
+EXTRA_LDLIBS=${EXTRA_LDLIBS:-}
+DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
 
 if [ -d third_party/onnxruntime/lib/pkgconfig ]; then
     ort_pc=third_party/onnxruntime/lib/pkgconfig
@@ -54,6 +56,7 @@ environment:
     PYTHON                       Python interpreter, default: python3
     PKG_CONFIG                   pkg-config program, default: pkg-config
     ONNXRUNTIME_PKG_CONFIG_NAME  pkg-config package, default: onnxruntime
+    FFTW_PKG_CONFIG_NAME          pkg-config package, default: fftw3f
     PROGRAM                      output executable, default: bin/uvr-c
     SOURCES                      source files to compile
     TEST_SOURCES                 tested sources, default: src/*.c except main.c
@@ -63,7 +66,8 @@ environment:
     CFLAGS                       compiler flags
     EXTRA_CFLAGS                 additional compiler flags
     EXTRA_LDFLAGS                additional linker flags
-    EXTRA_LDLIBS                 additional libraries, default: -lm
+    EXTRA_LDLIBS                 additional libraries
+    DEFAULT_LDLIBS               default libraries, default: -lm
 USAGE
 }
 
@@ -94,6 +98,49 @@ resolve_onnxruntime_package() {
     exit 1
 }
 
+resolve_fftw_package() {
+    require_command "$PKG_CONFIG"
+
+    if "$PKG_CONFIG" --exists "$FFTW_PKG_CONFIG_NAME"; then
+        printf '%s\n' "$FFTW_PKG_CONFIG_NAME"
+        return 0
+    fi
+
+    if [ "$FFTW_PKG_CONFIG_NAME" = fftw3f ] && \
+            "$PKG_CONFIG" --exists fftw3; then
+        printf '%s\n' fftw3
+        return 0
+    fi
+
+    printf '%s\n' ""
+    return 0
+}
+
+dependency_cflags() {
+    ort_package=$(resolve_onnxruntime_package)
+    fftw_package=$(resolve_fftw_package)
+
+    if [ -n "$fftw_package" ]; then
+        "$PKG_CONFIG" --cflags "$ort_package" "$fftw_package"
+        return 0
+    fi
+
+    "$PKG_CONFIG" --cflags "$ort_package"
+}
+
+dependency_ldlibs() {
+    ort_package=$(resolve_onnxruntime_package)
+    fftw_package=$(resolve_fftw_package)
+
+    if [ -n "$fftw_package" ]; then
+        "$PKG_CONFIG" --libs "$ort_package" "$fftw_package"
+        return 0
+    fi
+
+    "$PKG_CONFIG" --libs "$ort_package"
+    printf ' %s\n' '-lfftw3f'
+}
+
 build_model() {
     require_command "$PYTHON"
     mkdir -p "$(dirname "$MODEL")"
@@ -102,12 +149,14 @@ build_model() {
 
 build_program() {
     mkdir -p "$(dirname "$PROGRAM")"
-    $CC $CFLAGS $EXTRA_CFLAGS $SOURCES \
-        $EXTRA_LDFLAGS $EXTRA_LDLIBS -o "$PROGRAM"
-}
+    dep_cflags=$(dependency_cflags)
+    dep_ldlibs=$(dependency_ldlibs)
 
-run_program() {
-    "$PROGRAM" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
+    trace_on
+    $CC $CFLAGS $EXTRA_CFLAGS $dep_cflags $SOURCES \
+        $EXTRA_LDFLAGS $DEFAULT_LDLIBS $dep_ldlibs $EXTRA_LDLIBS \
+        -o "$PROGRAM"
+    trace_off
 }
 
 run_tests() {
@@ -116,10 +165,14 @@ run_tests() {
         output="bin/test_$module"
 
         mkdir -p bin
+        dep_cflags=$(dependency_cflags)
+        dep_ldlibs=$(dependency_ldlibs)
+
         trace_on
-        $CC $CFLAGS $EXTRA_CFLAGS "-DTESTING_$module=1" $TEST_SOURCES \
-            $EXTRA_LDFLAGS $EXTRA_LDLIBS -o "$output"
-        "bin/test_$module"
+        $CC $CFLAGS $EXTRA_CFLAGS $dep_cflags "-DTESTING_$module=1" \
+            $TEST_SOURCES $EXTRA_LDFLAGS $DEFAULT_LDLIBS $dep_ldlibs \
+            $EXTRA_LDLIBS -o "$output"
+        bin/test_$module
         trace_off
     done
 }
@@ -132,7 +185,9 @@ case "$command" in
         ;;
     run)
         build_program
-        run_program
+        trace_on
+        "$PROGRAM" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
+        trace_off
         ;;
     test)
         run_tests
