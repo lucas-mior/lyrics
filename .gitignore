@@ -4,3 +4,5 @@ bin/
 third_party/
 compile_commands.json
 mistral
+*.o
+*.cmd
