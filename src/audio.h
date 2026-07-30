@@ -1,7 +1,7 @@
 #if !defined(AUDIO_H)
 #define AUDIO_H
 
-#include "../cbase/primitives.h"
+#include "cbase.h"
 
 #include <stdbool.h>
 

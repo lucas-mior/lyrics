@@ -1,7 +1,7 @@
 #if !defined(ORT_H)
 #define ORT_H
 
-#include "../cbase/primitives.h"
+#include "cbase.h"
 
 #include <stdbool.h>
 

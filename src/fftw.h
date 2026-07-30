@@ -1,7 +1,7 @@
 #if !defined(FFTW_H)
 #define FFTW_H
 
-#include "../cbase/primitives.h"
+#include "cbase.h"
 
 #include <stdbool.h>
 

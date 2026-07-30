@@ -1,7 +1,7 @@
 #if !defined(MDX_H)
 #define MDX_H
 
-#include "../cbase/primitives.h"
+#include "cbase.h"
 #include "audio.h"
 #include "ort.h"
 #include "stft.h"

@@ -1,7 +1,7 @@
 #if !defined(STFT_H)
 #define STFT_H
 
-#include "../cbase/primitives.h"
+#include "cbase.h"
 #include "fftw.h"
 
 #include <stdbool.h>

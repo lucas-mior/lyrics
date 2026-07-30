@@ -1,7 +1,7 @@
 #if !defined(CLI_H)
 #define CLI_H
 
-#include "../cbase/primitives.h"
+#include "cbase.h"
 
 #include <stdbool.h>
 
