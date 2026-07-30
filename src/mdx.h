@@ -3,6 +3,7 @@
 
 #include "../cbase/primitives.h"
 #include "ort.h"
+#include "stft.h"
 
 #include <stdbool.h>
 
@@ -47,6 +48,16 @@ typedef struct MdxModelInfo {
 
 void mdx_config_init(MdxConfig *config);
 bool mdx_config_prepare(MdxConfig *config);
+int64 mdx_input_tensor_len(MdxConfig *config);
+bool mdx_pack_input(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    float *left,
+    float *right,
+    int64 frame_count,
+    float *tensor,
+    int64 tensor_len
+);
 void mdx_model_info_init_empty(MdxModelInfo *info);
 bool mdx_model_inspect(
     MdxModelInfo *info,
