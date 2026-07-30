@@ -1,5 +1,11 @@
 #include "fftw.h"
 
+#include "../cbase/base_macros.h"
+
+#if !defined(TESTING_fftw)
+#define TESTING_fftw 0
+#endif
+
 #include <fftw3.h>
 #include <math.h>
 #include <stdio.h>
@@ -27,8 +33,8 @@ fftw_real_plan_init(FftwRealPlan *plan, int32 n_fft) {
     }
 
     complex_count = n_fft/2 + 1;
-    plan->real = fftwf_malloc((size_t)n_fft*sizeof(*plan->real));
-    plan->complex = fftwf_malloc((size_t)complex_count*sizeof(fftwf_complex));
+    plan->real = fftwf_malloc((size_t)(n_fft*SIZEOF(*plan->real)));
+    plan->complex = fftwf_malloc((size_t)(complex_count*SIZEOF(fftwf_complex)));
     if ((plan->real == 0) || (plan->complex == 0)) {
         fftw_real_plan_destroy(plan);
         return false;
@@ -62,13 +68,15 @@ fftw_real_forward(
 ) {
     fftwf_complex *complex;
 
-    if (plan == 0 || input == 0 || output_real == 0 || output_imag == 0) {
+    if ((plan == 0) || (input == 0) || (output_real == 0)
+        || (output_imag == 0)) {
         return false;
     }
-    if (plan->n_fft <= 0 || plan->complex_count <= 0) {
+    if ((plan->n_fft <= 0) || (plan->complex_count <= 0)) {
         return false;
     }
-    if (plan->real == 0 || plan->complex == 0 || plan->forward_plan == 0) {
+    if ((plan->real == 0) || (plan->complex == 0)
+        || (plan->forward_plan == 0)) {
         return false;
     }
 
@@ -97,13 +105,15 @@ fftw_real_inverse(
     fftwf_complex *complex;
     float scale;
 
-    if (plan == 0 || input_real == 0 || input_imag == 0 || output == 0) {
+    if ((plan == 0) || (input_real == 0) || (input_imag == 0)
+        || (output == 0)) {
         return false;
     }
-    if (plan->n_fft <= 0 || plan->complex_count <= 0) {
+    if ((plan->n_fft <= 0) || (plan->complex_count <= 0)) {
         return false;
     }
-    if (plan->real == 0 || plan->complex == 0 || plan->inverse_plan == 0) {
+    if ((plan->real == 0) || (plan->complex == 0)
+        || (plan->inverse_plan == 0)) {
         return false;
     }
 
@@ -235,7 +245,7 @@ main(void) {
     }
 
     fftw_real_plan_destroy(&plan);
-    if (plan.n_fft != 0 || plan.complex_count != 0) {
+    if ((plan.n_fft != 0) || (plan.complex_count != 0)) {
         return fftw_test_fail("destroy resets plan");
     }
 

@@ -1,5 +1,9 @@
 #include "app.h"
 
+#if !defined(TESTING_app)
+#define TESTING_app 0
+#endif
+
 #include "audio.h"
 #include "cli.h"
 #include "mdx.h"

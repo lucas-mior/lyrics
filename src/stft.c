@@ -1,5 +1,11 @@
 #include "stft.h"
 
+#include "../cbase/base_macros.h"
+
+#if !defined(TESTING_stft)
+#define TESTING_stft 0
+#endif
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,17 +33,18 @@ bool
 stft_plan_init(StftPlan *plan, int32 n_fft, int32 hop) {
     stft_plan_init_empty(plan);
 
-    if (n_fft <= 0 || hop <= 0 || hop > n_fft) {
+    if ((n_fft <= 0) || (hop <= 0) || (hop > n_fft)) {
         return false;
     }
 
-    plan->window = malloc((size_t)n_fft*sizeof(*plan->window));
-    plan->frame = malloc((size_t)n_fft*sizeof(*plan->frame));
-    plan->inverse = malloc((size_t)n_fft*sizeof(*plan->inverse));
-    plan->real = malloc((size_t)(n_fft/2 + 1)*sizeof(*plan->real));
-    plan->imag = malloc((size_t)(n_fft/2 + 1)*sizeof(*plan->imag));
-    if (plan->window == 0 || plan->frame == 0 || plan->inverse == 0
-        || plan->real == 0 || plan->imag == 0) {
+    plan->window = malloc((size_t)(n_fft*SIZEOF(*plan->window)));
+    plan->frame = malloc((size_t)(n_fft*SIZEOF(*plan->frame)));
+    plan->inverse = malloc((size_t)(n_fft*SIZEOF(*plan->inverse)));
+    plan->real = malloc((size_t)((n_fft/2 + 1)*SIZEOF(*plan->real)));
+    plan->imag = malloc((size_t)((n_fft/2 + 1)*SIZEOF(*plan->imag)));
+    if ((plan->window == 0) || (plan->frame == 0)
+        || (plan->inverse == 0) || (plan->real == 0)
+        || (plan->imag == 0)) {
         stft_plan_destroy(plan);
         return false;
     }
@@ -64,7 +71,7 @@ int32
 stft_frame_count(StftPlan *plan, int64 input_len) {
     int64 count;
 
-    if (plan == 0 || plan->hop <= 0 || input_len < 0) {
+    if ((plan == 0) || (plan->hop <= 0) || (input_len < 0)) {
         return -1;
     }
 
@@ -87,13 +94,16 @@ stft_forward_channel(
 ) {
     int32 center;
 
-    if (plan == 0 || input == 0 || output_real == 0 || output_imag == 0) {
+    if ((plan == 0) || (input == 0) || (output_real == 0)
+        || (output_imag == 0)) {
         return false;
     }
-    if (plan->n_fft <= 0 || plan->hop <= 0 || plan->complex_count <= 0) {
+    if ((plan->n_fft <= 0) || (plan->hop <= 0)
+        || (plan->complex_count <= 0)) {
         return false;
     }
-    if (input_len < 0 || frame_count != stft_frame_count(plan, input_len)) {
+    if ((input_len < 0)
+        || (frame_count != stft_frame_count(plan, input_len))) {
         return false;
     }
 
@@ -106,7 +116,7 @@ stft_forward_channel(
             int64 input_index;
 
             input_index = start + (int64)i;
-            if (input_index < 0 || input_index >= input_len) {
+            if ((input_index < 0) || (input_index >= input_len)) {
                 plan->frame[i] = 0.0f;
             } else {
                 plan->frame[i] = input[input_index]*plan->window[i];
@@ -141,18 +151,21 @@ stft_inverse_channel(
     float *norm;
     int32 center;
 
-    if (plan == 0 || input_real == 0 || input_imag == 0 || output == 0) {
+    if ((plan == 0) || (input_real == 0) || (input_imag == 0)
+        || (output == 0)) {
         return false;
     }
-    if (plan->n_fft <= 0 || plan->hop <= 0 || plan->complex_count <= 0) {
+    if ((plan->n_fft <= 0) || (plan->hop <= 0)
+        || (plan->complex_count <= 0)) {
         return false;
     }
-    if (output_len < 0 || frame_count != stft_frame_count(plan, output_len)) {
+    if ((output_len < 0)
+        || (frame_count != stft_frame_count(plan, output_len))) {
         return false;
     }
 
-    norm = malloc((size_t)output_len*sizeof(*norm));
-    if (norm == 0 && output_len > 0) {
+    norm = malloc((size_t)(output_len*SIZEOF(*norm)));
+    if ((norm == 0) && (output_len > 0)) {
         return false;
     }
 
@@ -182,7 +195,7 @@ stft_inverse_channel(
 
             output_index = (int64)frame_index*(int64)plan->hop
                            + (int64)i - (int64)center;
-            if (output_index < 0 || output_index >= output_len) {
+            if ((output_index < 0) || (output_index >= output_len)) {
                 continue;
             }
 
@@ -244,7 +257,8 @@ main(void) {
     int32 frame_count;
 
     stft_plan_init_empty(&plan);
-    if (plan.n_fft != 0 || plan.hop != 0 || plan.complex_count != 0) {
+    if ((plan.n_fft != 0) || (plan.hop != 0)
+        || (plan.complex_count != 0)) {
         return stft_test_fail("empty dimensions");
     }
     if (stft_plan_init(&plan, 0, 4)) {
@@ -335,8 +349,8 @@ main(void) {
     }
 
     stft_plan_destroy(&plan);
-    if (plan.window != 0 || plan.frame != 0 || plan.real != 0
-        || plan.imag != 0 || plan.inverse != 0) {
+    if ((plan.window != 0) || (plan.frame != 0) || (plan.real != 0)
+        || (plan.imag != 0) || (plan.inverse != 0)) {
         return stft_test_fail("destroy reset");
     }
 

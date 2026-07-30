@@ -1,5 +1,11 @@
 #include "mdx.h"
 
+#include "../cbase/base_macros.h"
+
+#if !defined(TESTING_mdx)
+#define TESTING_mdx 0
+#endif
+
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
@@ -163,7 +169,8 @@ mdx_input_tensor_len(MdxConfig *config) {
     if (config == 0) {
         return -1;
     }
-    if (config->dim_f <= 0 || config->dim_t <= 0 || config->dim_c <= 0) {
+    if ((config->dim_f <= 0) || (config->dim_t <= 0)
+        || (config->dim_c <= 0)) {
         return -1;
     }
 
@@ -201,25 +208,28 @@ mdx_pack_input(
     int32 stft_frames;
     int32 complex_count;
 
-    if (config == 0 || stft_plan == 0 || left == 0 || right == 0
-        || tensor == 0) {
+    if ((config == 0) || (stft_plan == 0) || (left == 0)
+        || (right == 0) || (tensor == 0)) {
         return false;
     }
-    if (config->dim_c != 4 || config->dim_f <= 0 || config->dim_t <= 0) {
+    if ((config->dim_c != 4) || (config->dim_f <= 0)
+        || (config->dim_t <= 0)) {
         return false;
     }
-    if (stft_plan->n_fft != config->n_fft || stft_plan->hop != config->hop) {
+    if ((stft_plan->n_fft != config->n_fft)
+        || (stft_plan->hop != config->hop)) {
         return false;
     }
     if (stft_plan->complex_count < config->dim_f) {
         return false;
     }
-    if (config->chunk_size <= 0 || frame_count != config->chunk_size) {
+    if ((config->chunk_size <= 0)
+        || (frame_count != config->chunk_size)) {
         return false;
     }
 
     wanted_len = mdx_input_tensor_len(config);
-    if (wanted_len <= 0 || tensor_len < wanted_len) {
+    if ((wanted_len <= 0) || (tensor_len < wanted_len)) {
         return false;
     }
 
@@ -233,16 +243,16 @@ mdx_pack_input(
         return false;
     }
     full_len = (int64)complex_count*(int64)stft_frames;
-    if (full_len > INT64_MAX/(int64)sizeof(*left_real)) {
+    if (full_len > INT64_MAX/SIZEOF(*left_real)) {
         return false;
     }
 
-    left_real = malloc((size_t)(full_len*sizeof(*left_real)));
-    left_imag = malloc((size_t)(full_len*sizeof(*left_imag)));
-    right_real = malloc((size_t)(full_len*sizeof(*right_real)));
-    right_imag = malloc((size_t)(full_len*sizeof(*right_imag)));
-    if (left_real == 0 || left_imag == 0 || right_real == 0
-        || right_imag == 0) {
+    left_real = malloc((size_t)(full_len*SIZEOF(*left_real)));
+    left_imag = malloc((size_t)(full_len*SIZEOF(*left_imag)));
+    right_real = malloc((size_t)(full_len*SIZEOF(*right_real)));
+    right_imag = malloc((size_t)(full_len*SIZEOF(*right_imag)));
+    if ((left_real == 0) || (left_imag == 0) || (right_real == 0)
+        || (right_imag == 0)) {
         free(left_real);
         free(left_imag);
         free(right_real);
@@ -336,25 +346,28 @@ mdx_unpack_output(
     int32 stft_frames;
     int32 complex_count;
 
-    if (config == NULL || stft_plan == NULL || tensor == NULL || left == NULL
-        || right == NULL) {
+    if ((config == NULL) || (stft_plan == NULL) || (tensor == NULL)
+        || (left == NULL) || (right == NULL)) {
         return false;
     }
-    if (config->dim_c != 4 || config->dim_f <= 0 || config->dim_t <= 0) {
+    if ((config->dim_c != 4) || (config->dim_f <= 0)
+        || (config->dim_t <= 0)) {
         return false;
     }
-    if (stft_plan->n_fft != config->n_fft || stft_plan->hop != config->hop) {
+    if ((stft_plan->n_fft != config->n_fft)
+        || (stft_plan->hop != config->hop)) {
         return false;
     }
     if (stft_plan->complex_count < config->dim_f) {
         return false;
     }
-    if (config->chunk_size <= 0 || frame_count != config->chunk_size) {
+    if ((config->chunk_size <= 0)
+        || (frame_count != config->chunk_size)) {
         return false;
     }
 
     wanted_len = mdx_input_tensor_len(config);
-    if (wanted_len <= 0 || tensor_len < wanted_len) {
+    if ((wanted_len <= 0) || (tensor_len < wanted_len)) {
         return false;
     }
 
@@ -368,16 +381,16 @@ mdx_unpack_output(
         return false;
     }
     full_len = (int64)complex_count*(int64)stft_frames;
-    if (full_len > INT64_MAX/(int64)sizeof(*left_real)) {
+    if (full_len > INT64_MAX/SIZEOF(*left_real)) {
         return false;
     }
 
-    left_real = malloc((size_t)(full_len*sizeof(*left_real)));
-    left_imag = malloc((size_t)(full_len*sizeof(*left_imag)));
-    right_real = malloc((size_t)(full_len*sizeof(*right_real)));
-    right_imag = malloc((size_t)(full_len*sizeof(*right_imag)));
-    if (left_real == NULL || left_imag == NULL || right_real == NULL
-        || right_imag == NULL) {
+    left_real = malloc((size_t)(full_len*SIZEOF(*left_real)));
+    left_imag = malloc((size_t)(full_len*SIZEOF(*left_imag)));
+    right_real = malloc((size_t)(full_len*SIZEOF(*right_real)));
+    right_imag = malloc((size_t)(full_len*SIZEOF(*right_imag)));
+    if ((left_real == NULL) || (left_imag == NULL)
+        || (right_real == NULL) || (right_imag == NULL)) {
         free(left_real);
         free(left_imag);
         free(right_real);
@@ -466,26 +479,27 @@ mdx_process_song(
     int64 processed_windows;
     bool result;
 
-    if (config == NULL || stft_plan == NULL || ort_context == NULL
-        || ort_model == NULL || input == NULL || output == NULL) {
+    if ((config == NULL) || (stft_plan == NULL) || (ort_context == NULL)
+        || (ort_model == NULL) || (input == NULL) || (output == NULL)) {
         return false;
     }
-    if (config->chunk_size <= 0 || config->gen_size <= 0
-        || config->trim <= 0) {
+    if ((config->chunk_size <= 0) || (config->gen_size <= 0)
+        || (config->trim <= 0)) {
         return false;
     }
-    if (stft_plan->n_fft != config->n_fft || stft_plan->hop != config->hop) {
+    if ((stft_plan->n_fft != config->n_fft)
+        || (stft_plan->hop != config->hop)) {
         return false;
     }
-    if (input->sample_rate != config->sample_rate
-        || input->channel_count != config->channel_count) {
+    if ((input->sample_rate != config->sample_rate)
+        || (input->channel_count != config->channel_count)) {
         return false;
     }
     if (input->frame_count < 0) {
         return false;
     }
-    if (input->frame_count > 0 && (input->left == NULL
-                                   || input->right == NULL)) {
+    if ((input->frame_count > 0)
+        && ((input->left == NULL) || (input->right == NULL))) {
         return false;
     }
 
@@ -496,18 +510,18 @@ mdx_process_song(
     if (input->frame_count == 0) {
         return true;
     }
-    if (input->frame_count > INT64_MAX/(int64)sizeof(*output->left)) {
+    if (input->frame_count > INT64_MAX/SIZEOF(*output->left)) {
         audio_buffer_destroy(output);
         return false;
     }
 
     output->left = malloc(
-        (size_t)(input->frame_count*sizeof(*output->left))
+        (size_t)(input->frame_count*SIZEOF(*output->left))
     );
     output->right = malloc(
-        (size_t)(input->frame_count*sizeof(*output->right))
+        (size_t)(input->frame_count*SIZEOF(*output->right))
     );
-    if (output->left == NULL || output->right == NULL) {
+    if ((output->left == NULL) || (output->right == NULL)) {
         audio_buffer_destroy(output);
         return false;
     }
@@ -521,21 +535,22 @@ mdx_process_song(
         audio_buffer_destroy(output);
         return false;
     }
-    if (tensor_len > INT64_MAX/(int64)sizeof(*input_data)) {
+    if (tensor_len > INT64_MAX/SIZEOF(*input_data)) {
         audio_buffer_destroy(output);
         return false;
     }
-    input_data = malloc((size_t)(tensor_len*sizeof(*input_data)));
-    window_left = malloc((size_t)(config->chunk_size*sizeof(*window_left)));
-    window_right = malloc((size_t)(config->chunk_size*sizeof(*window_right)));
+    input_data = malloc((size_t)(tensor_len*SIZEOF(*input_data)));
+    window_left = malloc((size_t)(config->chunk_size*SIZEOF(*window_left)));
+    window_right = malloc((size_t)(config->chunk_size*SIZEOF(*window_right)));
     window_output_left = malloc(
-        (size_t)(config->chunk_size*sizeof(*window_output_left))
+        (size_t)(config->chunk_size*SIZEOF(*window_output_left))
     );
     window_output_right = malloc(
-        (size_t)(config->chunk_size*sizeof(*window_output_right))
+        (size_t)(config->chunk_size*SIZEOF(*window_output_right))
     );
-    if (input_data == NULL || window_left == NULL || window_right == NULL
-        || window_output_left == NULL || window_output_right == NULL) {
+    if ((input_data == NULL) || (window_left == NULL)
+        || (window_right == NULL) || (window_output_left == NULL)
+        || (window_output_right == NULL)) {
         free(input_data);
         free(window_left);
         free(window_right);
@@ -608,9 +623,9 @@ mdx_process_song(
                 int64 source_index;
 
                 source_index = source_start + (int64)i;
-                if (source_index < 0 || source_index >= input->frame_count
-                    || source_index < region_source_start
-                    || source_index >= region_source_end) {
+                if ((source_index < 0) || (source_index >= input->frame_count)
+                    || (source_index < region_source_start)
+                    || (source_index >= region_source_end)) {
                     window_left[i] = 0.0f;
                     window_right[i] = 0.0f;
                 } else {
@@ -642,12 +657,12 @@ mdx_process_song(
                                    &output_tensor)) {
                 goto cleanup;
             }
-            if (output_tensor.data_len != tensor_len
-                || output_tensor.shape_len != 4
-                || output_tensor.shape[0] != 1
-                || output_tensor.shape[1] != config->dim_c
-                || output_tensor.shape[2] != config->dim_f
-                || output_tensor.shape[3] != config->dim_t) {
+            if ((output_tensor.data_len != tensor_len)
+                || (output_tensor.shape_len != 4)
+                || (output_tensor.shape[0] != 1)
+                || (output_tensor.shape[1] != config->dim_c)
+                || (output_tensor.shape[2] != config->dim_f)
+                || (output_tensor.shape[3] != config->dim_t)) {
                 fprintf(stderr,
                         "ONNX model returned unexpected output shape\n");
                 goto cleanup;
@@ -722,15 +737,15 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     int64 output_dim_t;
 
     mdx_model_info_init_empty(info);
-    if (config == 0 || model == 0) {
+    if ((config == 0) || (model == 0)) {
         fprintf(stderr, "MDX model inspection arguments are invalid\n");
         return false;
     }
-    if (model->input_name == 0 || model->output_name == 0) {
+    if ((model->input_name == 0) || (model->output_name == 0)) {
         fprintf(stderr, "ONNX model input/output names are missing\n");
         return false;
     }
-    if (model->input_count != 1 || model->output_count != 1) {
+    if ((model->input_count != 1) || (model->output_count != 1)) {
         fprintf(stderr,
                 "MDX models must have 1 input and 1 output, got %d/%d\n",
                 model->input_count,
@@ -757,40 +772,40 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     output_dim_f = model->output_shape[2];
     output_dim_t = model->output_shape[3];
 
-    if (input_batch > 0 && input_batch != 1) {
+    if ((input_batch > 0) && (input_batch != 1)) {
         fprintf(stderr, "MDX model input batch must be 1, got %lld\n",
                 input_batch);
         return false;
     }
-    if (output_batch > 0 && output_batch != 1) {
+    if ((output_batch > 0) && (output_batch != 1)) {
         fprintf(stderr, "MDX model output batch must be 1, got %lld\n",
                 output_batch);
         return false;
     }
-    if (input_channels > 0 && input_channels != config->dim_c) {
+    if ((input_channels > 0) && (input_channels != config->dim_c)) {
         fprintf(stderr, "MDX model input channels must be %d, got %lld\n",
                 config->dim_c,
                 input_channels);
         return false;
     }
-    if (output_channels > 0 && output_channels != config->dim_c) {
+    if ((output_channels > 0) && (output_channels != config->dim_c)) {
         fprintf(stderr, "MDX model output channels must be %d, got %lld\n",
                 config->dim_c,
                 output_channels);
         return false;
     }
 
-    if (input_dim_f > INT_MAX || input_dim_t > INT_MAX) {
+    if ((input_dim_f > INT_MAX) || (input_dim_t > INT_MAX)) {
         fprintf(stderr, "MDX model input dimensions are too large\n");
         return false;
     }
-    if (output_dim_f > INT_MAX || output_dim_t > INT_MAX) {
+    if ((output_dim_f > INT_MAX) || (output_dim_t > INT_MAX)) {
         fprintf(stderr, "MDX model output dimensions are too large\n");
         return false;
     }
 
     if (input_dim_f > 0) {
-        if (config->dim_f > 0 && config->dim_f != input_dim_f) {
+        if ((config->dim_f > 0) && (config->dim_f != input_dim_f)) {
             fprintf(stderr, "--dim-f=%d does not match model dim_f=%lld\n",
                     config->dim_f,
                     input_dim_f);
@@ -799,7 +814,7 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
         config->dim_f = (int32)input_dim_f;
     }
     if (input_dim_t > 0) {
-        if (config->dim_t > 0 && config->dim_t != input_dim_t) {
+        if ((config->dim_t > 0) && (config->dim_t != input_dim_t)) {
             fprintf(stderr, "--dim-t=%d does not match model dim_t=%lld\n",
                     config->dim_t,
                     input_dim_t);
@@ -808,7 +823,7 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
         config->dim_t = (int32)input_dim_t;
     }
     if (output_dim_f > 0) {
-        if (config->dim_f > 0 && config->dim_f != output_dim_f) {
+        if ((config->dim_f > 0) && (config->dim_f != output_dim_f)) {
             fprintf(stderr,
                     "MDX output dim_f=%lld does not match dim_f=%d\n",
                     output_dim_f,
@@ -818,7 +833,7 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
         config->dim_f = (int32)output_dim_f;
     }
     if (output_dim_t > 0) {
-        if (config->dim_t > 0 && config->dim_t != output_dim_t) {
+        if ((config->dim_t > 0) && (config->dim_t != output_dim_t)) {
             fprintf(stderr,
                     "MDX output dim_t=%lld does not match dim_t=%d\n",
                     output_dim_t,
@@ -842,14 +857,14 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     info->channel_count = config->dim_c;
     info->dim_f = config->dim_f;
     info->dim_t = config->dim_t;
-    info->input_shape_dynamic = input_batch <= 0
-                                || input_channels <= 0
-                                || input_dim_f <= 0
-                                || input_dim_t <= 0;
-    info->output_shape_dynamic = output_batch <= 0
-                                 || output_channels <= 0
-                                 || output_dim_f <= 0
-                                 || output_dim_t <= 0;
+    info->input_shape_dynamic = (input_batch <= 0)
+                                || (input_channels <= 0)
+                                || (input_dim_f <= 0)
+                                || (input_dim_t <= 0);
+    info->output_shape_dynamic = (output_batch <= 0)
+                                 || (output_channels <= 0)
+                                 || (output_dim_f <= 0)
+                                 || (output_dim_t <= 0);
 
     return true;
 }

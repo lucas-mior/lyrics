@@ -1,5 +1,9 @@
 #include "ort.h"
 
+#if !defined(TESTING_ort)
+#define TESTING_ort 0
+#endif
+
 #include "../cbase/base_macros.h"
 
 #include <limits.h>
@@ -198,7 +202,7 @@ ort_model_load(OrtContext *context, OrtModel *model, char *model_path) {
 
     ort_model_init_empty(model);
     api = (OrtApi *)context->api;
-    if (api == NULL || context->environment == NULL) {
+    if ((api == NULL) || (context->environment == NULL)) {
         fprintf(stderr, "ONNX Runtime context is not initialized\n");
         return false;
     }
@@ -242,7 +246,7 @@ ort_model_get_io_info(OrtContext *context, OrtModel *model) {
     size_t count;
 
     api = (OrtApi *)context->api;
-    if (api == NULL || model->session == NULL) {
+    if ((api == NULL) || (model->session == NULL)) {
         fprintf(stderr, "ONNX Runtime model is not loaded\n");
         return false;
     }
@@ -268,7 +272,7 @@ ort_model_get_io_info(OrtContext *context, OrtModel *model) {
     if (!ort_check(context, status, "getting ONNX model input count")) {
         return false;
     }
-    if (count <= 0 || count > INT_MAX) {
+    if ((count <= 0) || (count > INT_MAX)) {
         fprintf(stderr, "unsupported ONNX input count: %lld\n", (int64)count);
         return false;
     }
@@ -278,7 +282,7 @@ ort_model_get_io_info(OrtContext *context, OrtModel *model) {
     if (!ort_check(context, status, "getting ONNX model output count")) {
         return false;
     }
-    if (count <= 0 || count > INT_MAX) {
+    if ((count <= 0) || (count > INT_MAX)) {
         fprintf(stderr, "unsupported ONNX output count: %lld\n", (int64)count);
         return false;
     }
@@ -379,15 +383,16 @@ ort_tensor_create_f32(
 
     ort_tensor_init_empty(tensor);
     api = (OrtApi *)context->api;
-    if (api == NULL || context->memory_info == NULL) {
+    if ((api == NULL) || (context->memory_info == NULL)) {
         fprintf(stderr, "ONNX Runtime context is not initialized\n");
         return false;
     }
-    if (data == NULL || data_len <= 0) {
+    if ((data == NULL) || (data_len <= 0)) {
         fprintf(stderr, "ONNX tensor data is empty\n");
         return false;
     }
-    if (shape == NULL || shape_len <= 0 || shape_len > ORT_TENSOR_MAX_RANK) {
+    if ((shape == NULL) || (shape_len <= 0)
+        || (shape_len > ORT_TENSOR_MAX_RANK)) {
         fprintf(stderr, "ONNX tensor shape is invalid\n");
         return false;
     }
@@ -455,7 +460,8 @@ ort_model_run_f32(
 
     ort_tensor_init_empty(output);
     api = (OrtApi *)context->api;
-    if (api == NULL || model->session == NULL || input->value == NULL) {
+    if ((api == NULL) || (model->session == NULL)
+        || (input->value == NULL)) {
         fprintf(stderr, "ONNX Runtime run arguments are invalid\n");
         return false;
     }

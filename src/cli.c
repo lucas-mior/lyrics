@@ -1,5 +1,11 @@
 #include "cli.h"
 
+#include "../cbase/base_macros.h"
+
+#if !defined(TESTING_cli)
+#define TESTING_cli 0
+#endif
+
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -9,11 +15,11 @@ static bool
 string_equal(char *a, char *b) {
     int32 i;
 
-    if (a == NULL || b == NULL) {
+    if ((a == NULL) || (b == NULL)) {
         return false;
     }
 
-    for (i = 0; a[i] != '\0' && b[i] != '\0'; i += 1) {
+    for (i = 0; (a[i] != '\0') && (b[i] != '\0'); i += 1) {
         if (a[i] != b[i]) {
             return false;
         }
@@ -81,11 +87,11 @@ parse_int32(char *value, char *name, int32 *out) {
     errno = 0;
     end = NULL;
     result = strtoll(value, &end, 10);
-    if (errno != 0 || end == value || *end != '\0') {
+    if ((errno != 0) || (end == value) || (*end != '\0')) {
         fprintf(stderr, "%s must be an integer: %s\n", name, value);
         return -1;
     }
-    if (result < 0 || result > INT_MAX) {
+    if ((result < 0) || (result > INT_MAX)) {
         fprintf(stderr, "%s is outside the supported range: %s\n", name,
                 value);
         return -1;
@@ -126,7 +132,7 @@ parse_float(char *value, char *name, float *out) {
     errno = 0;
     end = NULL;
     result = strtof(value, &end);
-    if (errno != 0 || end == value || *end != '\0') {
+    if ((errno != 0) || (end == value) || (*end != '\0')) {
         fprintf(stderr, "%s must be a number: %s\n", name, value);
         return -1;
     }
@@ -142,7 +148,8 @@ parse_float(char *value, char *name, float *out) {
 
 static int32
 parse_format(CliOptions *options, char *value) {
-    if (string_equal(value, "wav") || string_equal(value, "flac")
+    if (string_equal(value, "wav")
+        || string_equal(value, "flac")
         || string_equal(value, "mp3")) {
         options->format = value;
         return 0;
@@ -220,15 +227,18 @@ string_or_empty(char *value) {
 
 static int32
 parse_value_option(CliOptions *options, char *arg, char *value) {
-    if (string_equal(arg, "-i") || string_equal(arg, "--input")) {
+    if (string_equal(arg, "-i")
+        || string_equal(arg, "--input")) {
         options->input_path = value;
         return 0;
     }
-    if (string_equal(arg, "-o") || string_equal(arg, "--output")) {
+    if (string_equal(arg, "-o")
+        || string_equal(arg, "--output")) {
         options->output_path = value;
         return 0;
     }
-    if (string_equal(arg, "-m") || string_equal(arg, "--model")) {
+    if (string_equal(arg, "-m")
+        || string_equal(arg, "--model")) {
         options->model_path = value;
         return 0;
     }
@@ -375,7 +385,8 @@ cli_parse(CliOptions *options, int argc, char **argv) {
     int32 parsed;
 
     for (i = 1; i < argc; i += 1) {
-        if (string_equal(argv[i], "-h") || string_equal(argv[i], "--help")) {
+        if (string_equal(argv[i], "-h")
+            || string_equal(argv[i], "--help")) {
             cli_print_usage(argv[0]);
             return 1;
         }
@@ -505,7 +516,7 @@ cli_test_successful_parse(void) {
     };
     int32 argc;
 
-    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    argc = (int32)(SIZEOF(argv) / SIZEOF(argv[0]));
     cli_options_init(&options);
     if (cli_parse(&options, argc, argv) != 0) {
         return cli_test_fail("valid command line did not parse");
@@ -573,7 +584,7 @@ cli_test_default_parse(void) {
     };
     int32 argc;
 
-    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    argc = (int32)(SIZEOF(argv) / SIZEOF(argv[0]));
     cli_options_init(&options);
     if (cli_parse(&options, argc, argv) != 0) {
         return cli_test_fail("default command line did not parse");
@@ -630,7 +641,7 @@ cli_test_reject_missing_required(void) {
     };
     int32 argc;
 
-    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    argc = (int32)(SIZEOF(argv) / SIZEOF(argv[0]));
     cli_options_init(&options);
     if (cli_parse(&options, argc, argv) == 0) {
         return cli_test_fail("missing model accepted");
@@ -655,7 +666,7 @@ cli_test_reject_invalid_value(void) {
     };
     int32 argc;
 
-    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    argc = (int32)(SIZEOF(argv) / SIZEOF(argv[0]));
     cli_options_init(&options);
     if (cli_parse(&options, argc, argv) == 0) {
         return cli_test_fail("invalid model output accepted");

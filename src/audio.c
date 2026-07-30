@@ -1,5 +1,11 @@
 #include "audio.h"
 
+#include "../cbase/base_macros.h"
+
+#if !defined(TESTING_audio)
+#define TESTING_audio 0
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -32,7 +38,7 @@ audio_buffer_destroy(AudioBuffer *audio) {
 
 static bool
 audio_run_process(char **argv) {
-    int status;
+    int32 status;
     pid_t pid;
     pid_t waited;
 
@@ -42,7 +48,7 @@ audio_run_process(char **argv) {
     }
 
     if (pid == 0) {
-        int null_fd;
+        int32 null_fd;
 
         null_fd = open("/dev/null", O_WRONLY);
         if (null_fd >= 0) {
@@ -121,8 +127,8 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
     };
     char *raw;
     float *samples;
-    int pipe_fds[2];
-    int status;
+    int32 pipe_fds[2];
+    int32 status;
     int64 frame_bytes;
     int64 raw_capacity;
     int64 raw_len;
@@ -144,7 +150,7 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
     }
 
     if (pid == 0) {
-        int null_fd;
+        int32 null_fd;
 
         close(pipe_fds[0]);
         dup2(pipe_fds[1], STDOUT_FILENO);
@@ -226,12 +232,13 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
         waited = waitpid(pid, &status, 0);
     } while ((waited < 0) && (errno == EINTR));
 
-    if (waited < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+    if ((waited < 0) || !WIFEXITED(status)
+        || (WEXITSTATUS(status) != 0)) {
         free(raw);
         return false;
     }
 
-    frame_bytes = 2*(int64)sizeof(float);
+    frame_bytes = 2*SIZEOF(float);
     if ((raw_len % frame_bytes) != 0) {
         free(raw);
         return false;
@@ -245,10 +252,10 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
         return true;
     }
 
-    sample_count = audio->frame_count*(int64)sizeof(*audio->left);
+    sample_count = audio->frame_count*SIZEOF(*audio->left);
     audio->left = malloc((size_t)sample_count);
     audio->right = malloc((size_t)sample_count);
-    if (audio->left == 0 || audio->right == 0) {
+    if ((audio->left == 0) || (audio->right == 0)) {
         free(raw);
         audio_buffer_destroy(audio);
         return false;
@@ -296,28 +303,29 @@ audio_write_file(
         0,
     };
     float *interleaved;
-    int pipe_fds[2];
-    int status;
+    int32 pipe_fds[2];
+    int32 status;
     int64 frame_capacity;
     int64 frame_offset;
     pid_t pid;
     pid_t waited;
     void (*previous_sigpipe)(int);
 
-    if (audio == 0 || path == 0 || format == 0 || ffmpeg_path == 0) {
+    if ((audio == 0) || (path == 0) || (format == 0)
+        || (ffmpeg_path == 0)) {
         return false;
     }
-    if (audio->frame_count < 0 || audio->sample_rate != 44100
-        || audio->channel_count != 2) {
+    if ((audio->frame_count < 0) || (audio->sample_rate != 44100)
+        || (audio->channel_count != 2)) {
         return false;
     }
-    if (audio->frame_count > 0
-        && (audio->left == 0 || audio->right == 0)) {
+    if ((audio->frame_count > 0)
+        && ((audio->left == 0) || (audio->right == 0))) {
         return false;
     }
 
     frame_capacity = 4096;
-    interleaved = malloc((size_t)(2*frame_capacity*sizeof(*interleaved)));
+    interleaved = malloc((size_t)(2*frame_capacity*SIZEOF(*interleaved)));
     if (interleaved == 0) {
         return false;
     }
@@ -336,7 +344,7 @@ audio_write_file(
     }
 
     if (pid == 0) {
-        int null_fd;
+        int32 null_fd;
 
         close(pipe_fds[1]);
         dup2(pipe_fds[0], STDIN_FILENO);
@@ -377,7 +385,7 @@ audio_write_file(
 
         bytes = (char *)interleaved;
         byte_offset = 0;
-        byte_count = 2*chunk_frames*(int64)sizeof(*interleaved);
+        byte_count = 2*chunk_frames*SIZEOF(*interleaved);
         while (byte_offset < byte_count) {
             ssize_t bytes_written;
 
@@ -388,7 +396,7 @@ audio_write_file(
                 byte_offset += (int64)bytes_written;
                 continue;
             }
-            if (bytes_written < 0 && errno == EINTR) {
+            if ((bytes_written < 0) && (errno == EINTR)) {
                 continue;
             }
 
@@ -467,7 +475,7 @@ main(void) {
         "printf '\\000\\000\\200\\077\\000\\000\\000\\300'\n"
         "printf '\\000\\000\\140\\100\\000\\000\\210\\300'\n"
         "exit 0\n";
-    int fd;
+    int32 fd;
 
     audio_buffer_init(&audio);
     if ((audio.left != 0) || (audio.right != 0)) {
@@ -486,12 +494,12 @@ main(void) {
         return audio_test_fail("missing ffmpeg decode accepted");
     }
 
-    if (snprintf(script, sizeof(script),
+    if (snprintf(script, (size_t)SIZEOF(script),
                  "/tmp/uvr_fake_ffmpeg_%lld",
                  (int64)getpid()) < 0) {
         return audio_test_fail("fake ffmpeg path");
     }
-    if (snprintf(output, sizeof(output),
+    if (snprintf(output, (size_t)SIZEOF(output),
                  "/tmp/uvr_fake_audio_%lld",
                  (int64)getpid()) < 0) {
         return audio_test_fail("fake output path");
@@ -500,8 +508,8 @@ main(void) {
     if (fd < 0) {
         return audio_test_fail("fake ffmpeg file");
     }
-    if (write(fd, script_text, sizeof(script_text) - 1)
-        != (ssize_t)(sizeof(script_text) - 1)) {
+    if (write(fd, script_text, (size_t)SIZEOF(script_text) - 1)
+        != (ssize_t)(SIZEOF(script_text) - 1)) {
         close(fd);
         unlink(script);
         return audio_test_fail("fake ffmpeg write");
@@ -558,8 +566,8 @@ main(void) {
         unlink(script);
         return audio_test_fail("open fake output");
     }
-    if (read(fd, output_raw, sizeof(output_raw))
-        != (ssize_t)sizeof(output_raw)) {
+    if (read(fd, output_raw, (size_t)SIZEOF(output_raw))
+        != (ssize_t)SIZEOF(output_raw)) {
         close(fd);
         audio_buffer_destroy(&audio);
         unlink(script);
@@ -567,7 +575,7 @@ main(void) {
         return audio_test_fail("read fake output");
     }
     close(fd);
-    for (int32 i = 0; i < (int32)sizeof(output_raw); i += 1) {
+    for (int32 i = 0; i < (int32)SIZEOF(output_raw); i += 1) {
         if (output_raw[i] != expected_raw[i]) {
             audio_buffer_destroy(&audio);
             unlink(script);
