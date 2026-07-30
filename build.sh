@@ -157,7 +157,7 @@ build_program() {
     dep_ldlibs=$(dependency_ldlibs)
 
     trace_on
-    $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags "$PROGRAM_SOURCE" \
+    $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags $PROGRAM_SOURCE \
         $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS $EXTRA_LDLIBS \
         -o "$PROGRAM"
     trace_off
