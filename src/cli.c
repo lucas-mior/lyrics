@@ -6,11 +6,6 @@
 #define TESTING_cli 0
 #endif
 
-#include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 static bool
 string_equal(char *a, char *b) {
     int32 i;
