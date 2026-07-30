@@ -1,10 +1,9 @@
 CC ?= cc
 PYTHON ?= python3
-ONNXRUNTIME_ROOT ?= third_party/onnxruntime
+ONNXRUNTIME_ROOT ?= /usr/include/onnxruntime
 
-CPPFLAGS += -I$(ONNXRUNTIME_ROOT)/include
-CFLAGS += -std=c11 -O2 -g -Wall -Wextra -Wpedantic -Werror
-LDFLAGS += -L$(ONNXRUNTIME_ROOT)/lib
+CPPFLAGS += -I$(ONNXRUNTIME_ROOT)
+CFLAGS += -std=c11 -O2 -g -Wall -Wextra -Werror
 LDLIBS += -lonnxruntime -lm
 
 PROGRAM := build/ort-identity
