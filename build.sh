@@ -25,15 +25,15 @@ MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
 
+CFLAGS=${CFLAGS:-}
 CPPFLAGS="${CPPFLAGS:-}"
+LDFLAGS="${LDFLAGS:-}"
+
 CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700"
 CPPFLAGS="$CPPFLAGS -Icbase -I. -Isrc"
 
 CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Wvla -Wno-unused-function"}
 
-EXTRA_CFLAGS=${EXTRA_CFLAGS:-}
-EXTRA_LDFLAGS=${EXTRA_LDFLAGS:-}
-EXTRA_LDLIBS=${EXTRA_LDLIBS:-}
 DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
 
 if [ -d third_party/onnxruntime/lib/pkgconfig ]; then
@@ -68,9 +68,6 @@ environment:
     INPUT                        run command input path, default: song.mp3
     OUTPUT                       run command output path, default: vocals.wav
     CFLAGS                       compiler flags
-    EXTRA_CFLAGS                 additional compiler flags
-    EXTRA_LDFLAGS                additional linker flags
-    EXTRA_LDLIBS                 additional libraries
     DEFAULT_LDLIBS               default libraries, default: -lm
 USAGE
 }
@@ -157,8 +154,8 @@ build_program() {
     dep_ldlibs=$(dependency_ldlibs)
 
     trace_on
-    $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags $PROGRAM_SOURCE \
-        $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS $EXTRA_LDLIBS \
+    $CC $CPPFLAGS $CFLAGS $dep_cflags $PROGRAM_SOURCE \
+        $LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
         -o $PROGRAM
     trace_off
 }
@@ -173,10 +170,10 @@ run_tests() {
         dep_ldlibs=$(dependency_ldlibs)
 
         trace_on
-        $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags \
+        $CC $CPPFLAGS $CFLAGS $dep_cflags \
             "-DTESTING_$name=1" "$module" \
-            $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
-            $EXTRA_LDLIBS -o $output
+            $dep_ldlibs $DEFAULT_LDLIBS \
+            -o $output
         "$output"
         trace_off
     done
