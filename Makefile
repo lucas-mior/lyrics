@@ -6,7 +6,7 @@ CPPFLAGS += -I$(ONNXRUNTIME_ROOT)
 CFLAGS += -std=c11 -O2 -g -Wall -Wextra -Werror
 LDLIBS += -lonnxruntime -lm
 
-PROGRAM := build/ort-identity
+PROGRAM := bin/ort-identity
 SOURCE := src/main.c
 MODEL := models/identity.onnx
 
@@ -32,4 +32,4 @@ run: all
 		./$(PROGRAM) $(MODEL)
 
 clean:
-	rm -rf build $(MODEL)
+	rm -rf bin $(MODEL)
