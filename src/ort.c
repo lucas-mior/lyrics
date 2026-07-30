@@ -33,7 +33,7 @@ ort_model_read_tensor_info(
     OrtTypeInfo *type_info;
     OrtStatus *status;
     ONNXTensorElementDataType element_type;
-    OrtTensorTypeAndShapeInfo *tensor_info;
+    OrtTensorTypeAndShapeInfo const *tensor_info;
     int64_t dims[ORT_TENSOR_MAX_RANK];
     size_t dim_count;
 
@@ -51,8 +51,11 @@ ort_model_read_tensor_info(
         }
     }
 
-    tensor_info = (OrtTensorTypeAndShapeInfo *)
-        api->CastTypeInfoToTensorInfo(type_info);
+    status = api->CastTypeInfoToTensorInfo(type_info, &tensor_info);
+    if (!ort_check(context, status, "casting ONNX type info to tensor info")) {
+        api->ReleaseTypeInfo(type_info);
+        return false;
+    }
     if (tensor_info == NULL) {
         fprintf(stderr, "ONNX model I/O is not a tensor\n");
         api->ReleaseTypeInfo(type_info);
@@ -245,13 +248,19 @@ ort_model_get_io_info(OrtContext *context, OrtModel *model) {
     }
 
     if (model->input_name) {
-        api->AllocatorFree((OrtAllocator *)context->allocator,
-                           model->input_name);
+        status = api->AllocatorFree((OrtAllocator *)context->allocator,
+                                    model->input_name);
+        if (!ort_check(context, status, "freeing ONNX input name")) {
+            return false;
+        }
         model->input_name = 0;
     }
     if (model->output_name) {
-        api->AllocatorFree((OrtAllocator *)context->allocator,
-                           model->output_name);
+        status = api->AllocatorFree((OrtAllocator *)context->allocator,
+                                    model->output_name);
+        if (!ort_check(context, status, "freeing ONNX output name")) {
+            return false;
+        }
         model->output_name = 0;
     }
 
@@ -318,16 +327,19 @@ ort_model_get_io_info(OrtContext *context, OrtModel *model) {
 void
 ort_model_destroy(OrtContext *context, OrtModel *model) {
     OrtApi *api;
+    OrtStatus *status;
 
     api = (OrtApi *)context->api;
     if (api) {
         if (model->input_name) {
-            api->AllocatorFree((OrtAllocator *)context->allocator,
-                               model->input_name);
+            status = api->AllocatorFree((OrtAllocator *)context->allocator,
+                                        model->input_name);
+            ort_check(context, status, "freeing ONNX input name");
         }
         if (model->output_name) {
-            api->AllocatorFree((OrtAllocator *)context->allocator,
-                               model->output_name);
+            status = api->AllocatorFree((OrtAllocator *)context->allocator,
+                                        model->output_name);
+            ort_check(context, status, "freeing ONNX output name");
         }
         if (model->session) {
             api->ReleaseSession((OrtSession *)model->session);
@@ -436,7 +448,7 @@ ort_model_run_f32(
     ONNXTensorElementDataType element_type;
     int64_t dims[ORT_TENSOR_MAX_RANK];
     size_t dim_count;
-    int64_t element_count;
+    size_t element_count;
     int32 is_tensor;
     char *input_names[1];
     char *output_names[1];
@@ -525,6 +537,14 @@ ort_model_run_f32(
 
     status = api->GetTensorShapeElementCount(tensor_info, &element_count);
     if (!ort_check(context, status, "getting ONNX output element count")) {
+        api->ReleaseTensorTypeAndShapeInfo(tensor_info);
+        api->ReleaseValue(output_value);
+        return false;
+    }
+
+    if (element_count > (size_t)INT64_MAX) {
+        fprintf(stderr, "ONNX output tensor is too large: %llu\n",
+                (uint64)element_count);
         api->ReleaseTensorTypeAndShapeInfo(tensor_info);
         api->ReleaseValue(output_value);
         return false;
