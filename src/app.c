@@ -3,6 +3,7 @@
 #include "audio.h"
 #include "cli.h"
 #include "fftw.h"
+#include "mdx.h"
 #include "ort.h"
 
 #include <stdio.h>
@@ -12,6 +13,8 @@ int32
 app_run(int argc, char **argv) {
     CliOptions options;
     FftwRealPlan fftw_plan;
+    MdxConfig mdx_config;
+    MdxModelInfo mdx_info;
     OrtContext ort_context;
     OrtModel ort_model;
     FILE *model_file;
@@ -30,8 +33,22 @@ app_run(int argc, char **argv) {
 
     result = EXIT_FAILURE;
     fftw_real_plan_init_empty(&fftw_plan);
+    mdx_config_init(&mdx_config);
+    mdx_model_info_init_empty(&mdx_info);
     ort_context_init_empty(&ort_context);
     ort_model_init_empty(&ort_model);
+
+    mdx_config.n_fft = options.n_fft;
+    mdx_config.hop = options.hop;
+    mdx_config.dim_f = options.dim_f;
+    mdx_config.dim_t = options.dim_t;
+    mdx_config.chunk_seconds = options.chunk_seconds;
+    mdx_config.margin_seconds = options.margin_seconds;
+    mdx_config.compensate = options.compensate;
+    mdx_config.denoise = options.denoise;
+    if (options.model_output == CLI_MODEL_OUTPUT_INSTRUMENTAL) {
+        mdx_config.model_output = MDX_MODEL_OUTPUT_INSTRUMENTAL;
+    }
 
     if (!audio_check_ffmpeg(options.ffmpeg_path)) {
         fprintf(stderr, "could not run ffmpeg: %s\n", options.ffmpeg_path);
@@ -69,7 +86,21 @@ app_run(int argc, char **argv) {
         goto cleanup;
     }
 
+    if (!mdx_model_inspect(&mdx_info, &mdx_config, &ort_model)) {
+        fprintf(stderr, "ONNX model is not a supported MDX-Net model: %s\n",
+                options.model_path);
+        goto cleanup;
+    }
+
     cli_print_options(&options);
+    fprintf(stderr,
+            "MDX model: input=%s output=%s shape=[%d, %d, %d, %d]\n",
+            mdx_info.input_name,
+            mdx_info.output_name,
+            mdx_info.batch_size,
+            mdx_info.channel_count,
+            mdx_info.dim_f,
+            mdx_info.dim_t);
     fprintf(stderr, "audio extraction is not implemented yet\n");
     result = EXIT_SUCCESS;
 
