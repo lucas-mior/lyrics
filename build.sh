@@ -27,7 +27,7 @@ CPPFLAGS="${CPPFLAGS:-}"
 CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700"
 CPPFLAGS="$CPPFLAGS -Icbase -I. -Isrc"
 
-CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Wvla"}
+CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Wvla -Wno-unused-function"}
 
 EXTRA_CFLAGS=${EXTRA_CFLAGS:-}
 EXTRA_LDFLAGS=${EXTRA_LDFLAGS:-}
