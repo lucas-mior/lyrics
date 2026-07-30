@@ -1,4 +1,13 @@
 #!/bin/sh
+
+if [ -n "$BASH_VERSION" ]; then
+    # shellcheck disable=SC3044
+    shopt -s expand_aliases
+fi
+
+alias trace_on='set -x'
+alias trace_off='{ set +x; } 2>/dev/null'
+
 set -eu
 
 CC=${CC:-cc}
@@ -7,10 +16,11 @@ PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 ONNXRUNTIME_PKG_CONFIG_NAME=${ONNXRUNTIME_PKG_CONFIG_NAME:-onnxruntime}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
-DEFAULT_SOURCES="src/main.c src/app.c src/cli.c src/audio.c"
-DEFAULT_SOURCES="$DEFAULT_SOURCES src/ort.c src/mdx.c"
-DEFAULT_SOURCES="$DEFAULT_SOURCES src/stft.c src/fftw.c"
+APP_SOURCES="src/app.c src/cli.c src/audio.c src/ort.c"
+APP_SOURCES="$APP_SOURCES src/mdx.c src/stft.c src/fftw.c"
+DEFAULT_SOURCES="src/main.c $APP_SOURCES"
 SOURCES=${SOURCES:-$DEFAULT_SOURCES}
+TEST_SOURCES=${TEST_SOURCES:-$APP_SOURCES}
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
@@ -33,6 +43,7 @@ usage: ./build.sh [command]
 commands:
     build    build the executable (default)
     run      build and run the CLI parser
+    test     build and run all src/*.c TESTING_ module tests
     model    regenerate models/identity.onnx
     setup    download ONNX Runtime and regenerate the identity model
     clean    remove generated build outputs
@@ -45,6 +56,7 @@ environment:
     ONNXRUNTIME_PKG_CONFIG_NAME  pkg-config package, default: onnxruntime
     PROGRAM                      output executable, default: bin/uvr-c
     SOURCES                      source files to compile
+    TEST_SOURCES                 tested sources, default: src/*.c except main.c
     MODEL                        ONNX model path, default: models/identity.onnx
     INPUT                        run command input path, default: song.mp3
     OUTPUT                       run command output path, default: vocals.wav
@@ -98,6 +110,20 @@ run_program() {
     "$PROGRAM" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
 }
 
+run_tests() {
+    for source in $TEST_SOURCES; do
+        module=$(basename "$source" .c)
+        output="bin/test_$module"
+
+        mkdir -p bin
+        trace_on
+        $CC $CFLAGS $EXTRA_CFLAGS "-DTESTING_$module=1" $TEST_SOURCES \
+            $EXTRA_LDFLAGS $EXTRA_LDLIBS -o "$output"
+        "bin/test_$module"
+        trace_off
+    done
+}
+
 command=${1:-build}
 
 case "$command" in
@@ -107,6 +133,9 @@ case "$command" in
     run)
         build_program
         run_program
+        ;;
+    test)
+        run_tests
         ;;
     model)
         build_model

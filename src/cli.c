@@ -463,3 +463,223 @@ cli_print_options(CliOptions *options) {
 
     return;
 }
+
+#if TESTING_cli
+
+static int32
+cli_test_fail(char *name) {
+    fprintf(stderr, "cli test failed: %s\n", name);
+
+    return 1;
+}
+
+static int32
+cli_test_successful_parse(void) {
+    CliOptions options;
+    char *argv[] = {
+        "uvr-c",
+        "-i",
+        "song.mp3",
+        "--output=voice.flac",
+        "-m",
+        "models/Kim_Vocal_2.onnx",
+        "--ffmpeg",
+        "ffmpeg-custom",
+        "--format",
+        "flac",
+        "--chunk-seconds=45",
+        "--margin-seconds",
+        "0",
+        "--denoise",
+        "--compensate",
+        "1.5",
+        "--n-fft",
+        "4096",
+        "--hop=512",
+        "--dim-f",
+        "2048",
+        "--dim-t=256",
+        "--model-output",
+        "instrumental",
+        "--clip-mode=none",
+    };
+    int32 argc;
+
+    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    cli_options_init(&options);
+    if (cli_parse(&options, argc, argv) != 0) {
+        return cli_test_fail("valid command line did not parse");
+    }
+    if (!string_equal(options.input_path, "song.mp3")) {
+        return cli_test_fail("input path");
+    }
+    if (!string_equal(options.output_path, "voice.flac")) {
+        return cli_test_fail("output path");
+    }
+    if (!string_equal(options.model_path, "models/Kim_Vocal_2.onnx")) {
+        return cli_test_fail("model path");
+    }
+    if (!string_equal(options.ffmpeg_path, "ffmpeg-custom")) {
+        return cli_test_fail("ffmpeg path");
+    }
+    if (!string_equal(options.format, "flac")) {
+        return cli_test_fail("format");
+    }
+    if (options.chunk_seconds != 45) {
+        return cli_test_fail("chunk seconds");
+    }
+    if (options.margin_seconds != 0) {
+        return cli_test_fail("margin seconds");
+    }
+    if (!options.denoise) {
+        return cli_test_fail("denoise");
+    }
+    if (options.compensate != 1.5f) {
+        return cli_test_fail("compensate");
+    }
+    if (options.n_fft != 4096) {
+        return cli_test_fail("n_fft");
+    }
+    if (options.hop != 512) {
+        return cli_test_fail("hop");
+    }
+    if (options.dim_f != 2048) {
+        return cli_test_fail("dim_f");
+    }
+    if (options.dim_t != 256) {
+        return cli_test_fail("dim_t");
+    }
+    if (options.model_output != CLI_MODEL_OUTPUT_INSTRUMENTAL) {
+        return cli_test_fail("model output");
+    }
+    if (options.clip_mode != CLI_CLIP_MODE_NONE) {
+        return cli_test_fail("clip mode");
+    }
+
+    return 0;
+}
+
+static int32
+cli_test_default_parse(void) {
+    CliOptions options;
+    char *argv[] = {
+        "uvr-c",
+        "-i",
+        "song.mp3",
+        "-o",
+        "voice.wav",
+        "-m",
+        "model.onnx",
+    };
+    int32 argc;
+
+    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    cli_options_init(&options);
+    if (cli_parse(&options, argc, argv) != 0) {
+        return cli_test_fail("default command line did not parse");
+    }
+    if (!string_equal(options.ffmpeg_path, "ffmpeg")) {
+        return cli_test_fail("default ffmpeg");
+    }
+    if (!string_equal(options.format, "wav")) {
+        return cli_test_fail("default format");
+    }
+    if (options.chunk_seconds != 30) {
+        return cli_test_fail("default chunk seconds");
+    }
+    if (options.margin_seconds != 3) {
+        return cli_test_fail("default margin seconds");
+    }
+    if (options.n_fft != 6144) {
+        return cli_test_fail("default n_fft");
+    }
+    if (options.hop != 1024) {
+        return cli_test_fail("default hop");
+    }
+    if (options.dim_f != 0) {
+        return cli_test_fail("default dim_f");
+    }
+    if (options.dim_t != 0) {
+        return cli_test_fail("default dim_t");
+    }
+    if (options.compensate != 1.035f) {
+        return cli_test_fail("default compensate");
+    }
+    if (options.denoise) {
+        return cli_test_fail("default denoise");
+    }
+    if (options.model_output != CLI_MODEL_OUTPUT_VOCALS) {
+        return cli_test_fail("default model output");
+    }
+    if (options.clip_mode != CLI_CLIP_MODE_CLAMP) {
+        return cli_test_fail("default clip mode");
+    }
+
+    return 0;
+}
+
+static int32
+cli_test_reject_missing_required(void) {
+    CliOptions options;
+    char *argv[] = {
+        "uvr-c",
+        "-i",
+        "song.mp3",
+        "-o",
+        "voice.wav",
+    };
+    int32 argc;
+
+    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    cli_options_init(&options);
+    if (cli_parse(&options, argc, argv) == 0) {
+        return cli_test_fail("missing model accepted");
+    }
+
+    return 0;
+}
+
+static int32
+cli_test_reject_invalid_value(void) {
+    CliOptions options;
+    char *argv[] = {
+        "uvr-c",
+        "-i",
+        "song.mp3",
+        "-o",
+        "voice.wav",
+        "-m",
+        "model.onnx",
+        "--model-output",
+        "drums",
+    };
+    int32 argc;
+
+    argc = (int32)(sizeof(argv) / sizeof(argv[0]));
+    cli_options_init(&options);
+    if (cli_parse(&options, argc, argv) == 0) {
+        return cli_test_fail("invalid model output accepted");
+    }
+
+    return 0;
+}
+
+int
+main(void) {
+    if (cli_test_successful_parse() != 0) {
+        return 1;
+    }
+    if (cli_test_default_parse() != 0) {
+        return 1;
+    }
+    if (cli_test_reject_missing_required() != 0) {
+        return 1;
+    }
+    if (cli_test_reject_invalid_value() != 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
+#endif /* TESTING_cli */
