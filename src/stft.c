@@ -8,7 +8,7 @@
 
 #define STFT_PI 3.14159265358979323846
 
-void
+static void
 stft_plan_init_empty(StftPlan *plan) {
     plan->n_fft = 0;
     plan->hop = 0;
@@ -16,16 +16,16 @@ stft_plan_init_empty(StftPlan *plan) {
 
     fftw_real_plan_init_empty(&plan->fftw_plan);
 
-    plan->window = 0;
-    plan->frame = 0;
-    plan->real = 0;
-    plan->imag = 0;
-    plan->inverse = 0;
+    plan->window = NULL;
+    plan->frame = NULL;
+    plan->real = NULL;
+    plan->imag = NULL;
+    plan->inverse = NULL;
 
     return;
 }
 
-bool
+static bool
 stft_plan_init(StftPlan *plan, int32 n_fft, int32 hop) {
     stft_plan_init_empty(plan);
 
@@ -33,26 +33,20 @@ stft_plan_init(StftPlan *plan, int32 n_fft, int32 hop) {
         return false;
     }
 
-    plan->window = malloc((size_t)(n_fft*SIZEOF(*plan->window)));
-    plan->frame = malloc((size_t)(n_fft*SIZEOF(*plan->frame)));
-    plan->inverse = malloc((size_t)(n_fft*SIZEOF(*plan->inverse)));
-    plan->real = malloc((size_t)((n_fft/2 + 1)*SIZEOF(*plan->real)));
-    plan->imag = malloc((size_t)((n_fft/2 + 1)*SIZEOF(*plan->imag)));
-    if ((plan->window == 0) || (plan->frame == 0)
-        || (plan->inverse == 0) || (plan->real == 0)
-        || (plan->imag == 0)) {
-        stft_plan_destroy(plan);
-        return false;
-    }
+    plan->n_fft = n_fft;
+    plan->hop = hop;
+    plan->complex_count = n_fft/2 + 1;
+
+    plan->window = malloc2(n_fft*SIZEOF(*plan->window));
+    plan->frame = malloc2(n_fft*SIZEOF(*plan->frame));
+    plan->inverse = malloc2(n_fft*SIZEOF(*plan->inverse));
+    plan->real = malloc2(plan->complex_count*SIZEOF(*plan->real));
+    plan->imag = malloc2(plan->complex_count*SIZEOF(*plan->imag));
 
     if (!fftw_real_plan_init(&plan->fftw_plan, n_fft)) {
         stft_plan_destroy(plan);
         return false;
     }
-
-    plan->n_fft = n_fft;
-    plan->hop = hop;
-    plan->complex_count = n_fft/2 + 1;
     for (int32 i = 0; i < n_fft; i += 1) {
         double phase;
 
@@ -63,11 +57,11 @@ stft_plan_init(StftPlan *plan, int32 n_fft, int32 hop) {
     return true;
 }
 
-int32
+static int32
 stft_frame_count(StftPlan *plan, int64 input_len) {
     int64 count;
 
-    if ((plan == 0) || (plan->hop <= 0) || (input_len < 0)) {
+    if ((plan == NULL) || (plan->hop <= 0) || (input_len < 0)) {
         return -1;
     }
 
@@ -79,7 +73,7 @@ stft_frame_count(StftPlan *plan, int64 input_len) {
     return (int32)count;
 }
 
-bool
+static bool
 stft_forward_channel(
     StftPlan *plan,
     float *input,
@@ -90,8 +84,8 @@ stft_forward_channel(
 ) {
     int32 center;
 
-    if ((plan == 0) || (input == 0) || (output_real == 0)
-        || (output_imag == 0)) {
+    if ((plan == NULL) || (input == NULL) || (output_real == NULL)
+        || (output_imag == NULL)) {
         return false;
     }
     if ((plan->n_fft <= 0) || (plan->hop <= 0)
@@ -135,7 +129,7 @@ stft_forward_channel(
     return true;
 }
 
-bool
+static bool
 stft_inverse_channel(
     StftPlan *plan,
     float *input_real,
@@ -147,8 +141,8 @@ stft_inverse_channel(
     float *norm;
     int32 center;
 
-    if ((plan == 0) || (input_real == 0) || (input_imag == 0)
-        || (output == 0)) {
+    if ((plan == NULL) || (input_real == NULL) || (input_imag == NULL)
+        || (output == NULL)) {
         return false;
     }
     if ((plan->n_fft <= 0) || (plan->hop <= 0)
@@ -160,9 +154,9 @@ stft_inverse_channel(
         return false;
     }
 
-    norm = malloc((size_t)(output_len*SIZEOF(*norm)));
-    if ((norm == 0) && (output_len > 0)) {
-        return false;
+    norm = NULL;
+    if (output_len > 0) {
+        norm = malloc2(output_len*SIZEOF(*norm));
     }
 
     for (int64 i = 0; i < output_len; i += 1) {
@@ -181,7 +175,9 @@ stft_inverse_channel(
                                plan->real,
                                plan->imag,
                                plan->inverse)) {
-            free(norm);
+            if (norm) {
+                free2(norm, output_len*SIZEOF(*norm));
+            }
             return false;
         }
 
@@ -207,19 +203,31 @@ stft_inverse_channel(
         }
     }
 
-    free(norm);
+    if (norm) {
+        free2(norm, output_len*SIZEOF(*norm));
+    }
 
     return true;
 }
 
-void
+static void
 stft_plan_destroy(StftPlan *plan) {
     fftw_real_plan_destroy(&plan->fftw_plan);
-    free(plan->window);
-    free(plan->frame);
-    free(plan->real);
-    free(plan->imag);
-    free(plan->inverse);
+    if (plan->window) {
+        free2(plan->window, plan->n_fft*SIZEOF(*plan->window));
+    }
+    if (plan->frame) {
+        free2(plan->frame, plan->n_fft*SIZEOF(*plan->frame));
+    }
+    if (plan->real) {
+        free2(plan->real, plan->complex_count*SIZEOF(*plan->real));
+    }
+    if (plan->imag) {
+        free2(plan->imag, plan->complex_count*SIZEOF(*plan->imag));
+    }
+    if (plan->inverse) {
+        free2(plan->inverse, plan->n_fft*SIZEOF(*plan->inverse));
+    }
     stft_plan_init_empty(plan);
 
     return;
@@ -227,9 +235,12 @@ stft_plan_destroy(StftPlan *plan) {
 
 #if TESTING_stft
 
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
 static int32
 stft_test_fail(char *name) {
-    fprintf(stderr, "stft test failed: %s\n", name);
+    error2("stft test failed: %s\n", name);
 
     return 1;
 }
@@ -255,35 +266,35 @@ main(void) {
     stft_plan_init_empty(&plan);
     if ((plan.n_fft != 0) || (plan.hop != 0)
         || (plan.complex_count != 0)) {
-        return stft_test_fail("empty dimensions");
+        exit(stft_test_fail("empty dimensions"));
     }
     if (stft_plan_init(&plan, 0, 4)) {
-        return stft_test_fail("zero n_fft accepted");
+        exit(stft_test_fail("zero n_fft accepted"));
     }
     if (stft_plan_init(&plan, 8, 0)) {
-        return stft_test_fail("zero hop accepted");
+        exit(stft_test_fail("zero hop accepted"));
     }
     if (stft_plan_init(&plan, 8, 9)) {
-        return stft_test_fail("oversized hop accepted");
+        exit(stft_test_fail("oversized hop accepted"));
     }
     if (!stft_plan_init(&plan, 8, 4)) {
-        return stft_test_fail("plan init");
+        exit(stft_test_fail("plan init"));
     }
     if (plan.complex_count != 5) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("complex count");
+        exit(stft_test_fail("complex count"));
     }
     if (!stft_float_close(plan.window[0], 0.0f)) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("hann start");
+        exit(stft_test_fail("hann start"));
     }
     if (!stft_float_close(plan.window[4], 1.0f)) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("hann center");
+        exit(stft_test_fail("hann center"));
     }
     if (stft_frame_count(&plan, 16) != 5) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("frame count");
+        exit(stft_test_fail("frame count"));
     }
 
     for (int32 i = 0; i < 8; i += 1) {
@@ -297,16 +308,16 @@ main(void) {
                               zero_imag,
                               frame_count)) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("zero forward");
+        exit(stft_test_fail("zero forward"));
     }
     for (int32 i = 0; i < plan.complex_count*frame_count; i += 1) {
         if (!stft_float_close(zero_real[i], 0.0f)) {
             stft_plan_destroy(&plan);
-            return stft_test_fail("zero real bin");
+            exit(stft_test_fail("zero real bin"));
         }
         if (!stft_float_close(zero_imag[i], 0.0f)) {
             stft_plan_destroy(&plan);
-            return stft_test_fail("zero imaginary bin");
+            exit(stft_test_fail("zero imaginary bin"));
         }
     }
     if (!stft_inverse_channel(&plan,
@@ -316,12 +327,12 @@ main(void) {
                               zero_output,
                               8)) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("zero inverse");
+        exit(stft_test_fail("zero inverse"));
     }
     for (int32 i = 0; i < 8; i += 1) {
         if (!stft_float_close(zero_output[i], 0.0f)) {
             stft_plan_destroy(&plan);
-            return stft_test_fail("zero roundtrip");
+            exit(stft_test_fail("zero roundtrip"));
         }
     }
 
@@ -331,26 +342,26 @@ main(void) {
     frame_count = stft_frame_count(&plan, 16);
     if (!stft_forward_channel(&plan, input, 16, real, imag, frame_count)) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("forward ramp");
+        exit(stft_test_fail("forward ramp"));
     }
     if (!stft_inverse_channel(&plan, real, imag, frame_count, output, 16)) {
         stft_plan_destroy(&plan);
-        return stft_test_fail("inverse ramp");
+        exit(stft_test_fail("inverse ramp"));
     }
     for (int32 i = 0; i < 16; i += 1) {
         if (!stft_float_close(output[i], input[i])) {
             stft_plan_destroy(&plan);
-            return stft_test_fail("ramp roundtrip");
+            exit(stft_test_fail("ramp roundtrip"));
         }
     }
 
     stft_plan_destroy(&plan);
-    if ((plan.window != 0) || (plan.frame != 0) || (plan.real != 0)
-        || (plan.imag != 0) || (plan.inverse != 0)) {
-        return stft_test_fail("destroy reset");
+    if ((plan.window) || (plan.frame) || (plan.real)
+        || (plan.imag) || (plan.inverse)) {
+        exit(stft_test_fail("destroy reset"));
     }
 
-    return 0;
+    exit(0);
 }
 
 #endif /* TESTING_stft */

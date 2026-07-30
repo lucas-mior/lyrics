@@ -6,10 +6,10 @@
 #define TESTING_audio 0
 #endif
 
-void
+static void
 audio_buffer_init(AudioBuffer *audio) {
-    audio->left = 0;
-    audio->right = 0;
+    audio->left = NULL;
+    audio->right = NULL;
 
     audio->frame_count = 0;
     audio->sample_rate = 0;
@@ -18,69 +18,51 @@ audio_buffer_init(AudioBuffer *audio) {
     return;
 }
 
-void
+static void
 audio_buffer_destroy(AudioBuffer *audio) {
-    free(audio->left);
-    free(audio->right);
+    int64 allocation_size;
+
+    allocation_size = audio->frame_count*SIZEOF(*audio->left);
+    if (audio->left) {
+        free2(audio->left, allocation_size);
+    }
+    if (audio->right) {
+        free2(audio->right, allocation_size);
+    }
     audio_buffer_init(audio);
 
     return;
 }
 
 static bool
-audio_run_process(char **argv) {
-    int32 status;
-    pid_t pid;
-    pid_t waited;
+audio_run_process(int32 argc, char **argv) {
+    Command command = {0};
+    bool result;
 
-    pid = fork();
-    if (pid < 0) {
-        return false;
+    command_push_array(&command, argc, argv);
+    result = command_run_capture_all(&command);
+    if (result) {
+        result = command.result.exited
+                 && (command.result.exit_status == 0);
     }
+    command_free(&command);
 
-    if (pid == 0) {
-        int32 null_fd;
-
-        null_fd = open("/dev/null", O_WRONLY);
-        if (null_fd >= 0) {
-            dup2(null_fd, STDOUT_FILENO);
-            dup2(null_fd, STDERR_FILENO);
-            if (null_fd > STDERR_FILENO) {
-                close(null_fd);
-            }
-        }
-
-        execvp(argv[0], argv);
-        _exit(127);
-    }
-
-    do {
-        waited = waitpid(pid, &status, 0);
-    } while ((waited < 0) && (errno == EINTR));
-
-    if (waited < 0) {
-        return false;
-    }
-    if (!WIFEXITED(status)) {
-        return false;
-    }
-
-    return WEXITSTATUS(status) == 0;
+    return result;
 }
 
-bool
+static bool
 audio_check_ffmpeg(char *ffmpeg_path) {
     char *argv[] = {
         ffmpeg_path,
         "-hide_banner",
         "-version",
-        0,
+        NULL,
     };
 
-    return audio_run_process(argv);
+    return audio_run_process(LENGTH(argv) - 1, argv);
 }
 
-bool
+static bool
 audio_can_decode_file(char *path, char *ffmpeg_path) {
     char *argv[] = {
         ffmpeg_path,
@@ -93,13 +75,13 @@ audio_can_decode_file(char *path, char *ffmpeg_path) {
         "-f",
         "null",
         "-",
-        0,
+        NULL,
     };
 
-    return audio_run_process(argv);
+    return audio_run_process(LENGTH(argv) - 1, argv);
 }
 
-bool
+static bool
 audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
     char *argv[] = {
         ffmpeg_path,
@@ -114,156 +96,59 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
         "-f",
         "f32le",
         "-",
-        0,
+        NULL,
     };
-    char *raw;
+    Command command = {0};
     float *samples;
-    int32 pipe_fds[2];
-    int32 status;
+    bool result = false;
     int64 frame_bytes;
-    int64 raw_capacity;
     int64 raw_len;
     int64 sample_count;
-    pid_t pid;
-    pid_t waited;
 
     audio_buffer_destroy(audio);
-
-    if (pipe(pipe_fds) != 0) {
-        return false;
+    command_push_array(&command, LENGTH(argv) - 1, argv);
+    if (!command_run_capture_all(&command)) {
+        goto cleanup;
+    }
+    if (!command.result.exited || (command.result.exit_status != 0)) {
+        goto cleanup;
     }
 
-    pid = fork();
-    if (pid < 0) {
-        close(pipe_fds[0]);
-        close(pipe_fds[1]);
-        return false;
-    }
-
-    if (pid == 0) {
-        int32 null_fd;
-
-        close(pipe_fds[0]);
-        dup2(pipe_fds[1], STDOUT_FILENO);
-        if (pipe_fds[1] > STDERR_FILENO) {
-            close(pipe_fds[1]);
-        }
-
-        null_fd = open("/dev/null", O_RDONLY);
-        if (null_fd >= 0) {
-            dup2(null_fd, STDIN_FILENO);
-            if (null_fd > STDERR_FILENO) {
-                close(null_fd);
-            }
-        }
-
-        execvp(argv[0], argv);
-        _exit(127);
-    }
-
-    close(pipe_fds[1]);
-    raw = 0;
-    raw_len = 0;
-    raw_capacity = 64*1024;
-    raw = malloc((size_t)raw_capacity);
-    if (raw == 0) {
-        close(pipe_fds[0]);
-        waitpid(pid, &status, 0);
-        return false;
-    }
-
-    for (;;) {
-        ssize_t bytes_read;
-
-        if (raw_len == raw_capacity) {
-            char *new_raw;
-            int64 new_capacity;
-
-            if (raw_capacity > INT64_MAX/2) {
-                free(raw);
-                close(pipe_fds[0]);
-                waitpid(pid, &status, 0);
-                return false;
-            }
-
-            new_capacity = 2*raw_capacity;
-            new_raw = realloc(raw, (size_t)new_capacity);
-            if (new_raw == 0) {
-                free(raw);
-                close(pipe_fds[0]);
-                waitpid(pid, &status, 0);
-                return false;
-            }
-            raw = new_raw;
-            raw_capacity = new_capacity;
-        }
-
-        bytes_read = read(pipe_fds[0],
-                          raw + raw_len,
-                          (size_t)(raw_capacity - raw_len));
-        if (bytes_read > 0) {
-            raw_len += (int64)bytes_read;
-            continue;
-        }
-        if (bytes_read == 0) {
-            break;
-        }
-        if (errno == EINTR) {
-            continue;
-        }
-
-        free(raw);
-        close(pipe_fds[0]);
-        waitpid(pid, &status, 0);
-        return false;
-    }
-
-    close(pipe_fds[0]);
-    do {
-        waited = waitpid(pid, &status, 0);
-    } while ((waited < 0) && (errno == EINTR));
-
-    if ((waited < 0) || !WIFEXITED(status)
-        || (WEXITSTATUS(status) != 0)) {
-        free(raw);
-        return false;
-    }
-
-    frame_bytes = 2*SIZEOF(float);
+    raw_len = command.result.stdout_len;
+    frame_bytes = 2*SIZEOF(*samples);
     if ((raw_len % frame_bytes) != 0) {
-        free(raw);
-        return false;
+        goto cleanup;
     }
 
     audio->frame_count = raw_len/frame_bytes;
     audio->sample_rate = 44100;
     audio->channel_count = 2;
     if (audio->frame_count == 0) {
-        free(raw);
-        return true;
+        result = true;
+        goto cleanup;
     }
 
     sample_count = audio->frame_count*SIZEOF(*audio->left);
-    audio->left = malloc((size_t)sample_count);
-    audio->right = malloc((size_t)sample_count);
-    if ((audio->left == 0) || (audio->right == 0)) {
-        free(raw);
-        audio_buffer_destroy(audio);
-        return false;
-    }
+    audio->left = malloc2(sample_count);
+    audio->right = malloc2(sample_count);
 
-    samples = (float *)raw;
+    samples = (float *)command.result.stdout_output;
     for (int64 i = 0; i < audio->frame_count; i += 1) {
         audio->left[i] = samples[2*i];
         audio->right[i] = samples[2*i + 1];
     }
+    result = true;
 
-    free(raw);
+cleanup:
+    command_free(&command);
+    if (!result) {
+        audio_buffer_destroy(audio);
+    }
 
-    return true;
+    return result;
 }
 
-bool
+static bool
 audio_write_file(
     AudioBuffer *audio,
     char *path,
@@ -291,9 +176,11 @@ audio_write_file(
         "-f",
         format,
         path,
-        0,
+        NULL,
     };
+    Command command = {0};
     float *interleaved;
+    int32 null_fd;
     int32 pipe_fds[2];
     int32 status;
     int64 frame_capacity;
@@ -302,8 +189,8 @@ audio_write_file(
     pid_t waited;
     void (*previous_sigpipe)(int);
 
-    if ((audio == 0) || (path == 0) || (format == 0)
-        || (ffmpeg_path == 0)) {
+    if ((audio == NULL) || (path == NULL) || (format == NULL)
+        || (ffmpeg_path == NULL)) {
         return false;
     }
     if ((audio->frame_count < 0) || (audio->sample_rate != 44100)
@@ -311,32 +198,28 @@ audio_write_file(
         return false;
     }
     if ((audio->frame_count > 0)
-        && ((audio->left == 0) || (audio->right == 0))) {
+        && ((audio->left == NULL) || (audio->right == NULL))) {
         return false;
     }
 
+    command_push_array(&command, LENGTH(argv) - 1, argv);
     frame_capacity = 4096;
-    interleaved = malloc((size_t)(2*frame_capacity*SIZEOF(*interleaved)));
-    if (interleaved == 0) {
-        return false;
-    }
+    interleaved = malloc2(2*frame_capacity*SIZEOF(*interleaved));
 
     if (pipe(pipe_fds) != 0) {
-        free(interleaved);
+        free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
+        command_free(&command);
         return false;
     }
 
-    pid = fork();
-    if (pid < 0) {
-        free(interleaved);
+    switch (pid = fork()) {
+    case -1:
+        free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
+        command_free(&command);
         close(pipe_fds[0]);
         close(pipe_fds[1]);
         return false;
-    }
-
-    if (pid == 0) {
-        int32 null_fd;
-
+    case 0:
         close(pipe_fds[1]);
         dup2(pipe_fds[0], STDIN_FILENO);
         if (pipe_fds[0] > STDERR_FILENO) {
@@ -352,8 +235,9 @@ audio_write_file(
             }
         }
 
-        execvp(argv[0], argv);
-        _exit(127);
+        command_child_exec(&command, COMMAND_NONE, NULL, NULL);
+    default:
+        break;
     }
 
     close(pipe_fds[0]);
@@ -378,11 +262,11 @@ audio_write_file(
         byte_offset = 0;
         byte_count = 2*chunk_frames*SIZEOF(*interleaved);
         while (byte_offset < byte_count) {
-            ssize_t bytes_written;
+            int64 bytes_written;
 
-            bytes_written = write(pipe_fds[1],
-                                  bytes + byte_offset,
-                                  (size_t)(byte_count - byte_offset));
+            bytes_written = write64(pipe_fds[1],
+                                    bytes + byte_offset,
+                                    byte_count - byte_offset);
             if (bytes_written > 0) {
                 byte_offset += (int64)bytes_written;
                 continue;
@@ -393,8 +277,9 @@ audio_write_file(
 
             close(pipe_fds[1]);
             signal(SIGPIPE, previous_sigpipe);
-            free(interleaved);
+            free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
             waitpid(pid, &status, 0);
+            command_free(&command);
             return false;
         }
 
@@ -403,12 +288,13 @@ audio_write_file(
 
     close(pipe_fds[1]);
     signal(SIGPIPE, previous_sigpipe);
-    free(interleaved);
+    free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
 
     do {
         waited = waitpid(pid, &status, 0);
     } while ((waited < 0) && (errno == EINTR));
 
+    command_free(&command);
     if (waited < 0) {
         return false;
     }
@@ -421,9 +307,12 @@ audio_write_file(
 
 #if TESTING_audio
 
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
 static int32
 audio_test_fail(char *name) {
-    fprintf(stderr, "audio test failed: %s\n", name);
+    error2("audio test failed: %s\n", name);
 
     return 1;
 }
@@ -469,101 +358,101 @@ main(void) {
     int32 fd;
 
     audio_buffer_init(&audio);
-    if ((audio.left != 0) || (audio.right != 0)) {
-        return audio_test_fail("buffer pointers");
+    if (audio.left || audio.right) {
+        exit(audio_test_fail("buffer pointers"));
     }
     if (audio.frame_count != 0) {
-        return audio_test_fail("frame count");
+        exit(audio_test_fail("frame count"));
     }
     audio_buffer_destroy(&audio);
 
-    if (audio_check_ffmpeg("/definitely/missing/ffmpeg") != false) {
-        return audio_test_fail("missing ffmpeg accepted");
+    if (audio_check_ffmpeg("/definitely/missing/ffmpeg")) {
+        exit(audio_test_fail("missing ffmpeg accepted"));
     }
     if (audio_can_decode_file("missing.wav",
-                              "/definitely/missing/ffmpeg") != false) {
-        return audio_test_fail("missing ffmpeg decode accepted");
+                              "/definitely/missing/ffmpeg")) {
+        exit(audio_test_fail("missing ffmpeg decode accepted"));
     }
 
-    if (snprintf(script, (size_t)SIZEOF(script),
+    if (SNPRINTF(script,
                  "/tmp/uvr_fake_ffmpeg_%lld",
                  (int64)getpid()) < 0) {
-        return audio_test_fail("fake ffmpeg path");
+        exit(audio_test_fail("fake ffmpeg path"));
     }
-    if (snprintf(output, (size_t)SIZEOF(output),
+    if (SNPRINTF(output,
                  "/tmp/uvr_fake_audio_%lld",
                  (int64)getpid()) < 0) {
-        return audio_test_fail("fake output path");
+        exit(audio_test_fail("fake output path"));
     }
     fd = open(script, O_WRONLY|O_CREAT|O_EXCL, 0700);
     if (fd < 0) {
-        return audio_test_fail("fake ffmpeg file");
+        exit(audio_test_fail("fake ffmpeg file"));
     }
-    if (write(fd, script_text, (size_t)SIZEOF(script_text) - 1)
-        != (ssize_t)(SIZEOF(script_text) - 1)) {
+    if (write64(fd, script_text, SIZEOF(script_text) - 1)
+        != SIZEOF(script_text) - 1) {
         close(fd);
         unlink(script);
-        return audio_test_fail("fake ffmpeg write");
+        exit(audio_test_fail("fake ffmpeg write"));
     }
     close(fd);
     if (chmod(script, 0700) != 0) {
         unlink(script);
-        return audio_test_fail("fake ffmpeg chmod");
+        exit(audio_test_fail("fake ffmpeg chmod"));
     }
 
     if (!audio_check_ffmpeg(script)) {
         unlink(script);
-        return audio_test_fail("fake ffmpeg version");
+        exit(audio_test_fail("fake ffmpeg version"));
     }
     if (!audio_can_decode_file("input.mp3", script)) {
         unlink(script);
-        return audio_test_fail("fake ffmpeg decode check");
+        exit(audio_test_fail("fake ffmpeg decode check"));
     }
     if (!audio_read_file(&audio, "input.mp3", script)) {
         unlink(script);
-        return audio_test_fail("read fake audio");
+        exit(audio_test_fail("read fake audio"));
     }
 
     if (audio.sample_rate != 44100) {
         audio_buffer_destroy(&audio);
-        return audio_test_fail("sample rate");
+        exit(audio_test_fail("sample rate"));
     }
     if (audio.channel_count != 2) {
         audio_buffer_destroy(&audio);
-        return audio_test_fail("channels");
+        exit(audio_test_fail("channels"));
     }
     if (audio.frame_count != 2) {
         audio_buffer_destroy(&audio);
-        return audio_test_fail("decoded frame count");
+        exit(audio_test_fail("decoded frame count"));
     }
     if ((audio.left[0] != 1.0f) || (audio.right[0] != -2.0f)) {
         audio_buffer_destroy(&audio);
-        return audio_test_fail("decoded first frame");
+        exit(audio_test_fail("decoded first frame"));
     }
     if ((audio.left[1] != 3.5f) || (audio.right[1] != -4.25f)) {
         audio_buffer_destroy(&audio);
-        return audio_test_fail("decoded second frame");
+        exit(audio_test_fail("decoded second frame"));
     }
 
     unlink(output);
     if (!audio_write_file(&audio, output, "wav", script)) {
         audio_buffer_destroy(&audio);
         unlink(script);
-        return audio_test_fail("write fake audio");
+        exit(audio_test_fail("write fake audio"));
     }
     fd = open(output, O_RDONLY);
     if (fd < 0) {
         audio_buffer_destroy(&audio);
         unlink(script);
-        return audio_test_fail("open fake output");
+        exit(audio_test_fail("open fake output"));
     }
-    if (read(fd, output_raw, (size_t)SIZEOF(output_raw))
-        != (ssize_t)SIZEOF(output_raw)) {
+    if (read64(fd, output_raw, SIZEOF(output_raw))
+        != SIZEOF(output_raw)) {
         close(fd);
         audio_buffer_destroy(&audio);
         unlink(script);
         unlink(output);
-        return audio_test_fail("read fake output");
+        exit(audio_test_fail("read fake output"));
     }
     close(fd);
     for (int32 i = 0; i < (int32)SIZEOF(output_raw); i += 1) {
@@ -571,7 +460,7 @@ main(void) {
             audio_buffer_destroy(&audio);
             unlink(script);
             unlink(output);
-            return audio_test_fail("output interleaving");
+            exit(audio_test_fail("output interleaving"));
         }
     }
 
@@ -579,7 +468,7 @@ main(void) {
     unlink(script);
     unlink(output);
 
-    return 0;
+    exit(0);
 }
 
 #endif /* TESTING_audio */

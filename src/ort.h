@@ -37,17 +37,21 @@ typedef struct OrtTensor {
     int32 shape_len;
 } OrtTensor;
 
-void ort_context_init_empty(OrtContext *context);
-bool ort_context_init(OrtContext *context);
-void ort_context_destroy(OrtContext *context);
+static void ort_context_init_empty(OrtContext *context);
+static bool ort_context_init(OrtContext *context);
+static void ort_context_destroy(OrtContext *context);
 
-void ort_model_init_empty(OrtModel *model);
-bool ort_model_load(OrtContext *context, OrtModel *model, char *model_path);
-bool ort_model_get_io_info(OrtContext *context, OrtModel *model);
-void ort_model_destroy(OrtContext *context, OrtModel *model);
+static void ort_model_init_empty(OrtModel *model);
+static bool ort_model_load(
+    OrtContext *context,
+    OrtModel *model,
+    char *model_path
+);
+static bool ort_model_get_io_info(OrtContext *context, OrtModel *model);
+static void ort_model_destroy(OrtContext *context, OrtModel *model);
 
-void ort_tensor_init_empty(OrtTensor *tensor);
-bool ort_tensor_create_f32(
+static void ort_tensor_init_empty(OrtTensor *tensor);
+static bool ort_tensor_create_f32(
     OrtContext *context,
     OrtTensor *tensor,
     float *data,
@@ -55,12 +59,12 @@ bool ort_tensor_create_f32(
     int64 *shape,
     int32 shape_len
 );
-bool ort_model_run_f32(
+static bool ort_model_run_f32(
     OrtContext *context,
     OrtModel *model,
     OrtTensor *input,
     OrtTensor *output
 );
-void ort_tensor_destroy(OrtContext *context, OrtTensor *tensor);
+static void ort_tensor_destroy(OrtContext *context, OrtTensor *tensor);
 
 #endif /* ORT_H */

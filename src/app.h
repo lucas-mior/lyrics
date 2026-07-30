@@ -3,6 +3,6 @@
 
 #include "cbase.h"
 
-int32 app_run(int argc, char **argv);
+static int32 app_run(int32 argc, char **argv);
 
 #endif /* APP_H */

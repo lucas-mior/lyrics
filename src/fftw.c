@@ -8,21 +8,22 @@
 
 #include <fftw3.h>
 
-void
+static void
 fftw_real_plan_init_empty(FftwRealPlan *plan) {
     plan->n_fft = 0;
     plan->complex_count = 0;
 
-    plan->real = 0;
-    plan->complex = 0;
-    plan->forward_plan = 0;
-    plan->inverse_plan = 0;
+    plan->real = NULL;
+    plan->complex = NULL;
+    plan->forward_plan = NULL;
+    plan->inverse_plan = NULL;
 
     return;
 }
 
-bool
+static bool
 fftw_real_plan_init(FftwRealPlan *plan, int32 n_fft) {
+    fftwf_complex *complex;
     int32 complex_count;
 
     fftw_real_plan_init_empty(plan);
@@ -32,8 +33,9 @@ fftw_real_plan_init(FftwRealPlan *plan, int32 n_fft) {
 
     complex_count = n_fft/2 + 1;
     plan->real = fftwf_malloc((size_t)(n_fft*SIZEOF(*plan->real)));
-    plan->complex = fftwf_malloc((size_t)(complex_count*SIZEOF(fftwf_complex)));
-    if ((plan->real == 0) || (plan->complex == 0)) {
+    complex = fftwf_malloc((size_t)(complex_count*SIZEOF(*complex)));
+    plan->complex = complex;
+    if ((plan->real == NULL) || (plan->complex == NULL)) {
         fftw_real_plan_destroy(plan);
         return false;
     }
@@ -46,7 +48,7 @@ fftw_real_plan_init(FftwRealPlan *plan, int32 n_fft) {
                                                plan->complex,
                                                plan->real,
                                                FFTW_ESTIMATE);
-    if ((plan->forward_plan == 0) || (plan->inverse_plan == 0)) {
+    if ((plan->forward_plan == NULL) || (plan->inverse_plan == NULL)) {
         fftw_real_plan_destroy(plan);
         return false;
     }
@@ -57,7 +59,7 @@ fftw_real_plan_init(FftwRealPlan *plan, int32 n_fft) {
     return true;
 }
 
-bool
+static bool
 fftw_real_forward(
     FftwRealPlan *plan,
     float *input,
@@ -66,15 +68,15 @@ fftw_real_forward(
 ) {
     fftwf_complex *complex;
 
-    if ((plan == 0) || (input == 0) || (output_real == 0)
-        || (output_imag == 0)) {
+    if ((plan == NULL) || (input == NULL) || (output_real == NULL)
+        || (output_imag == NULL)) {
         return false;
     }
     if ((plan->n_fft <= 0) || (plan->complex_count <= 0)) {
         return false;
     }
-    if ((plan->real == 0) || (plan->complex == 0)
-        || (plan->forward_plan == 0)) {
+    if ((plan->real == NULL) || (plan->complex == NULL)
+        || (plan->forward_plan == NULL)) {
         return false;
     }
 
@@ -93,7 +95,7 @@ fftw_real_forward(
     return true;
 }
 
-bool
+static bool
 fftw_real_inverse(
     FftwRealPlan *plan,
     float *input_real,
@@ -103,15 +105,15 @@ fftw_real_inverse(
     fftwf_complex *complex;
     float scale;
 
-    if ((plan == 0) || (input_real == 0) || (input_imag == 0)
-        || (output == 0)) {
+    if ((plan == NULL) || (input_real == NULL) || (input_imag == NULL)
+        || (output == NULL)) {
         return false;
     }
     if ((plan->n_fft <= 0) || (plan->complex_count <= 0)) {
         return false;
     }
-    if ((plan->real == 0) || (plan->complex == 0)
-        || (plan->inverse_plan == 0)) {
+    if ((plan->real == NULL) || (plan->complex == NULL)
+        || (plan->inverse_plan == NULL)) {
         return false;
     }
 
@@ -131,18 +133,18 @@ fftw_real_inverse(
     return true;
 }
 
-void
+static void
 fftw_real_plan_destroy(FftwRealPlan *plan) {
-    if (plan->forward_plan != 0) {
+    if (plan->forward_plan) {
         fftwf_destroy_plan((fftwf_plan)plan->forward_plan);
     }
-    if (plan->inverse_plan != 0) {
+    if (plan->inverse_plan) {
         fftwf_destroy_plan((fftwf_plan)plan->inverse_plan);
     }
-    if (plan->real != 0) {
+    if (plan->real) {
         fftwf_free(plan->real);
     }
-    if (plan->complex != 0) {
+    if (plan->complex) {
         fftwf_free(plan->complex);
     }
 
@@ -153,9 +155,12 @@ fftw_real_plan_destroy(FftwRealPlan *plan) {
 
 #if TESTING_fftw
 
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
 static int32
 fftw_test_fail(char *name) {
-    fprintf(stderr, "fftw test failed: %s\n", name);
+    error2("fftw test failed: %s\n", name);
 
     return 1;
 }
@@ -175,22 +180,22 @@ main(void) {
 
     fftw_real_plan_init_empty(&plan);
     if (plan.n_fft != 0) {
-        return fftw_test_fail("empty n_fft");
+        exit(fftw_test_fail("empty n_fft"));
     }
     if (plan.complex_count != 0) {
-        return fftw_test_fail("empty complex count");
+        exit(fftw_test_fail("empty complex count"));
     }
     if (fftw_real_plan_init(&plan, 0)) {
-        return fftw_test_fail("zero-size plan accepted");
+        exit(fftw_test_fail("zero-size plan accepted"));
     }
     if (!fftw_real_plan_init(&plan, 8)) {
-        return fftw_test_fail("plan init");
+        exit(fftw_test_fail("plan init"));
     }
     if (plan.n_fft != 8) {
-        return fftw_test_fail("plan n_fft");
+        exit(fftw_test_fail("plan n_fft"));
     }
     if (plan.complex_count != 5) {
-        return fftw_test_fail("plan complex count");
+        exit(fftw_test_fail("plan complex count"));
     }
 
     impulse[0] = 1.0f;
@@ -200,27 +205,27 @@ main(void) {
 
     if (!fftw_real_forward(&plan, impulse, real, imag)) {
         fftw_real_plan_destroy(&plan);
-        return fftw_test_fail("forward impulse");
+        exit(fftw_test_fail("forward impulse"));
     }
     for (int32 i = 0; i < 5; i += 1) {
         if (!fftw_float_close(real[i], 1.0f)) {
             fftw_real_plan_destroy(&plan);
-            return fftw_test_fail("impulse real bin");
+            exit(fftw_test_fail("impulse real bin"));
         }
         if (!fftw_float_close(imag[i], 0.0f)) {
             fftw_real_plan_destroy(&plan);
-            return fftw_test_fail("impulse imaginary bin");
+            exit(fftw_test_fail("impulse imaginary bin"));
         }
     }
 
     if (!fftw_real_inverse(&plan, real, imag, output)) {
         fftw_real_plan_destroy(&plan);
-        return fftw_test_fail("inverse impulse");
+        exit(fftw_test_fail("inverse impulse"));
     }
     for (int32 i = 0; i < 8; i += 1) {
         if (!fftw_float_close(output[i], impulse[i])) {
             fftw_real_plan_destroy(&plan);
-            return fftw_test_fail("impulse roundtrip");
+            exit(fftw_test_fail("impulse roundtrip"));
         }
     }
 
@@ -229,25 +234,25 @@ main(void) {
     }
     if (!fftw_real_forward(&plan, impulse, real, imag)) {
         fftw_real_plan_destroy(&plan);
-        return fftw_test_fail("forward ramp");
+        exit(fftw_test_fail("forward ramp"));
     }
     if (!fftw_real_inverse(&plan, real, imag, output)) {
         fftw_real_plan_destroy(&plan);
-        return fftw_test_fail("inverse ramp");
+        exit(fftw_test_fail("inverse ramp"));
     }
     for (int32 i = 0; i < 8; i += 1) {
         if (!fftw_float_close(output[i], impulse[i])) {
             fftw_real_plan_destroy(&plan);
-            return fftw_test_fail("ramp roundtrip");
+            exit(fftw_test_fail("ramp roundtrip"));
         }
     }
 
     fftw_real_plan_destroy(&plan);
     if ((plan.n_fft != 0) || (plan.complex_count != 0)) {
-        return fftw_test_fail("destroy resets plan");
+        exit(fftw_test_fail("destroy resets plan"));
     }
 
-    return 0;
+    exit(0);
 }
 
 #endif /* TESTING_fftw */

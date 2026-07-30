@@ -17,11 +17,8 @@ ONNXRUNTIME_PKG_CONFIG_NAME=${ONNXRUNTIME_PKG_CONFIG_NAME:-onnxruntime}
 FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
-APP_SOURCES="src/app.c src/cli.c src/audio.c src/ort.c"
-APP_SOURCES="$APP_SOURCES src/mdx.c src/stft.c src/fftw.c"
-DEFAULT_SOURCES="src/main.c $APP_SOURCES"
-SOURCES=${SOURCES:-$DEFAULT_SOURCES}
-TEST_SOURCES=${TEST_SOURCES:-$APP_SOURCES}
+PROGRAM_SOURCE=${PROGRAM_SOURCE:-src/main.c}
+TEST_MODULES=${TEST_MODULES:-"app audio cli fftw mdx ort stft"}
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
@@ -30,7 +27,7 @@ CPPFLAGS="${CPPFLAGS:-}"
 CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700"
 CPPFLAGS="$CPPFLAGS -Icbase -I. -Isrc"
 
-CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra"}
+CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Wvla"}
 
 EXTRA_CFLAGS=${EXTRA_CFLAGS:-}
 EXTRA_LDFLAGS=${EXTRA_LDFLAGS:-}
@@ -50,7 +47,7 @@ usage: ./build.sh [command]
 commands:
     build    build the executable (default)
     run      build and run the CLI parser
-    test     build and run all src/*.c TESTING_ module tests
+    test     build and run all embedded module tests
     model    regenerate models/identity.onnx
     setup    download ONNX Runtime and regenerate the identity model
     clean    remove generated build outputs
@@ -63,8 +60,8 @@ environment:
     ONNXRUNTIME_PKG_CONFIG_NAME  pkg-config package, default: onnxruntime
     FFTW_PKG_CONFIG_NAME          pkg-config package, default: fftw3f
     PROGRAM                      output executable, default: bin/uvr-c
-    SOURCES                      source files to compile
-    TEST_SOURCES                 tested sources, default: src/*.c except main.c
+    PROGRAM_SOURCE               unity source, default: src/main.c
+    TEST_MODULES                 modules whose tests are run
     MODEL                        ONNX model path, default: models/identity.onnx
     INPUT                        run command input path, default: song.mp3
     OUTPUT                       run command output path, default: vocals.wav
@@ -158,15 +155,14 @@ build_program() {
     dep_ldlibs=$(dependency_ldlibs)
 
     trace_on
-    $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags $SOURCES \
-        $EXTRA_LDFLAGS $DEFAULT_LDLIBS $dep_ldlibs $EXTRA_LDLIBS \
+    $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags "$PROGRAM_SOURCE" \
+        $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS $EXTRA_LDLIBS \
         -o "$PROGRAM"
     trace_off
 }
 
 run_tests() {
-    for source in $TEST_SOURCES; do
-        module=$(basename "$source" .c)
+    for module in $TEST_MODULES; do
         output="bin/test_$module"
 
         mkdir -p bin
@@ -174,10 +170,11 @@ run_tests() {
         dep_ldlibs=$(dependency_ldlibs)
 
         trace_on
-        $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags "-DTESTING_$module=1" \
-            $TEST_SOURCES $EXTRA_LDFLAGS $DEFAULT_LDLIBS $dep_ldlibs \
+        $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags \
+            "-DTESTING_$module=1" "$PROGRAM_SOURCE" \
+            $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
             $EXTRA_LDLIBS -o "$output"
-        bin/test_$module
+        "$output"
         trace_off
     done
 }

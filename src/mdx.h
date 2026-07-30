@@ -51,10 +51,10 @@ typedef struct MdxModelInfo {
     bool output_shape_dynamic;
 } MdxModelInfo;
 
-void mdx_config_init(MdxConfig *config);
-bool mdx_config_prepare(MdxConfig *config);
-int64 mdx_input_tensor_len(MdxConfig *config);
-bool mdx_pack_input(
+static void mdx_config_init(MdxConfig *config);
+static bool mdx_config_prepare(MdxConfig *config);
+static int64 mdx_input_tensor_len(MdxConfig *config);
+static bool mdx_pack_input(
     MdxConfig *config,
     StftPlan *stft_plan,
     float *left,
@@ -63,7 +63,7 @@ bool mdx_pack_input(
     float *tensor,
     int64 tensor_len
 );
-bool mdx_unpack_output(
+static bool mdx_unpack_output(
     MdxConfig *config,
     StftPlan *stft_plan,
     float *tensor,
@@ -72,7 +72,7 @@ bool mdx_unpack_output(
     float *right,
     int64 frame_count
 );
-bool mdx_process_song(
+static bool mdx_process_song(
     MdxConfig *config,
     StftPlan *stft_plan,
     OrtContext *ort_context,
@@ -80,8 +80,8 @@ bool mdx_process_song(
     AudioBuffer *input,
     AudioBuffer *output
 );
-void mdx_model_info_init_empty(MdxModelInfo *info);
-bool mdx_model_inspect(
+static void mdx_model_info_init_empty(MdxModelInfo *info);
+static bool mdx_model_inspect(
     MdxModelInfo *info,
     MdxConfig *config,
     OrtModel *model

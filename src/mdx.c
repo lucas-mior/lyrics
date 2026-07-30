@@ -33,7 +33,7 @@ mdx_output_sample(
     return sample;
 }
 
-void
+static void
 mdx_config_init(MdxConfig *config) {
     config->sample_rate = 44100;
     config->channel_count = 2;
@@ -58,91 +58,91 @@ mdx_config_init(MdxConfig *config) {
     return;
 }
 
-bool
+static bool
 mdx_config_prepare(MdxConfig *config) {
     int32 max_dim_f;
     int32 chunk_size;
     int32 trim;
 
     if (config == NULL) {
-        fprintf(stderr, "MDX configuration is missing\n");
+        error2("MDX configuration is missing\n");
         return false;
     }
     if (config->sample_rate != 44100) {
-        fprintf(stderr, "MDX sample rate must be 44100, got %d\n",
+        error2("MDX sample rate must be 44100, got %d\n",
                 config->sample_rate);
         return false;
     }
     if (config->channel_count != 2) {
-        fprintf(stderr, "MDX audio channel count must be 2, got %d\n",
+        error2("MDX audio channel count must be 2, got %d\n",
                 config->channel_count);
         return false;
     }
     if (config->dim_c != 4) {
-        fprintf(stderr, "MDX spectrogram channel count must be 4, got %d\n",
+        error2("MDX spectrogram channel count must be 4, got %d\n",
                 config->dim_c);
         return false;
     }
     if (config->n_fft <= 0) {
-        fprintf(stderr, "MDX n_fft must be greater than zero\n");
+        error2("MDX n_fft must be greater than zero\n");
         return false;
     }
     if ((config->n_fft & 1) != 0) {
-        fprintf(stderr, "MDX n_fft must be even, got %d\n",
+        error2("MDX n_fft must be even, got %d\n",
                 config->n_fft);
         return false;
     }
     if (config->hop <= 0) {
-        fprintf(stderr, "MDX hop must be greater than zero\n");
+        error2("MDX hop must be greater than zero\n");
         return false;
     }
     if (config->hop > config->n_fft) {
-        fprintf(stderr, "MDX hop must not exceed n_fft, got %d/%d\n",
+        error2("MDX hop must not exceed n_fft, got %d/%d\n",
                 config->hop,
                 config->n_fft);
         return false;
     }
     if (config->dim_f <= 0) {
-        fprintf(stderr, "MDX dim_f must be known before preparing config\n");
+        error2("MDX dim_f must be known before preparing config\n");
         return false;
     }
     if (config->dim_t <= 1) {
-        fprintf(stderr, "MDX dim_t must be greater than 1, got %d\n",
+        error2("MDX dim_t must be greater than 1, got %d\n",
                 config->dim_t);
         return false;
     }
     if (config->chunk_seconds <= 0) {
-        fprintf(stderr, "MDX chunk seconds must be greater than zero\n");
+        error2("MDX chunk seconds must be greater than zero\n");
         return false;
     }
     if (config->margin_seconds < 0) {
-        fprintf(stderr, "MDX margin seconds must not be negative\n");
+        error2("MDX margin seconds must not be negative\n");
         return false;
     }
     if (config->compensate < 0.0f) {
-        fprintf(stderr, "MDX compensate must not be negative\n");
+        error2("MDX compensate must not be negative\n");
         return false;
     }
 
     max_dim_f = config->n_fft/2 + 1;
     if (config->dim_f > max_dim_f) {
-        fprintf(stderr, "MDX dim_f=%d exceeds STFT bins=%d\n",
+        error2("MDX dim_f=%d exceeds STFT bins=%d\n",
                 config->dim_f,
                 max_dim_f);
         return false;
     }
-    if ((config->dim_t - 1) > INT_MAX/config->hop) {
-        fprintf(stderr, "MDX chunk size overflows int32\n");
+    if ((config->dim_t - 1) > INT32_MAX/config->hop) {
+        error2("MDX chunk size overflows int32\n");
         return false;
     }
 
     chunk_size = config->hop*(config->dim_t - 1);
     trim = config->n_fft/2;
     if (chunk_size <= 2*trim) {
-        fprintf(stderr,
-                "MDX gen_size must be positive; got chunk=%d trim=%d\n",
-                chunk_size,
-                trim);
+        error2(
+            "MDX gen_size must be positive; got chunk=%d trim=%d\n",
+            chunk_size,
+            trim);
         return false;
     }
 
@@ -153,15 +153,14 @@ mdx_config_prepare(MdxConfig *config) {
     return true;
 }
 
-
-int64
+static int64
 mdx_input_tensor_len(MdxConfig *config) {
     int64 dim_f;
     int64 dim_t;
     int64 dim_c;
     int64 freq_time;
 
-    if (config == 0) {
+    if (config == NULL) {
         return -1;
     }
     if ((config->dim_f <= 0) || (config->dim_t <= 0)
@@ -183,7 +182,7 @@ mdx_input_tensor_len(MdxConfig *config) {
     return dim_c*freq_time;
 }
 
-bool
+static bool
 mdx_pack_input(
     MdxConfig *config,
     StftPlan *stft_plan,
@@ -203,8 +202,8 @@ mdx_pack_input(
     int32 stft_frames;
     int32 complex_count;
 
-    if ((config == 0) || (stft_plan == 0) || (left == 0)
-        || (right == 0) || (tensor == 0)) {
+    if ((config == NULL) || (stft_plan == NULL) || (left == NULL)
+        || (right == NULL) || (tensor == NULL)) {
         return false;
     }
     if ((config->dim_c != 4) || (config->dim_f <= 0)
@@ -242,18 +241,10 @@ mdx_pack_input(
         return false;
     }
 
-    left_real = malloc((size_t)(full_len*SIZEOF(*left_real)));
-    left_imag = malloc((size_t)(full_len*SIZEOF(*left_imag)));
-    right_real = malloc((size_t)(full_len*SIZEOF(*right_real)));
-    right_imag = malloc((size_t)(full_len*SIZEOF(*right_imag)));
-    if ((left_real == 0) || (left_imag == 0) || (right_real == 0)
-        || (right_imag == 0)) {
-        free(left_real);
-        free(left_imag);
-        free(right_real);
-        free(right_imag);
-        return false;
-    }
+    left_real = malloc2(full_len*SIZEOF(*left_real));
+    left_imag = malloc2(full_len*SIZEOF(*left_imag));
+    right_real = malloc2(full_len*SIZEOF(*right_real));
+    right_imag = malloc2(full_len*SIZEOF(*right_imag));
 
     if (!stft_forward_channel(stft_plan,
                               left,
@@ -261,10 +252,10 @@ mdx_pack_input(
                               left_real,
                               left_imag,
                               stft_frames)) {
-        free(left_real);
-        free(left_imag);
-        free(right_real);
-        free(right_imag);
+        free2(left_real, full_len*SIZEOF(*left_real));
+        free2(left_imag, full_len*SIZEOF(*left_imag));
+        free2(right_real, full_len*SIZEOF(*right_real));
+        free2(right_imag, full_len*SIZEOF(*right_imag));
         return false;
     }
     if (!stft_forward_channel(stft_plan,
@@ -273,10 +264,10 @@ mdx_pack_input(
                               right_real,
                               right_imag,
                               stft_frames)) {
-        free(left_real);
-        free(left_imag);
-        free(right_real);
-        free(right_imag);
+        free2(left_real, full_len*SIZEOF(*left_real));
+        free2(left_imag, full_len*SIZEOF(*left_imag));
+        free2(right_real, full_len*SIZEOF(*right_real));
+        free2(right_imag, full_len*SIZEOF(*right_imag));
         return false;
     }
 
@@ -297,18 +288,18 @@ mdx_pack_input(
         }
     }
 
-    free(left_real);
-    free(left_imag);
-    free(right_real);
-    free(right_imag);
+    free2(left_real, full_len*SIZEOF(*left_real));
+    free2(left_imag, full_len*SIZEOF(*left_imag));
+    free2(right_real, full_len*SIZEOF(*right_real));
+    free2(right_imag, full_len*SIZEOF(*right_imag));
 
     return true;
 }
 
-void
+static void
 mdx_model_info_init_empty(MdxModelInfo *info) {
-    info->input_name = 0;
-    info->output_name = 0;
+    info->input_name = NULL;
+    info->output_name = NULL;
 
     info->batch_size = 0;
     info->channel_count = 0;
@@ -321,7 +312,7 @@ mdx_model_info_init_empty(MdxModelInfo *info) {
     return;
 }
 
-bool
+static bool
 mdx_unpack_output(
     MdxConfig *config,
     StftPlan *stft_plan,
@@ -380,18 +371,10 @@ mdx_unpack_output(
         return false;
     }
 
-    left_real = malloc((size_t)(full_len*SIZEOF(*left_real)));
-    left_imag = malloc((size_t)(full_len*SIZEOF(*left_imag)));
-    right_real = malloc((size_t)(full_len*SIZEOF(*right_real)));
-    right_imag = malloc((size_t)(full_len*SIZEOF(*right_imag)));
-    if ((left_real == NULL) || (left_imag == NULL)
-        || (right_real == NULL) || (right_imag == NULL)) {
-        free(left_real);
-        free(left_imag);
-        free(right_real);
-        free(right_imag);
-        return false;
-    }
+    left_real = malloc2(full_len*SIZEOF(*left_real));
+    left_imag = malloc2(full_len*SIZEOF(*left_imag));
+    right_real = malloc2(full_len*SIZEOF(*right_real));
+    right_imag = malloc2(full_len*SIZEOF(*right_imag));
 
     for (int64 i = 0; i < full_len; i += 1) {
         left_real[i] = 0.0f;
@@ -422,10 +405,10 @@ mdx_unpack_output(
                               stft_frames,
                               left,
                               frame_count)) {
-        free(left_real);
-        free(left_imag);
-        free(right_real);
-        free(right_imag);
+        free2(left_real, full_len*SIZEOF(*left_real));
+        free2(left_imag, full_len*SIZEOF(*left_imag));
+        free2(right_real, full_len*SIZEOF(*right_real));
+        free2(right_imag, full_len*SIZEOF(*right_imag));
         return false;
     }
     if (!stft_inverse_channel(stft_plan,
@@ -434,23 +417,23 @@ mdx_unpack_output(
                               stft_frames,
                               right,
                               frame_count)) {
-        free(left_real);
-        free(left_imag);
-        free(right_real);
-        free(right_imag);
+        free2(left_real, full_len*SIZEOF(*left_real));
+        free2(left_imag, full_len*SIZEOF(*left_imag));
+        free2(right_real, full_len*SIZEOF(*right_real));
+        free2(right_imag, full_len*SIZEOF(*right_imag));
         return false;
     }
 
-    free(left_real);
-    free(left_imag);
-    free(right_real);
-    free(right_imag);
+    free2(left_real, full_len*SIZEOF(*left_real));
+    free2(left_imag, full_len*SIZEOF(*left_imag));
+    free2(right_real, full_len*SIZEOF(*right_real));
+    free2(right_imag, full_len*SIZEOF(*right_imag));
 
     return true;
 }
 
 
-bool
+static bool
 mdx_process_song(
     MdxConfig *config,
     StftPlan *stft_plan,
@@ -510,16 +493,8 @@ mdx_process_song(
         return false;
     }
 
-    output->left = malloc(
-        (size_t)(input->frame_count*SIZEOF(*output->left))
-    );
-    output->right = malloc(
-        (size_t)(input->frame_count*SIZEOF(*output->right))
-    );
-    if ((output->left == NULL) || (output->right == NULL)) {
-        audio_buffer_destroy(output);
-        return false;
-    }
+    output->left = malloc2(input->frame_count*SIZEOF(*output->left));
+    output->right = malloc2(input->frame_count*SIZEOF(*output->right));
     for (int64 i = 0; i < input->frame_count; i += 1) {
         output->left[i] = 0.0f;
         output->right[i] = 0.0f;
@@ -534,26 +509,15 @@ mdx_process_song(
         audio_buffer_destroy(output);
         return false;
     }
-    input_data = malloc((size_t)(tensor_len*SIZEOF(*input_data)));
-    window_left = malloc((size_t)(config->chunk_size*SIZEOF(*window_left)));
-    window_right = malloc((size_t)(config->chunk_size*SIZEOF(*window_right)));
-    window_output_left = malloc(
-        (size_t)(config->chunk_size*SIZEOF(*window_output_left))
+    input_data = malloc2(tensor_len*SIZEOF(*input_data));
+    window_left = malloc2(config->chunk_size*SIZEOF(*window_left));
+    window_right = malloc2(config->chunk_size*SIZEOF(*window_right));
+    window_output_left = malloc2(
+        config->chunk_size*SIZEOF(*window_output_left)
     );
-    window_output_right = malloc(
-        (size_t)(config->chunk_size*SIZEOF(*window_output_right))
+    window_output_right = malloc2(
+        config->chunk_size*SIZEOF(*window_output_right)
     );
-    if ((input_data == NULL) || (window_left == NULL)
-        || (window_right == NULL) || (window_output_left == NULL)
-        || (window_output_right == NULL)) {
-        free(input_data);
-        free(window_left);
-        free(window_right);
-        free(window_output_left);
-        free(window_output_right);
-        audio_buffer_destroy(output);
-        return false;
-    }
 
     model_shape[0] = 1;
     model_shape[1] = config->dim_c;
@@ -658,8 +622,8 @@ mdx_process_song(
                 || (output_tensor.shape[1] != config->dim_c)
                 || (output_tensor.shape[2] != config->dim_f)
                 || (output_tensor.shape[3] != config->dim_t)) {
-                fprintf(stderr,
-                        "ONNX model returned unexpected output shape\n");
+                error2(
+                    "ONNX model returned unexpected output shape\n");
                 goto cleanup;
             }
             if (!mdx_unpack_output(config,
@@ -695,10 +659,10 @@ mdx_process_song(
             processed_windows += 1;
             if ((processed_windows == total_windows)
                 || ((processed_windows % 10) == 0)) {
-                fprintf(stderr,
-                        "processed %lld / %lld chunks\n",
-                        processed_windows,
-                        total_windows);
+                error2(
+                    "processed %lld / %lld chunks\n",
+                    processed_windows,
+                    total_windows);
             }
         }
     }
@@ -708,11 +672,13 @@ mdx_process_song(
 cleanup:
     ort_tensor_destroy(ort_context, &output_tensor);
     ort_tensor_destroy(ort_context, &input_tensor);
-    free(input_data);
-    free(window_left);
-    free(window_right);
-    free(window_output_left);
-    free(window_output_right);
+    free2(input_data, tensor_len*SIZEOF(*input_data));
+    free2(window_left, config->chunk_size*SIZEOF(*window_left));
+    free2(window_right, config->chunk_size*SIZEOF(*window_right));
+    free2(window_output_left,
+          config->chunk_size*SIZEOF(*window_output_left));
+    free2(window_output_right,
+          config->chunk_size*SIZEOF(*window_output_right));
     if (!result) {
         audio_buffer_destroy(output);
     }
@@ -720,7 +686,7 @@ cleanup:
     return result;
 }
 
-bool
+static bool
 mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     int64 input_batch;
     int64 input_channels;
@@ -732,28 +698,28 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     int64 output_dim_t;
 
     mdx_model_info_init_empty(info);
-    if ((config == 0) || (model == 0)) {
-        fprintf(stderr, "MDX model inspection arguments are invalid\n");
+    if ((config == NULL) || (model == NULL)) {
+        error2("MDX model inspection arguments are invalid\n");
         return false;
     }
-    if ((model->input_name == 0) || (model->output_name == 0)) {
-        fprintf(stderr, "ONNX model input/output names are missing\n");
+    if ((model->input_name == NULL) || (model->output_name == NULL)) {
+        error2("ONNX model input/output names are missing\n");
         return false;
     }
     if ((model->input_count != 1) || (model->output_count != 1)) {
-        fprintf(stderr,
-                "MDX models must have 1 input and 1 output, got %d/%d\n",
-                model->input_count,
-                model->output_count);
+        error2(
+            "MDX models must have 1 input and 1 output, got %d/%d\n",
+            model->input_count,
+            model->output_count);
         return false;
     }
     if (model->input_shape_len != 4) {
-        fprintf(stderr, "MDX model input rank must be 4, got %d\n",
+        error2("MDX model input rank must be 4, got %d\n",
                 model->input_shape_len);
         return false;
     }
     if (model->output_shape_len != 4) {
-        fprintf(stderr, "MDX model output rank must be 4, got %d\n",
+        error2("MDX model output rank must be 4, got %d\n",
                 model->output_shape_len);
         return false;
     }
@@ -768,40 +734,40 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     output_dim_t = model->output_shape[3];
 
     if ((input_batch > 0) && (input_batch != 1)) {
-        fprintf(stderr, "MDX model input batch must be 1, got %lld\n",
+        error2("MDX model input batch must be 1, got %lld\n",
                 input_batch);
         return false;
     }
     if ((output_batch > 0) && (output_batch != 1)) {
-        fprintf(stderr, "MDX model output batch must be 1, got %lld\n",
+        error2("MDX model output batch must be 1, got %lld\n",
                 output_batch);
         return false;
     }
     if ((input_channels > 0) && (input_channels != config->dim_c)) {
-        fprintf(stderr, "MDX model input channels must be %d, got %lld\n",
+        error2("MDX model input channels must be %d, got %lld\n",
                 config->dim_c,
                 input_channels);
         return false;
     }
     if ((output_channels > 0) && (output_channels != config->dim_c)) {
-        fprintf(stderr, "MDX model output channels must be %d, got %lld\n",
+        error2("MDX model output channels must be %d, got %lld\n",
                 config->dim_c,
                 output_channels);
         return false;
     }
 
-    if ((input_dim_f > INT_MAX) || (input_dim_t > INT_MAX)) {
-        fprintf(stderr, "MDX model input dimensions are too large\n");
+    if ((input_dim_f > INT32_MAX) || (input_dim_t > INT32_MAX)) {
+        error2("MDX model input dimensions are too large\n");
         return false;
     }
-    if ((output_dim_f > INT_MAX) || (output_dim_t > INT_MAX)) {
-        fprintf(stderr, "MDX model output dimensions are too large\n");
+    if ((output_dim_f > INT32_MAX) || (output_dim_t > INT32_MAX)) {
+        error2("MDX model output dimensions are too large\n");
         return false;
     }
 
     if (input_dim_f > 0) {
         if ((config->dim_f > 0) && (config->dim_f != input_dim_f)) {
-            fprintf(stderr, "--dim-f=%d does not match model dim_f=%lld\n",
+            error2("--dim-f=%d does not match model dim_f=%lld\n",
                     config->dim_f,
                     input_dim_f);
             return false;
@@ -810,7 +776,7 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     }
     if (input_dim_t > 0) {
         if ((config->dim_t > 0) && (config->dim_t != input_dim_t)) {
-            fprintf(stderr, "--dim-t=%d does not match model dim_t=%lld\n",
+            error2("--dim-t=%d does not match model dim_t=%lld\n",
                     config->dim_t,
                     input_dim_t);
             return false;
@@ -819,30 +785,30 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     }
     if (output_dim_f > 0) {
         if ((config->dim_f > 0) && (config->dim_f != output_dim_f)) {
-            fprintf(stderr,
-                    "MDX output dim_f=%lld does not match dim_f=%d\n",
-                    output_dim_f,
-                    config->dim_f);
+            error2(
+                "MDX output dim_f=%lld does not match dim_f=%d\n",
+                output_dim_f,
+                config->dim_f);
             return false;
         }
         config->dim_f = (int32)output_dim_f;
     }
     if (output_dim_t > 0) {
         if ((config->dim_t > 0) && (config->dim_t != output_dim_t)) {
-            fprintf(stderr,
-                    "MDX output dim_t=%lld does not match dim_t=%d\n",
-                    output_dim_t,
-                    config->dim_t);
+            error2(
+                "MDX output dim_t=%lld does not match dim_t=%d\n",
+                output_dim_t,
+                config->dim_t);
             return false;
         }
         config->dim_t = (int32)output_dim_t;
     }
     if (config->dim_f <= 0) {
-        fprintf(stderr, "MDX model has dynamic dim_f; pass --dim-f\n");
+        error2("MDX model has dynamic dim_f; pass --dim-f\n");
         return false;
     }
     if (config->dim_t <= 0) {
-        fprintf(stderr, "MDX model has dynamic dim_t; pass --dim-t\n");
+        error2("MDX model has dynamic dim_t; pass --dim-t\n");
         return false;
     }
 
@@ -866,12 +832,15 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
 
 #if TESTING_mdx
 
-#define MDX_TEST_CHECK(condition, name)                                      \
-    do {                                                                    \
-        if (!(condition)) {                                                  \
-            fprintf(stderr, "mdx test failed: %s\n", name);                 \
-            return 1;                                                       \
-        }                                                                   \
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
+#define MDX_TEST_CHECK(CONDITION, NAME) \
+    do { \
+        if (!(CONDITION)) { \
+            error2("mdx test failed: %s\n", NAME); \
+            exit(EXIT_FAILURE); \
+        } \
     } while (0)
 
 static bool
@@ -959,8 +928,8 @@ main(void) {
     MDX_TEST_CHECK(config.dim_t == 256, "derived dim_t");
     MDX_TEST_CHECK(info.input_name == model.input_name, "input name");
     MDX_TEST_CHECK(info.output_name == model.output_name, "output name");
-    MDX_TEST_CHECK(info.input_shape_dynamic == false, "static input");
-    MDX_TEST_CHECK(info.output_shape_dynamic == false, "static output");
+    MDX_TEST_CHECK(!info.input_shape_dynamic, "static input");
+    MDX_TEST_CHECK(!info.output_shape_dynamic, "static output");
     MDX_TEST_CHECK(mdx_config_prepare(&config), "prepare config");
     MDX_TEST_CHECK(config.chunk_size == 261120, "chunk size");
     MDX_TEST_CHECK(config.trim == 3072, "trim");
@@ -975,7 +944,7 @@ main(void) {
     MDX_TEST_CHECK(mdx_model_inspect(&info, &config, &model),
                    "derive dim_f from output");
     MDX_TEST_CHECK(config.dim_f == 3072, "output dim_f");
-    MDX_TEST_CHECK(info.input_shape_dynamic == true, "dynamic input");
+    MDX_TEST_CHECK(info.input_shape_dynamic, "dynamic input");
 
     mdx_config_init(&config);
     model.output_shape[2] = -1;
@@ -1178,7 +1147,7 @@ main(void) {
     audio_buffer_destroy(&empty_input);
     stft_plan_destroy(&stft_plan);
 
-    return 0;
+    exit(0);
 }
 
 #endif /* TESTING_mdx */

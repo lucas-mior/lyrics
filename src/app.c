@@ -9,8 +9,8 @@
 #include "mdx.h"
 #include "ort.h"
 
-int32
-app_run(int argc, char **argv) {
+static int32
+app_run(int32 argc, char **argv) {
     AudioBuffer input_audio;
     AudioBuffer output_audio;
     CliOptions options;
@@ -19,7 +19,6 @@ app_run(int argc, char **argv) {
     MdxModelInfo mdx_info;
     OrtContext ort_context;
     OrtModel ort_model;
-    FILE *model_file;
     int32 parse_result;
     int32 result;
 
@@ -58,87 +57,85 @@ app_run(int argc, char **argv) {
     }
 
     if (!audio_check_ffmpeg(options.ffmpeg_path)) {
-        fprintf(stderr, "could not run ffmpeg: %s\n", options.ffmpeg_path);
-        fprintf(stderr, "set --ffmpeg to a valid FFmpeg executable\n");
+        error2("could not run ffmpeg: %s\n", options.ffmpeg_path);
+        error2("set --ffmpeg to a valid FFmpeg executable\n");
         goto cleanup;
     }
 
     if (!audio_can_decode_file(options.input_path, options.ffmpeg_path)) {
-        fprintf(stderr, "could not decode input with ffmpeg: %s\n",
+        error2("could not decode input with ffmpeg: %s\n",
                 options.input_path);
         goto cleanup;
     }
 
-    model_file = fopen(options.model_path, "rb");
-    if (model_file == NULL) {
-        fprintf(stderr, "could not read ONNX model: %s\n", options.model_path);
+    if (!util_file_exists(options.model_path)) {
+        error2("could not read ONNX model: %s\n", options.model_path);
         goto cleanup;
     }
-    fclose(model_file);
 
     if (!stft_plan_init(&stft_plan, mdx_config.n_fft, mdx_config.hop)) {
-        fprintf(stderr,
-                "could not initialize STFT plan for n_fft=%d hop=%d\n",
-                mdx_config.n_fft,
-                mdx_config.hop);
+        error2(
+            "could not initialize STFT plan for n_fft=%d hop=%d\n",
+            mdx_config.n_fft,
+            mdx_config.hop);
         goto cleanup;
     }
 
     if (!ort_context_init(&ort_context)) {
-        fprintf(stderr, "could not initialize ONNX Runtime\n");
+        error2("could not initialize ONNX Runtime\n");
         goto cleanup;
     }
 
     if (!ort_model_load(&ort_context, &ort_model, options.model_path)) {
-        fprintf(stderr, "could not load ONNX model: %s\n",
+        error2("could not load ONNX model: %s\n",
                 options.model_path);
         goto cleanup;
     }
 
     if (!mdx_model_inspect(&mdx_info, &mdx_config, &ort_model)) {
-        fprintf(stderr, "ONNX model is not a supported MDX-Net model: %s\n",
+        error2("ONNX model is not a supported MDX-Net model: %s\n",
                 options.model_path);
         goto cleanup;
     }
 
     if (!mdx_config_prepare(&mdx_config)) {
-        fprintf(stderr, "could not prepare MDX configuration\n");
+        error2("could not prepare MDX configuration\n");
         goto cleanup;
     }
 
     if (!audio_read_file(&input_audio,
                          options.input_path,
                          options.ffmpeg_path)) {
-        fprintf(stderr, "could not decode input audio: %s\n",
+        error2("could not decode input audio: %s\n",
                 options.input_path);
         goto cleanup;
     }
 
     cli_print_options(&options);
-    fprintf(stderr,
-            "MDX model: input=%s output=%s shape=[%d, %d, %d, %d]\n",
-            mdx_info.input_name,
-            mdx_info.output_name,
-            mdx_info.batch_size,
-            mdx_info.channel_count,
-            mdx_info.dim_f,
-            mdx_info.dim_t);
-    fprintf(stderr,
-            "MDX config: sample_rate=%d channels=%d dim_c=%d n_fft=%d "
-            "hop=%d chunk_size=%d trim=%d gen_size=%d\n",
-            mdx_config.sample_rate,
-            mdx_config.channel_count,
-            mdx_config.dim_c,
-            mdx_config.n_fft,
-            mdx_config.hop,
-            mdx_config.chunk_size,
-            mdx_config.trim,
-            mdx_config.gen_size);
-    fprintf(stderr,
-            "decoded audio: sample_rate=%d channels=%d frames=%lld\n",
-            input_audio.sample_rate,
-            input_audio.channel_count,
-            input_audio.frame_count);
+    error2(
+        "MDX model: input=%s output=%s shape=[%d, %d, %d, %d]\n",
+        mdx_info.input_name,
+        mdx_info.output_name,
+        mdx_info.batch_size,
+        mdx_info.channel_count,
+        mdx_info.dim_f,
+        mdx_info.dim_t);
+    error2(
+        "MDX config: sample_rate=%d channels=%d dim_c=%d n_fft=%d "
+        "hop=%d chunk_size=%d trim=%d gen_size=%d\n",
+        mdx_config.sample_rate,
+        mdx_config.channel_count,
+        mdx_config.dim_c,
+        mdx_config.n_fft,
+        mdx_config.hop,
+        mdx_config.chunk_size,
+        mdx_config.trim,
+        mdx_config.gen_size);
+    error2(
+        "decoded audio: sample_rate=%d channels=%d frames=%lld\n",
+        input_audio.sample_rate,
+        input_audio.channel_count,
+        input_audio.frame_count);
 
     if (!mdx_process_song(&mdx_config,
                           &stft_plan,
@@ -146,7 +143,7 @@ app_run(int argc, char **argv) {
                           &ort_model,
                           &input_audio,
                           &output_audio)) {
-        fprintf(stderr, "could not process audio through MDX model\n");
+        error2("could not process audio through MDX model\n");
         goto cleanup;
     }
 
@@ -154,12 +151,12 @@ app_run(int argc, char **argv) {
                           options.output_path,
                           options.format,
                           options.ffmpeg_path)) {
-        fprintf(stderr, "could not write output audio: %s\n",
+        error2("could not write output audio: %s\n",
                 options.output_path);
         goto cleanup;
     }
 
-    fprintf(stderr, "wrote extracted vocals: %s\n", options.output_path);
+    error2("wrote extracted vocals: %s\n", options.output_path);
     result = EXIT_SUCCESS;
 
 cleanup:
@@ -174,9 +171,12 @@ cleanup:
 
 #if TESTING_app
 
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
 int
 main(void) {
-    return 0;
+    exit(0);
 }
 
 #endif /* TESTING_app */

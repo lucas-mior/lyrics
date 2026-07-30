@@ -18,10 +18,10 @@ typedef struct StftPlan {
     float *inverse;
 } StftPlan;
 
-void stft_plan_init_empty(StftPlan *plan);
-bool stft_plan_init(StftPlan *plan, int32 n_fft, int32 hop);
-int32 stft_frame_count(StftPlan *plan, int64 input_len);
-bool stft_forward_channel(
+static void stft_plan_init_empty(StftPlan *plan);
+static bool stft_plan_init(StftPlan *plan, int32 n_fft, int32 hop);
+static int32 stft_frame_count(StftPlan *plan, int64 input_len);
+static bool stft_forward_channel(
     StftPlan *plan,
     float *input,
     int64 input_len,
@@ -29,7 +29,7 @@ bool stft_forward_channel(
     float *output_imag,
     int32 frame_count
 );
-bool stft_inverse_channel(
+static bool stft_inverse_channel(
     StftPlan *plan,
     float *input_real,
     float *input_imag,
@@ -37,6 +37,6 @@ bool stft_inverse_channel(
     float *output,
     int64 output_len
 );
-void stft_plan_destroy(StftPlan *plan);
+static void stft_plan_destroy(StftPlan *plan);
 
 #endif /* STFT_H */

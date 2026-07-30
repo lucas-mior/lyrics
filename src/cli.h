@@ -34,9 +34,9 @@ typedef struct CliOptions {
     enum CliClipMode clip_mode;
 } CliOptions;
 
-void cli_options_init(CliOptions *options);
-int32 cli_parse(CliOptions *options, int argc, char **argv);
-void cli_print_usage(char *program);
-void cli_print_options(CliOptions *options);
+static void cli_options_init(CliOptions *options);
+static int32 cli_parse(CliOptions *options, int32 argc, char **argv);
+static void cli_print_usage(char *program);
+static void cli_print_options(CliOptions *options);
 
 #endif /* CLI_H */
