@@ -132,6 +132,17 @@ app_run(int argc, char **argv) {
             input_audio.sample_rate,
             input_audio.channel_count,
             input_audio.frame_count);
+
+    if (!audio_write_file(&input_audio,
+                          options.output_path,
+                          options.format,
+                          options.ffmpeg_path)) {
+        fprintf(stderr, "could not write output audio: %s\n",
+                options.output_path);
+        goto cleanup;
+    }
+
+    fprintf(stderr, "wrote decoded audio copy: %s\n", options.output_path);
     fprintf(stderr, "audio extraction is not implemented yet\n");
     result = EXIT_SUCCESS;
 
