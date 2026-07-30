@@ -29,7 +29,9 @@ OUTPUT=${OUTPUT:-vocals.wav}
 CPPFLAGS="${CPPFLAGS:-}"
 CPPFLAGS="$CPPFLAGS -D_DEFAULT_SOURCE -D_XOPEN_SOURCE=700"
 CPPFLAGS="$CPPFLAGS -Icbase -I. -Isrc"
+
 CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra"}
+
 EXTRA_CFLAGS=${EXTRA_CFLAGS:-}
 EXTRA_LDFLAGS=${EXTRA_LDFLAGS:-}
 EXTRA_LDLIBS=${EXTRA_LDLIBS:-}
@@ -156,7 +158,7 @@ build_program() {
     dep_ldlibs=$(dependency_ldlibs)
 
     trace_on
-    $CC $CFLAGS $EXTRA_CFLAGS $dep_cflags $SOURCES \
+    $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags $SOURCES \
         $EXTRA_LDFLAGS $DEFAULT_LDLIBS $dep_ldlibs $EXTRA_LDLIBS \
         -o "$PROGRAM"
     trace_off
@@ -172,7 +174,7 @@ run_tests() {
         dep_ldlibs=$(dependency_ldlibs)
 
         trace_on
-        $CC $CFLAGS $EXTRA_CFLAGS $dep_cflags "-DTESTING_$module=1" \
+        $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags "-DTESTING_$module=1" \
             $TEST_SOURCES $EXTRA_LDFLAGS $DEFAULT_LDLIBS $dep_ldlibs \
             $EXTRA_LDLIBS -o "$output"
         bin/test_$module
