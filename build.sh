@@ -26,7 +26,6 @@ FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
 PROGRAM_SOURCE=${PROGRAM_SOURCE:-src/main.c}
-TEST_MODULES=${TEST_MODULES:-}
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
@@ -161,7 +160,6 @@ environment:
     FFTW_PKG_CONFIG_NAME         pkg-config package, default: fftw3f
     PROGRAM                      output executable, default: bin/uvr-c
     PROGRAM_SOURCE               unity source, default: src/main.c
-    TEST_MODULES                 modules whose tests are run
     MODEL                        ONNX model path, default: models/identity.onnx
     INPUT                        run command input path, default: song.mp3
     OUTPUT                       run command output path, default: vocals.wav
@@ -323,11 +321,6 @@ build_program() {
 }
 
 test_modules() {
-    if [ -n "$TEST_MODULES" ]; then
-        printf '%s\n' $TEST_MODULES
-        return 0
-    fi
-
     find src -iname "*.c" | grep -v '/main\.c$' | sort
 }
 
