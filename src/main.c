@@ -50,6 +50,8 @@ main(int32 argc, char **argv) {
     int32 parse_result;
     int32 result;
 
+    program = argv[0];
+
     cli_options_init(&options);
     parse_result = cli_parse(&options, argc, argv);
     if (parse_result > 0) {
