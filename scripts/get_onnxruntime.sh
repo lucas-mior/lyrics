@@ -29,6 +29,23 @@ fi
 
 rm -rf "third_party/$package"
 tar -xzf "third_party/$archive" -C third_party
+
+pcdir="third_party/$package/lib/pkgconfig"
+mkdir -p "$pcdir"
+cat > "$pcdir/onnxruntime.pc" <<EOF_PC
+prefix=\${pcfiledir}/../..
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
+
+Name: ONNX Runtime
+Description: ONNX Runtime C API
+Version: $version
+Libs: -L\${libdir} -lonnxruntime
+Cflags: -I\${includedir}
+EOF_PC
+ln -sfn onnxruntime.pc "$pcdir/libonnxruntime.pc"
 ln -sfn "$package" third_party/onnxruntime
 
 echo "ONNX Runtime installed at third_party/onnxruntime"
+echo "pkg-config file written to third_party/onnxruntime/lib/pkgconfig/onnxruntime.pc"

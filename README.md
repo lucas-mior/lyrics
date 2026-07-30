@@ -17,21 +17,21 @@ The included model has one `float32[1,4]` input named `input`, one
 
 - Linux on x86-64 or AArch64
 - A C11 compiler
-- GNU Make
+- `pkg-config`
 - Python 3, only to regenerate the tiny ONNX model
 - `curl` and `tar`, only for the setup helper
 
 ## Build and run
 
 ```sh
-make setup
-make
-make run
+./build.sh setup
+./build.sh run
 ```
 
-`make setup` downloads the CPU-only ONNX Runtime 1.28.0 release into
-`third_party/onnxruntime` and generates `models/identity.onnx` without external
-Python packages.
+`./build.sh setup` downloads the CPU-only ONNX Runtime 1.28.0 release into
+`third_party/onnxruntime`, writes a local `onnxruntime.pc` file, and generates
+`models/identity.onnx` without external Python packages. Later `build` and `run`
+commands use `pkg-config` to obtain ONNX Runtime compiler and linker flags.
 
 Expected output:
 
@@ -41,21 +41,40 @@ output: 1 -2.5 3.25 8
 identity model verification passed
 ```
 
-## Use an existing ONNX Runtime installation
-
-Set `ONNXRUNTIME_ROOT` to a directory containing `include/onnxruntime_c_api.h`
-and `lib/libonnxruntime.so`:
+## Commands
 
 ```sh
-make clean
-make ONNXRUNTIME_ROOT=/opt/onnxruntime
-LD_LIBRARY_PATH=/opt/onnxruntime/lib ./build/ort-identity models/identity.onnx
+./build.sh build    # build the model and executable
+./build.sh run      # build and run the example
+./build.sh model    # regenerate models/identity.onnx
+./build.sh setup    # download ONNX Runtime and regenerate the model
+./build.sh clean    # remove generated build outputs
+```
+
+`./build.sh` without arguments is the same as `./build.sh build`.
+
+## Use an existing ONNX Runtime installation
+
+Install an ONNX Runtime package that provides a pkg-config file, or point
+`PKG_CONFIG_PATH` at a directory containing `onnxruntime.pc`:
+
+```sh
+./build.sh clean
+PKG_CONFIG_PATH=/opt/onnxruntime/lib/pkgconfig ./build.sh build
+LD_LIBRARY_PATH=/opt/onnxruntime/lib ./bin/ort-identity models/identity.onnx
+```
+
+If your installation uses a different pkg-config package name, set
+`ONNXRUNTIME_PKG_CONFIG_NAME`:
+
+```sh
+ONNXRUNTIME_PKG_CONFIG_NAME=libonnxruntime ./build.sh build
 ```
 
 ## Regenerate the model
 
 ```sh
-make model
+./build.sh model
 ```
 
 The generator writes the ONNX protobuf directly, so it does not require the
