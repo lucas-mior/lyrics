@@ -6,9 +6,7 @@
 
 #include "cbase.h"
 
-#include <limits.h>
 #include <onnxruntime_c_api.h>
-#include <stdio.h>
 
 static bool
 ort_check(OrtContext *context, OrtStatus *status, char *operation) {
