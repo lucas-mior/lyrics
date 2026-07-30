@@ -846,6 +846,49 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
         } \
     } while (0)
 
+typedef struct MdxTestStderrSilence {
+    int32 saved_stderr;
+    int32 null_fd;
+} MdxTestStderrSilence;
+
+static void
+mdx_test_stderr_silence_begin(MdxTestStderrSilence *silence) {
+    fflush(stderr);
+
+    silence->saved_stderr = dup(STDERR_FILENO);
+    MDX_TEST_CHECK(silence->saved_stderr >= 0, "save stderr");
+
+    silence->null_fd = open("/dev/null", O_WRONLY);
+    if (silence->null_fd < 0) {
+        XCLOSE(&silence->saved_stderr);
+        MDX_TEST_CHECK(false, "open null stderr");
+    }
+
+    xdup2(silence->null_fd, STDERR_FILENO);
+
+    return;
+}
+
+static void
+mdx_test_stderr_silence_end(MdxTestStderrSilence *silence) {
+    fflush(stderr);
+    xdup2(silence->saved_stderr, STDERR_FILENO);
+    XCLOSE(&silence->null_fd);
+    XCLOSE(&silence->saved_stderr);
+
+    return;
+}
+
+#define MDX_TEST_CHECK_SILENT_FAILURE(EXPRESSION, NAME) \
+    do { \
+        MdxTestStderrSilence silence; \
+        bool expression_result; \
+        mdx_test_stderr_silence_begin(&silence); \
+        expression_result = (EXPRESSION); \
+        mdx_test_stderr_silence_end(&silence); \
+        MDX_TEST_CHECK(!expression_result, NAME); \
+    } while (0)
+
 static bool
 mdx_float_close(float a, float b) {
     return fabsf(a - b) < 0.001f;
@@ -939,8 +982,10 @@ main(void) {
     MDX_TEST_CHECK(config.gen_size == 254976, "gen_size");
 
     config.dim_f = 2048;
-    MDX_TEST_CHECK(!mdx_model_inspect(&info, &config, &model),
-                   "dim_f mismatch");
+    MDX_TEST_CHECK_SILENT_FAILURE(mdx_model_inspect(&info,
+                                                    &config,
+                                                    &model),
+                                  "dim_f mismatch");
 
     mdx_config_init(&config);
     model.input_shape[2] = -1;
@@ -951,25 +996,31 @@ main(void) {
 
     mdx_config_init(&config);
     model.output_shape[2] = -1;
-    MDX_TEST_CHECK(!mdx_model_inspect(&info, &config, &model),
-                   "dynamic dim_f missing override");
+    MDX_TEST_CHECK_SILENT_FAILURE(mdx_model_inspect(&info,
+                                                    &config,
+                                                    &model),
+                                  "dynamic dim_f missing override");
     config.dim_f = 3072;
     MDX_TEST_CHECK(mdx_model_inspect(&info, &config, &model),
                    "dynamic dim_f override");
 
     model.input_shape_len = 2;
-    MDX_TEST_CHECK(!mdx_model_inspect(&info, &config, &model),
-                   "reject non-mdx rank");
+    MDX_TEST_CHECK_SILENT_FAILURE(mdx_model_inspect(&info,
+                                                    &config,
+                                                    &model),
+                                  "reject non-mdx rank");
 
     mdx_config_init(&config);
     config.dim_f = 3074;
     config.dim_t = 256;
-    MDX_TEST_CHECK(!mdx_config_prepare(&config), "reject too many bins");
+    MDX_TEST_CHECK_SILENT_FAILURE(mdx_config_prepare(&config),
+                                  "reject too many bins");
 
     mdx_config_init(&config);
     config.dim_f = 3072;
     config.dim_t = 4;
-    MDX_TEST_CHECK(!mdx_config_prepare(&config), "reject small dim_t");
+    MDX_TEST_CHECK_SILENT_FAILURE(mdx_config_prepare(&config),
+                                  "reject small dim_t");
 
     mdx_config_init(&config);
     MDX_TEST_CHECK(mdx_input_tensor_len(&config) < 0,
