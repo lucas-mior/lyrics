@@ -6,9 +6,11 @@ PYTHON=${PYTHON:-python3}
 PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 ONNXRUNTIME_PKG_CONFIG_NAME=${ONNXRUNTIME_PKG_CONFIG_NAME:-onnxruntime}
 
-PROGRAM=${PROGRAM:-bin/ort-identity}
-SOURCE=${SOURCE:-src/main.c}
+PROGRAM=${PROGRAM:-bin/uvr-c}
+SOURCES=${SOURCES:-"src/main.c src/cli.c"}
 MODEL=${MODEL:-models/identity.onnx}
+INPUT=${INPUT:-song.mp3}
+OUTPUT=${OUTPUT:-vocals.wav}
 
 CFLAGS=${CFLAGS:-"-std=c11 -O2 -g -Wall -Wextra -Werror"}
 EXTRA_CFLAGS=${EXTRA_CFLAGS:-}
@@ -16,7 +18,8 @@ EXTRA_LDFLAGS=${EXTRA_LDFLAGS:-}
 EXTRA_LDLIBS=${EXTRA_LDLIBS:-"-lm"}
 
 if [ -d third_party/onnxruntime/lib/pkgconfig ]; then
-    PKG_CONFIG_PATH="third_party/onnxruntime/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    ort_pc=third_party/onnxruntime/lib/pkgconfig
+    PKG_CONFIG_PATH="$ort_pc${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
     export PKG_CONFIG_PATH
 fi
 
@@ -25,10 +28,10 @@ usage() {
 usage: ./build.sh [command]
 
 commands:
-    build    build the model and executable (default)
-    run      build and run the example
+    build    build the executable (default)
+    run      build and run the CLI parser
     model    regenerate models/identity.onnx
-    setup    download ONNX Runtime and regenerate the model
+    setup    download ONNX Runtime and regenerate the identity model
     clean    remove generated build outputs
     help     show this message
 
@@ -37,8 +40,11 @@ environment:
     PYTHON                       Python interpreter, default: python3
     PKG_CONFIG                   pkg-config program, default: pkg-config
     ONNXRUNTIME_PKG_CONFIG_NAME  pkg-config package, default: onnxruntime
-    PROGRAM                      output executable, default: bin/ort-identity
+    PROGRAM                      output executable, default: bin/uvr-c
+    SOURCES                      source files to compile
     MODEL                        ONNX model path, default: models/identity.onnx
+    INPUT                        run command input path, default: song.mp3
+    OUTPUT                       run command output path, default: vocals.wav
     CFLAGS                       compiler flags
     EXTRA_CFLAGS                 additional compiler flags
     EXTRA_LDFLAGS                additional linker flags
@@ -68,7 +74,8 @@ resolve_onnxruntime_package() {
     fi
 
     echo "pkg-config could not find $ONNXRUNTIME_PKG_CONFIG_NAME" >&2
-    echo "run ./build.sh setup or set PKG_CONFIG_PATH to the directory containing onnxruntime.pc" >&2
+    echo "run ./build.sh setup or set PKG_CONFIG_PATH" >&2
+    echo "to the directory containing onnxruntime.pc" >&2
     exit 1
 }
 
@@ -79,36 +86,22 @@ build_model() {
 }
 
 build_program() {
-    ort_package=$(resolve_onnxruntime_package)
-    ort_cflags=$("$PKG_CONFIG" --cflags "$ort_package")
-    ort_libs=$("$PKG_CONFIG" --libs "$ort_package")
-
     mkdir -p "$(dirname "$PROGRAM")"
-    $CC $CFLAGS $EXTRA_CFLAGS $ort_cflags "$SOURCE" \
-        $EXTRA_LDFLAGS $ort_libs $EXTRA_LDLIBS -o "$PROGRAM"
+    $CC $CFLAGS $EXTRA_CFLAGS $SOURCES \
+        $EXTRA_LDFLAGS $EXTRA_LDLIBS -o "$PROGRAM"
 }
 
 run_program() {
-    ort_package=$(resolve_onnxruntime_package)
-    libdir=$("$PKG_CONFIG" --variable=libdir "$ort_package")
-
-    if [ -n "$libdir" ]; then
-        LD_LIBRARY_PATH="$libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
-            "$PROGRAM" "$MODEL"
-    else
-        "$PROGRAM" "$MODEL"
-    fi
+    "$PROGRAM" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
 }
 
 command=${1:-build}
 
 case "$command" in
     build|all)
-        build_model
         build_program
         ;;
     run)
-        build_model
         build_program
         run_program
         ;;
@@ -120,7 +113,7 @@ case "$command" in
         build_model
         ;;
     clean)
-        rm -rf bin "$MODEL"
+        rm -rf bin
         ;;
     help|-h|--help)
         usage
