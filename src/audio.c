@@ -7,6 +7,29 @@
 #endif
 
 static void
+audio_io_format_init(AudioIoFormat *format) {
+    format->sample_rate = 44100;
+    format->channel_count = 2;
+
+    return;
+}
+
+static bool
+audio_io_format_valid(AudioIoFormat *format) {
+    if (format == NULL) {
+        return false;
+    }
+    if (format->sample_rate <= 0) {
+        return false;
+    }
+    if ((format->channel_count != 1) && (format->channel_count != 2)) {
+        return false;
+    }
+
+    return true;
+}
+
+static void
 audio_buffer_init(AudioBuffer *audio) {
     audio->left = NULL;
     audio->right = NULL;
@@ -83,6 +106,22 @@ audio_can_decode_file(char *path, char *ffmpeg_path) {
 
 static bool
 audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
+    AudioIoFormat format;
+
+    audio_io_format_init(&format);
+
+    return audio_read_file_format(audio, path, &format, ffmpeg_path);
+}
+
+static bool
+audio_read_file_format(
+    AudioBuffer *audio,
+    char *path,
+    AudioIoFormat *format,
+    char *ffmpeg_path
+) {
+    char channel_count_arg[32];
+    char sample_rate_arg[32];
     char *argv[] = {
         ffmpeg_path,
         "-v",
@@ -90,9 +129,9 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
         "-i",
         path,
         "-ac",
-        "2",
+        channel_count_arg,
         "-ar",
-        "44100",
+        sample_rate_arg,
         "-f",
         "f32le",
         "-",
@@ -105,6 +144,16 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
     int64 raw_len;
     int64 sample_count;
 
+    if ((audio == NULL) || (path == NULL) || (ffmpeg_path == NULL)) {
+        return false;
+    }
+    if (!audio_io_format_valid(format)) {
+        return false;
+    }
+
+    ITOA(channel_count_arg, format->channel_count);
+    ITOA(sample_rate_arg, format->sample_rate);
+
     audio_buffer_destroy(audio);
     command_push_array(&command, LENGTH(argv) - 1, argv);
     if (!command_run_capture_all(&command)) {
@@ -115,27 +164,34 @@ audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
     }
 
     raw_len = command.result.stdout_len;
-    frame_bytes = 2*SIZEOF(*samples);
+    frame_bytes = (int64)format->channel_count*SIZEOF(*samples);
     if ((raw_len % frame_bytes) != 0) {
         goto cleanup;
     }
 
     audio->frame_count = raw_len/frame_bytes;
-    audio->sample_rate = 44100;
-    audio->channel_count = 2;
+    audio->sample_rate = format->sample_rate;
+    audio->channel_count = format->channel_count;
     if (audio->frame_count == 0) {
         result = true;
+        goto cleanup;
+    }
+    if (audio->frame_count > INT64_MAX/SIZEOF(*audio->left)) {
         goto cleanup;
     }
 
     sample_count = audio->frame_count*SIZEOF(*audio->left);
     audio->left = malloc2(sample_count);
-    audio->right = malloc2(sample_count);
+    if (audio->channel_count == 2) {
+        audio->right = malloc2(sample_count);
+    }
 
     samples = (float *)command.result.stdout_output;
     for (int64 i = 0; i < audio->frame_count; i += 1) {
-        audio->left[i] = samples[2*i];
-        audio->right[i] = samples[2*i + 1];
+        audio->left[i] = samples[audio->channel_count*i];
+        if (audio->channel_count == 2) {
+            audio->right[i] = samples[2*i + 1];
+        }
     }
     result = true;
 
@@ -149,12 +205,59 @@ cleanup:
 }
 
 static bool
+audio_buffer_valid(AudioBuffer *audio) {
+    AudioIoFormat format;
+
+    if (audio == NULL) {
+        return false;
+    }
+
+    format.sample_rate = audio->sample_rate;
+    format.channel_count = audio->channel_count;
+    if (!audio_io_format_valid(&format)) {
+        return false;
+    }
+    if (audio->frame_count < 0) {
+        return false;
+    }
+    if ((audio->frame_count > 0) && (audio->left == NULL)) {
+        return false;
+    }
+    if ((audio->frame_count > 0) && (audio->channel_count == 2)
+        && (audio->right == NULL)) {
+        return false;
+    }
+    if ((audio->channel_count == 1) && audio->right) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 audio_write_file(
     AudioBuffer *audio,
     char *path,
     char *format,
     char *ffmpeg_path
 ) {
+    return audio_write_file_format(audio, path, format, NULL, ffmpeg_path);
+}
+
+static bool
+audio_write_file_format(
+    AudioBuffer *audio,
+    char *path,
+    char *container_format,
+    AudioIoFormat *output_format,
+    char *ffmpeg_path
+) {
+    AudioIoFormat buffer_format;
+    AudioIoFormat file_format;
+    char input_channel_count_arg[32];
+    char input_sample_rate_arg[32];
+    char output_channel_count_arg[32];
+    char output_sample_rate_arg[32];
     char *argv[] = {
         ffmpeg_path,
         "-v",
@@ -163,18 +266,18 @@ audio_write_file(
         "-f",
         "f32le",
         "-ar",
-        "44100",
+        input_sample_rate_arg,
         "-ac",
-        "2",
+        input_channel_count_arg,
         "-i",
         "-",
         "-vn",
         "-ac",
-        "2",
+        output_channel_count_arg,
         "-ar",
-        "44100",
+        output_sample_rate_arg,
         "-f",
-        format,
+        container_format,
         path,
         NULL,
     };
@@ -185,36 +288,50 @@ audio_write_file(
     int32 status;
     int64 frame_capacity;
     int64 frame_offset;
+    int64 interleaved_size;
     pid_t pid;
     pid_t waited;
     void (*previous_sigpipe)(int);
 
-    if ((audio == NULL) || (path == NULL) || (format == NULL)
+    if ((audio == NULL) || (path == NULL) || (container_format == NULL)
         || (ffmpeg_path == NULL)) {
         return false;
     }
-    if ((audio->frame_count < 0) || (audio->sample_rate != 44100)
-        || (audio->channel_count != 2)) {
+    if (!audio_buffer_valid(audio)) {
         return false;
     }
-    if ((audio->frame_count > 0)
-        && ((audio->left == NULL) || (audio->right == NULL))) {
+
+    buffer_format.sample_rate = audio->sample_rate;
+    buffer_format.channel_count = audio->channel_count;
+    if (output_format) {
+        file_format = *output_format;
+    } else {
+        file_format = buffer_format;
+    }
+    if (!audio_io_format_valid(&file_format)) {
         return false;
     }
+
+    ITOA(input_channel_count_arg, buffer_format.channel_count);
+    ITOA(input_sample_rate_arg, buffer_format.sample_rate);
+    ITOA(output_channel_count_arg, file_format.channel_count);
+    ITOA(output_sample_rate_arg, file_format.sample_rate);
 
     command_push_array(&command, LENGTH(argv) - 1, argv);
     frame_capacity = 4096;
-    interleaved = malloc2(2*frame_capacity*SIZEOF(*interleaved));
+    interleaved_size = (int64)audio->channel_count*frame_capacity
+                       *SIZEOF(*interleaved);
+    interleaved = malloc2(interleaved_size);
 
     if (pipe(pipe_fds) != 0) {
-        free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
+        free2(interleaved, interleaved_size);
         command_free(&command);
         return false;
     }
 
     switch (pid = fork()) {
     case -1:
-        free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
+        free2(interleaved, interleaved_size);
         command_free(&command);
         close(pipe_fds[0]);
         close(pipe_fds[1]);
@@ -254,13 +371,17 @@ audio_write_file(
         }
 
         for (int64 i = 0; i < chunk_frames; i += 1) {
-            interleaved[2*i] = audio->left[frame_offset + i];
-            interleaved[2*i + 1] = audio->right[frame_offset + i];
+            interleaved[audio->channel_count*i] =
+                audio->left[frame_offset + i];
+            if (audio->channel_count == 2) {
+                interleaved[2*i + 1] = audio->right[frame_offset + i];
+            }
         }
 
         bytes = (char *)interleaved;
         byte_offset = 0;
-        byte_count = 2*chunk_frames*SIZEOF(*interleaved);
+        byte_count = (int64)audio->channel_count*chunk_frames
+                     *SIZEOF(*interleaved);
         while (byte_offset < byte_count) {
             int64 bytes_written;
 
@@ -277,7 +398,7 @@ audio_write_file(
 
             close(pipe_fds[1]);
             signal(SIGPIPE, previous_sigpipe);
-            free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
+            free2(interleaved, interleaved_size);
             waitpid(pid, &status, 0);
             command_free(&command);
             return false;
@@ -288,7 +409,7 @@ audio_write_file(
 
     close(pipe_fds[1]);
     signal(SIGPIPE, previous_sigpipe);
-    free2(interleaved, 2*frame_capacity*SIZEOF(*interleaved));
+    free2(interleaved, interleaved_size);
 
     do {
         waited = waitpid(pid, &status, 0);
@@ -366,23 +487,18 @@ audio_float_abs(float value) {
     return value;
 }
 
-static bool
-audio_buffer_valid(AudioBuffer *audio) {
-    if (audio == NULL) {
-        return false;
-    }
-    if ((audio->sample_rate != 44100) || (audio->channel_count != 2)) {
-        return false;
-    }
-    if (audio->frame_count < 0) {
-        return false;
-    }
-    if ((audio->frame_count > 0)
-        && ((audio->left == NULL) || (audio->right == NULL))) {
-        return false;
+
+static float
+audio_buffer_channel_sample(
+    AudioBuffer *audio,
+    int64 frame,
+    int32 channel
+) {
+    if (channel == 0) {
+        return audio->left[frame];
     }
 
-    return true;
+    return audio->right[frame];
 }
 
 static bool
@@ -429,7 +545,7 @@ audio_compare_measure_offset(
     }
 
     result->compared_frames = frame_count;
-    result->compared_samples = 2*frame_count;
+    result->compared_samples = (int64)expected->channel_count*frame_count;
     if (frame_count == 0) {
         result->snr_db = 999.0;
         return true;
@@ -438,34 +554,34 @@ audio_compare_measure_offset(
     error_sum = 0.0;
     signal_sum = 0.0;
     for (int64 i = 0; i < frame_count; i += 1) {
-        float expected_samples[2];
-        float actual_samples[2];
-
-        expected_samples[0] = expected->left[expected_start + i];
-        expected_samples[1] = expected->right[expected_start + i];
-        actual_samples[0] = actual->left[actual_start + i];
-        actual_samples[1] = actual->right[actual_start + i];
-
-        for (int32 channel = 0; channel < 2; channel += 1) {
+        for (int32 channel = 0; channel < expected->channel_count;
+             channel += 1) {
             double error;
             float actual_abs;
+            float actual_sample;
             float expected_abs;
+            float expected_sample;
 
-            if (isnan(expected_samples[channel])
-                || isnan(actual_samples[channel])) {
+            expected_sample = audio_buffer_channel_sample(expected,
+                                                          expected_start + i,
+                                                          channel);
+            actual_sample = audio_buffer_channel_sample(actual,
+                                                        actual_start + i,
+                                                        channel);
+
+            if (isnan(expected_sample) || isnan(actual_sample)) {
                 result->nan_samples += 1;
                 result->finite = false;
                 continue;
             }
-            if (isinf(expected_samples[channel])
-                || isinf(actual_samples[channel])) {
+            if (isinf(expected_sample) || isinf(actual_sample)) {
                 result->infinite_samples += 1;
                 result->finite = false;
                 continue;
             }
 
-            expected_abs = audio_float_abs(expected_samples[channel]);
-            actual_abs = audio_float_abs(actual_samples[channel]);
+            expected_abs = audio_float_abs(expected_sample);
+            actual_abs = audio_float_abs(actual_sample);
             if (expected_abs > result->expected_peak) {
                 result->expected_peak = expected_abs;
             }
@@ -473,11 +589,9 @@ audio_compare_measure_offset(
                 result->actual_peak = actual_abs;
             }
 
-            error = (double)expected_samples[channel]
-                    - (double)actual_samples[channel];
+            error = (double)expected_sample - (double)actual_sample;
             error_sum += error*error;
-            signal_sum += (double)expected_samples[channel]
-                          *(double)expected_samples[channel];
+            signal_sum += (double)expected_sample*(double)expected_sample;
             if ((float)fabs(error) > result->max_abs_error) {
                 result->max_abs_error = (float)fabs(error);
             }
@@ -566,6 +680,16 @@ audio_compare_buffers(
     result->mode = options->mode;
 
     if (!audio_buffer_valid(expected) || !audio_buffer_valid(actual)) {
+        return false;
+    }
+    if ((expected->sample_rate != actual->sample_rate)
+        || (expected->channel_count != actual->channel_count)) {
+        result->valid = true;
+        result->decoded = true;
+        result->expected_frames = expected->frame_count;
+        result->actual_frames = actual->frame_count;
+        result->length_delta_frames = audio_int64_abs(expected->frame_count
+                                                      - actual->frame_count);
         return false;
     }
 
@@ -679,7 +803,11 @@ audio_compare_reconstruction_buffers(
         || !audio_buffer_valid(second_stem)) {
         return false;
     }
-    if ((first_stem->frame_count != mixture->frame_count)
+    if ((first_stem->sample_rate != mixture->sample_rate)
+        || (second_stem->sample_rate != mixture->sample_rate)
+        || (first_stem->channel_count != mixture->channel_count)
+        || (second_stem->channel_count != mixture->channel_count)
+        || (first_stem->frame_count != mixture->frame_count)
         || (second_stem->frame_count != mixture->frame_count)) {
         result->valid = true;
         result->expected_frames = mixture->frame_count;
@@ -694,13 +822,18 @@ audio_compare_reconstruction_buffers(
     if (reconstructed.frame_count > 0) {
         reconstructed.left = malloc2(reconstructed.frame_count
                                      *SIZEOF(*reconstructed.left));
-        reconstructed.right = malloc2(reconstructed.frame_count
-                                      *SIZEOF(*reconstructed.right));
+        if (reconstructed.channel_count == 2) {
+            reconstructed.right = malloc2(reconstructed.frame_count
+                                          *SIZEOF(*reconstructed.right));
+        }
     }
 
     for (int64 i = 0; i < reconstructed.frame_count; i += 1) {
         reconstructed.left[i] = first_stem->left[i] + second_stem->left[i];
-        reconstructed.right[i] = first_stem->right[i] + second_stem->right[i];
+        if (reconstructed.channel_count == 2) {
+            reconstructed.right[i] = first_stem->right[i]
+                                     + second_stem->right[i];
+        }
     }
 
     ok = audio_compare_buffers(result, mixture, &reconstructed, options);
@@ -906,6 +1039,8 @@ int
 main(void) {
     AudioBuffer audio;
     AudioCompareOptions compare_options;
+    AudioIoFormat default_format;
+    AudioIoFormat mono_format;
     AudioCompareResult compare_result;
     char output[128];
     char output_raw[16];
@@ -945,11 +1080,22 @@ main(void) {
     int32 fd;
 
     audio_buffer_init(&audio);
+    audio_io_format_init(&default_format);
+    mono_format = default_format;
+    mono_format.sample_rate = 16000;
+    mono_format.channel_count = 1;
     if (audio.left || audio.right) {
         exit(audio_test_fail("buffer pointers"));
     }
     if (audio.frame_count != 0) {
         exit(audio_test_fail("frame count"));
+    }
+    if ((default_format.sample_rate != 44100)
+        || (default_format.channel_count != 2)) {
+        exit(audio_test_fail("default audio io format"));
+    }
+    if (!audio_io_format_valid(&mono_format)) {
+        exit(audio_test_fail("mono audio io format"));
     }
     audio_buffer_destroy(&audio);
 
@@ -1068,6 +1214,58 @@ main(void) {
             unlink(output);
             exit(audio_test_fail("output interleaving"));
         }
+    }
+
+    audio_buffer_destroy(&audio);
+    if (!audio_read_file_format(&audio,
+                                "input.mp3",
+                                &mono_format,
+                                script)) {
+        unlink(script);
+        unlink(output);
+        exit(audio_test_fail("read fake mono audio"));
+    }
+    if (audio.sample_rate != 16000) {
+        audio_buffer_destroy(&audio);
+        unlink(script);
+        unlink(output);
+        exit(audio_test_fail("mono sample rate"));
+    }
+    if (audio.channel_count != 1) {
+        audio_buffer_destroy(&audio);
+        unlink(script);
+        unlink(output);
+        exit(audio_test_fail("mono channels"));
+    }
+    if (audio.frame_count != 4) {
+        audio_buffer_destroy(&audio);
+        unlink(script);
+        unlink(output);
+        exit(audio_test_fail("mono decoded frame count"));
+    }
+    if (audio.right) {
+        audio_buffer_destroy(&audio);
+        unlink(script);
+        unlink(output);
+        exit(audio_test_fail("mono right channel"));
+    }
+    if ((audio.left[0] != 1.0f) || (audio.left[1] != -2.0f)
+        || (audio.left[2] != 3.5f) || (audio.left[3] != -4.25f)) {
+        audio_buffer_destroy(&audio);
+        unlink(script);
+        unlink(output);
+        exit(audio_test_fail("mono decoded samples"));
+    }
+
+    unlink(output);
+    if (!audio_write_file_format(&audio,
+                                 output,
+                                 "wav",
+                                 &mono_format,
+                                 script)) {
+        audio_buffer_destroy(&audio);
+        unlink(script);
+        exit(audio_test_fail("write fake mono audio"));
     }
 
     audio_buffer_destroy(&audio);

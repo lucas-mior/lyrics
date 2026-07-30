@@ -41,6 +41,7 @@ int32
 main(int32 argc, char **argv) {
     AudioBuffer input_audio;
     AudioBuffer output_audio;
+    AudioIoFormat input_format;
     CliOptions options;
     StftPlan stft_plan;
     MdxConfig mdx_config;
@@ -64,6 +65,7 @@ main(int32 argc, char **argv) {
     result = EXIT_FAILURE;
     audio_buffer_init(&input_audio);
     audio_buffer_init(&output_audio);
+    audio_io_format_init(&input_format);
     stft_plan_init_empty(&stft_plan);
     mdx_config_init(&mdx_config);
     mdx_model_info_init_empty(&mdx_info);
@@ -132,9 +134,12 @@ main(int32 argc, char **argv) {
         goto cleanup;
     }
 
-    if (!audio_read_file(&input_audio,
-                         options.input_path,
-                         options.ffmpeg_path)) {
+    input_format.sample_rate = mdx_config.sample_rate;
+    input_format.channel_count = mdx_config.channel_count;
+    if (!audio_read_file_format(&input_audio,
+                                options.input_path,
+                                &input_format,
+                                options.ffmpeg_path)) {
         error2("could not decode input audio: %s\n",
                 options.input_path);
         goto cleanup;

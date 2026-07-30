@@ -3,6 +3,11 @@
 
 #include "cbase.h"
 
+typedef struct AudioIoFormat {
+    int32 sample_rate;
+    int32 channel_count;
+} AudioIoFormat;
+
 typedef struct AudioBuffer {
     float *left;
     float *right;
@@ -60,15 +65,30 @@ typedef struct AudioCompareResult {
     double snr_db;
 } AudioCompareResult;
 
+static void audio_io_format_init(AudioIoFormat *format);
+static bool audio_io_format_valid(AudioIoFormat *format);
 static void audio_buffer_init(AudioBuffer *audio);
 static void audio_buffer_destroy(AudioBuffer *audio);
 static bool audio_check_ffmpeg(char *ffmpeg_path);
 static bool audio_can_decode_file(char *path, char *ffmpeg_path);
 static bool audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path);
+static bool audio_read_file_format(
+    AudioBuffer *audio,
+    char *path,
+    AudioIoFormat *format,
+    char *ffmpeg_path
+);
 static bool audio_write_file(
     AudioBuffer *audio,
     char *path,
     char *format,
+    char *ffmpeg_path
+);
+static bool audio_write_file_format(
+    AudioBuffer *audio,
+    char *path,
+    char *container_format,
+    AudioIoFormat *output_format,
     char *ffmpeg_path
 );
 static void audio_compare_options_init(AudioCompareOptions *options);
