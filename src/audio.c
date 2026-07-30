@@ -305,6 +305,450 @@ audio_write_file(
     return WEXITSTATUS(status) == 0;
 }
 
+
+static void
+audio_compare_options_init(AudioCompareOptions *options) {
+    options->mode = AUDIO_COMPARE_MODE_TOLERANT;
+
+    options->max_offset_frames = 0;
+    options->max_length_delta_frames = 0;
+
+    options->max_abs_error = 0.0001f;
+    options->max_rms_error = 0.00001f;
+    options->min_snr_db = 80.0;
+
+    return;
+}
+
+static void
+audio_compare_result_init(AudioCompareResult *result) {
+    result->mode = AUDIO_COMPARE_MODE_TOLERANT;
+
+    result->decoded = false;
+    result->valid = false;
+    result->finite = false;
+    result->length_ok = false;
+    result->passed = false;
+
+    result->expected_frames = 0;
+    result->actual_frames = 0;
+    result->compared_frames = 0;
+    result->compared_samples = 0;
+    result->length_delta_frames = 0;
+    result->best_offset_frames = 0;
+    result->nan_samples = 0;
+    result->infinite_samples = 0;
+
+    result->max_abs_error = 0.0f;
+    result->rms_error = 0.0f;
+    result->expected_peak = 0.0f;
+    result->actual_peak = 0.0f;
+    result->snr_db = 0.0;
+
+    return;
+}
+
+static int64
+audio_int64_abs(int64 value) {
+    if (value < 0) {
+        return -value;
+    }
+
+    return value;
+}
+
+static float
+audio_float_abs(float value) {
+    if (value < 0.0f) {
+        return -value;
+    }
+
+    return value;
+}
+
+static bool
+audio_buffer_valid(AudioBuffer *audio) {
+    if (audio == NULL) {
+        return false;
+    }
+    if ((audio->sample_rate != 44100) || (audio->channel_count != 2)) {
+        return false;
+    }
+    if (audio->frame_count < 0) {
+        return false;
+    }
+    if ((audio->frame_count > 0)
+        && ((audio->left == NULL) || (audio->right == NULL))) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+audio_compare_measure_offset(
+    AudioCompareResult *result,
+    AudioBuffer *expected,
+    AudioBuffer *actual,
+    int64 offset_frames
+) {
+    double error_sum;
+    double signal_sum;
+    int64 expected_start;
+    int64 actual_start;
+    int64 frame_count;
+
+    audio_compare_result_init(result);
+    result->valid = true;
+    result->decoded = true;
+    result->finite = true;
+    result->expected_frames = expected->frame_count;
+    result->actual_frames = actual->frame_count;
+    result->length_delta_frames = audio_int64_abs(expected->frame_count
+                                                  - actual->frame_count);
+    result->best_offset_frames = offset_frames;
+
+    expected_start = 0;
+    actual_start = 0;
+    if (offset_frames > 0) {
+        actual_start = offset_frames;
+    } else {
+        expected_start = -offset_frames;
+    }
+    if ((expected_start > expected->frame_count)
+        || (actual_start > actual->frame_count)) {
+        return false;
+    }
+
+    frame_count = expected->frame_count - expected_start;
+    if ((actual->frame_count - actual_start) < frame_count) {
+        frame_count = actual->frame_count - actual_start;
+    }
+    if (frame_count < 0) {
+        return false;
+    }
+
+    result->compared_frames = frame_count;
+    result->compared_samples = 2*frame_count;
+    if (frame_count == 0) {
+        result->snr_db = 999.0;
+        return true;
+    }
+
+    error_sum = 0.0;
+    signal_sum = 0.0;
+    for (int64 i = 0; i < frame_count; i += 1) {
+        float expected_samples[2];
+        float actual_samples[2];
+
+        expected_samples[0] = expected->left[expected_start + i];
+        expected_samples[1] = expected->right[expected_start + i];
+        actual_samples[0] = actual->left[actual_start + i];
+        actual_samples[1] = actual->right[actual_start + i];
+
+        for (int32 channel = 0; channel < 2; channel += 1) {
+            double error;
+            float actual_abs;
+            float expected_abs;
+
+            if (isnan(expected_samples[channel])
+                || isnan(actual_samples[channel])) {
+                result->nan_samples += 1;
+                result->finite = false;
+                continue;
+            }
+            if (isinf(expected_samples[channel])
+                || isinf(actual_samples[channel])) {
+                result->infinite_samples += 1;
+                result->finite = false;
+                continue;
+            }
+
+            expected_abs = audio_float_abs(expected_samples[channel]);
+            actual_abs = audio_float_abs(actual_samples[channel]);
+            if (expected_abs > result->expected_peak) {
+                result->expected_peak = expected_abs;
+            }
+            if (actual_abs > result->actual_peak) {
+                result->actual_peak = actual_abs;
+            }
+
+            error = (double)expected_samples[channel]
+                    - (double)actual_samples[channel];
+            error_sum += error*error;
+            signal_sum += (double)expected_samples[channel]
+                          *(double)expected_samples[channel];
+            if ((float)fabs(error) > result->max_abs_error) {
+                result->max_abs_error = (float)fabs(error);
+            }
+        }
+    }
+
+    if (result->compared_samples > 0) {
+        result->rms_error = (float)sqrt(error_sum
+                                        /(double)result->compared_samples);
+    }
+    if (error_sum == 0.0) {
+        result->snr_db = 999.0;
+    } else if (signal_sum == 0.0) {
+        result->snr_db = -999.0;
+    } else {
+        result->snr_db = 10.0*log10(signal_sum/error_sum);
+    }
+
+    return true;
+}
+
+static bool
+audio_compare_better_result(
+    AudioCompareResult *candidate,
+    AudioCompareResult *best,
+    bool have_best
+) {
+    if (!have_best) {
+        return true;
+    }
+    if (candidate->rms_error < best->rms_error) {
+        return true;
+    }
+    if ((candidate->rms_error == best->rms_error)
+        && (candidate->max_abs_error < best->max_abs_error)) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+audio_compare_result_passes(
+    AudioCompareResult *result,
+    AudioCompareOptions *options
+) {
+    if (!result->valid || !result->decoded || !result->finite) {
+        return false;
+    }
+    if (!result->length_ok) {
+        return false;
+    }
+    if (options->mode == AUDIO_COMPARE_MODE_STRICT) {
+        return (result->max_abs_error == 0.0f)
+               && (result->rms_error == 0.0f);
+    }
+    if (options->mode == AUDIO_COMPARE_MODE_SNR) {
+        return result->snr_db >= options->min_snr_db;
+    }
+
+    return (result->max_abs_error <= options->max_abs_error)
+           && (result->rms_error <= options->max_rms_error);
+}
+
+static bool
+audio_compare_buffers(
+    AudioCompareResult *result,
+    AudioBuffer *expected,
+    AudioBuffer *actual,
+    AudioCompareOptions *options
+) {
+    AudioCompareOptions default_options;
+    AudioCompareResult best_result;
+    int64 max_offset;
+    bool have_best;
+
+    if (result == NULL) {
+        return false;
+    }
+
+    audio_compare_result_init(result);
+    if (options == NULL) {
+        audio_compare_options_init(&default_options);
+        options = &default_options;
+    }
+    result->mode = options->mode;
+
+    if (!audio_buffer_valid(expected) || !audio_buffer_valid(actual)) {
+        return false;
+    }
+
+    result->valid = true;
+    result->decoded = true;
+    result->finite = true;
+    result->expected_frames = expected->frame_count;
+    result->actual_frames = actual->frame_count;
+    result->length_delta_frames = audio_int64_abs(expected->frame_count
+                                                  - actual->frame_count);
+    result->length_ok = result->length_delta_frames
+                        <= options->max_length_delta_frames;
+
+    max_offset = 0;
+    if (options->mode == AUDIO_COMPARE_MODE_OFFSET_TOLERANT) {
+        max_offset = options->max_offset_frames;
+        if (max_offset < 0) {
+            max_offset = 0;
+        }
+    }
+
+    have_best = false;
+    for (int64 offset = -max_offset; offset <= max_offset; offset += 1) {
+        AudioCompareResult candidate;
+
+        if (!audio_compare_measure_offset(&candidate,
+                                          expected,
+                                          actual,
+                                          offset)) {
+            continue;
+        }
+        candidate.mode = options->mode;
+        candidate.length_ok = result->length_ok;
+        if (audio_compare_better_result(&candidate,
+                                        &best_result,
+                                        have_best)) {
+            best_result = candidate;
+            have_best = true;
+        }
+    }
+
+    if (!have_best) {
+        return false;
+    }
+
+    *result = best_result;
+    result->passed = audio_compare_result_passes(result, options);
+
+    return result->passed;
+}
+
+static bool
+audio_compare_files(
+    AudioCompareResult *result,
+    char *expected_path,
+    char *actual_path,
+    AudioCompareOptions *options,
+    char *ffmpeg_path
+) {
+    AudioBuffer expected;
+    AudioBuffer actual;
+    bool ok;
+
+    if (result == NULL) {
+        return false;
+    }
+
+    audio_compare_result_init(result);
+    audio_buffer_init(&expected);
+    audio_buffer_init(&actual);
+    if ((expected_path == NULL) || (actual_path == NULL)
+        || (ffmpeg_path == NULL)) {
+        return false;
+    }
+
+    ok = false;
+    if (!audio_read_file(&expected, expected_path, ffmpeg_path)) {
+        goto cleanup;
+    }
+    if (!audio_read_file(&actual, actual_path, ffmpeg_path)) {
+        goto cleanup;
+    }
+
+    result->decoded = true;
+    ok = audio_compare_buffers(result, &expected, &actual, options);
+
+cleanup:
+    audio_buffer_destroy(&actual);
+    audio_buffer_destroy(&expected);
+
+    return ok;
+}
+
+static bool
+audio_compare_reconstruction_buffers(
+    AudioCompareResult *result,
+    AudioBuffer *mixture,
+    AudioBuffer *first_stem,
+    AudioBuffer *second_stem,
+    AudioCompareOptions *options
+) {
+    AudioBuffer reconstructed;
+    bool ok;
+
+    if (result == NULL) {
+        return false;
+    }
+
+    audio_compare_result_init(result);
+    if (!audio_buffer_valid(mixture) || !audio_buffer_valid(first_stem)
+        || !audio_buffer_valid(second_stem)) {
+        return false;
+    }
+    if ((first_stem->frame_count != mixture->frame_count)
+        || (second_stem->frame_count != mixture->frame_count)) {
+        result->valid = true;
+        result->expected_frames = mixture->frame_count;
+        result->actual_frames = first_stem->frame_count;
+        return false;
+    }
+
+    audio_buffer_init(&reconstructed);
+    reconstructed.frame_count = mixture->frame_count;
+    reconstructed.sample_rate = mixture->sample_rate;
+    reconstructed.channel_count = mixture->channel_count;
+    if (reconstructed.frame_count > 0) {
+        reconstructed.left = malloc2(reconstructed.frame_count
+                                     *SIZEOF(*reconstructed.left));
+        reconstructed.right = malloc2(reconstructed.frame_count
+                                      *SIZEOF(*reconstructed.right));
+    }
+
+    for (int64 i = 0; i < reconstructed.frame_count; i += 1) {
+        reconstructed.left[i] = first_stem->left[i] + second_stem->left[i];
+        reconstructed.right[i] = first_stem->right[i] + second_stem->right[i];
+    }
+
+    ok = audio_compare_buffers(result, mixture, &reconstructed, options);
+    audio_buffer_destroy(&reconstructed);
+
+    return ok;
+}
+
+static void
+audio_compare_result_print(
+    AudioCompareResult *result,
+    char *name
+) {
+    char *label;
+
+    label = name;
+    if (label == NULL) {
+        label = "audio";
+    }
+    if (result == NULL) {
+        error2("%s comparison result is unavailable\n", label);
+        return;
+    }
+
+    error2(
+        "%s: passed=%d mode=%d expected_frames=%lld "
+        "actual_frames=%lld delta=%lld compared_frames=%lld "
+        "offset=%lld max_abs=%g rms=%g snr_db=%.2f "
+        "expected_peak=%g actual_peak=%g nan=%lld inf=%lld\n",
+        label,
+        result->passed,
+        result->mode,
+        result->expected_frames,
+        result->actual_frames,
+        result->length_delta_frames,
+        result->compared_frames,
+        result->best_offset_frames,
+        (double)result->max_abs_error,
+        (double)result->rms_error,
+        result->snr_db,
+        (double)result->expected_peak,
+        (double)result->actual_peak,
+        result->nan_samples,
+        result->infinite_samples);
+
+    return;
+}
+
 #if TESTING_audio
 
 #define CBASE_IMPLEMENT
@@ -317,9 +761,138 @@ audio_test_fail(char *name) {
     return 1;
 }
 
+static void
+audio_test_buffer(
+    AudioBuffer *audio,
+    float *left,
+    float *right,
+    int64 frame_count
+) {
+    audio->left = left;
+    audio->right = right;
+
+    audio->frame_count = frame_count;
+    audio->sample_rate = 44100;
+    audio->channel_count = 2;
+
+    return;
+}
+
+static int32
+audio_test_compare_helpers(void) {
+    AudioBuffer actual;
+    AudioBuffer expected;
+    AudioBuffer mixture;
+    AudioBuffer stem_a;
+    AudioBuffer stem_b;
+    AudioCompareOptions options;
+    AudioCompareResult result;
+    float actual_left[] = {0.0f, 0.25f, -0.5f, 0.75f};
+    float actual_right[] = {1.0f, -1.0f, 0.5f, -0.25f};
+    float expected_left[] = {0.0f, 0.25f, -0.5f, 0.75f};
+    float expected_right[] = {1.0f, -1.0f, 0.5f, -0.25f};
+    float shifted_left[] = {9.0f, 0.0f, 0.25f, -0.5f};
+    float shifted_right[] = {9.0f, 1.0f, -1.0f, 0.5f};
+    float mixture_left[] = {1.0f, 0.5f, -0.25f};
+    float mixture_right[] = {-0.5f, 0.75f, 0.125f};
+    float stem_a_left[] = {0.25f, 0.25f, -0.125f};
+    float stem_a_right[] = {-0.25f, 0.25f, 0.5f};
+    float stem_b_left[] = {0.75f, 0.25f, -0.125f};
+    float stem_b_right[] = {-0.25f, 0.5f, -0.375f};
+
+    audio_test_buffer(&expected,
+                      expected_left,
+                      expected_right,
+                      LENGTH(expected_left));
+    audio_test_buffer(&actual,
+                      actual_left,
+                      actual_right,
+                      LENGTH(actual_left));
+
+    audio_compare_options_init(&options);
+    options.mode = AUDIO_COMPARE_MODE_STRICT;
+    if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
+        audio_compare_result_print(&result, "strict equal");
+        return audio_test_fail("strict compare equal buffers");
+    }
+    if (result.max_abs_error != 0.0f) {
+        audio_compare_result_print(&result, "strict metric");
+        return audio_test_fail("strict compare metric");
+    }
+
+    actual_left[1] += 0.000001f;
+    audio_compare_options_init(&options);
+    if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
+        audio_compare_result_print(&result, "tolerant close");
+        return audio_test_fail("tolerant compare close buffers");
+    }
+
+    actual_left[1] += 0.01f;
+    if (audio_compare_buffers(&result, &expected, &actual, &options)) {
+        audio_compare_result_print(&result, "tolerant far");
+        return audio_test_fail("tolerant compare far buffers");
+    }
+    actual_left[1] = expected_left[1];
+
+    audio_test_buffer(&actual,
+                      shifted_left,
+                      shifted_right,
+                      LENGTH(shifted_left));
+    audio_compare_options_init(&options);
+    options.mode = AUDIO_COMPARE_MODE_OFFSET_TOLERANT;
+    options.max_offset_frames = 1;
+    if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
+        audio_compare_result_print(&result, "offset");
+        return audio_test_fail("offset compare shifted buffers");
+    }
+    if (result.best_offset_frames != 1) {
+        audio_compare_result_print(&result, "offset metric");
+        return audio_test_fail("offset compare selected offset");
+    }
+
+    audio_test_buffer(&mixture,
+                      mixture_left,
+                      mixture_right,
+                      LENGTH(mixture_left));
+    audio_test_buffer(&stem_a,
+                      stem_a_left,
+                      stem_a_right,
+                      LENGTH(stem_a_left));
+    audio_test_buffer(&stem_b,
+                      stem_b_left,
+                      stem_b_right,
+                      LENGTH(stem_b_left));
+    audio_compare_options_init(&options);
+    options.mode = AUDIO_COMPARE_MODE_STRICT;
+    if (!audio_compare_reconstruction_buffers(&result,
+                                               &mixture,
+                                               &stem_a,
+                                               &stem_b,
+                                               &options)) {
+        audio_compare_result_print(&result, "reconstruction");
+        return audio_test_fail("reconstruction compare");
+    }
+
+    audio_test_buffer(&actual,
+                      actual_left,
+                      actual_right,
+                      LENGTH(actual_left));
+    audio_compare_options_init(&options);
+    options.mode = AUDIO_COMPARE_MODE_SNR;
+    options.min_snr_db = 200.0;
+    if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
+        audio_compare_result_print(&result, "snr equal");
+        return audio_test_fail("snr compare equal buffers");
+    }
+
+    return 0;
+}
+
 int
 main(void) {
     AudioBuffer audio;
+    AudioCompareOptions compare_options;
+    AudioCompareResult compare_result;
     char output[128];
     char output_raw[16];
     char expected_raw[] = {
@@ -366,6 +939,10 @@ main(void) {
     }
     audio_buffer_destroy(&audio);
 
+    if (audio_test_compare_helpers() != 0) {
+        exit(1);
+    }
+
     if (audio_check_ffmpeg("/definitely/missing/ffmpeg")) {
         exit(audio_test_fail("missing ffmpeg accepted"));
     }
@@ -407,6 +984,21 @@ main(void) {
     if (!audio_can_decode_file("input.mp3", script)) {
         unlink(script);
         exit(audio_test_fail("fake ffmpeg decode check"));
+    }
+    audio_compare_options_init(&compare_options);
+    if (!audio_compare_files(&compare_result,
+                             "expected.flac",
+                             "actual.wav",
+                             &compare_options,
+                             script)) {
+        audio_compare_result_print(&compare_result, "file compare");
+        unlink(script);
+        exit(audio_test_fail("compare fake audio files"));
+    }
+    if (compare_result.expected_frames != 2) {
+        audio_compare_result_print(&compare_result, "file compare frames");
+        unlink(script);
+        exit(audio_test_fail("compare fake audio frames"));
     }
     if (!audio_read_file(&audio, "input.mp3", script)) {
         unlink(script);

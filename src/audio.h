@@ -12,6 +12,49 @@ typedef struct AudioBuffer {
     int32 channel_count;
 } AudioBuffer;
 
+enum AudioCompareMode {
+    AUDIO_COMPARE_MODE_STRICT,
+    AUDIO_COMPARE_MODE_TOLERANT,
+    AUDIO_COMPARE_MODE_OFFSET_TOLERANT,
+    AUDIO_COMPARE_MODE_SNR,
+};
+
+typedef struct AudioCompareOptions {
+    enum AudioCompareMode mode;
+
+    int64 max_offset_frames;
+    int64 max_length_delta_frames;
+
+    float max_abs_error;
+    float max_rms_error;
+    double min_snr_db;
+} AudioCompareOptions;
+
+typedef struct AudioCompareResult {
+    enum AudioCompareMode mode;
+
+    bool decoded;
+    bool valid;
+    bool finite;
+    bool length_ok;
+    bool passed;
+
+    int64 expected_frames;
+    int64 actual_frames;
+    int64 compared_frames;
+    int64 compared_samples;
+    int64 length_delta_frames;
+    int64 best_offset_frames;
+    int64 nan_samples;
+    int64 infinite_samples;
+
+    float max_abs_error;
+    float rms_error;
+    float expected_peak;
+    float actual_peak;
+    double snr_db;
+} AudioCompareResult;
+
 static void audio_buffer_init(AudioBuffer *audio);
 static void audio_buffer_destroy(AudioBuffer *audio);
 static bool audio_check_ffmpeg(char *ffmpeg_path);
@@ -22,6 +65,32 @@ static bool audio_write_file(
     char *path,
     char *format,
     char *ffmpeg_path
+);
+static void audio_compare_options_init(AudioCompareOptions *options);
+static void audio_compare_result_init(AudioCompareResult *result);
+static bool audio_compare_buffers(
+    AudioCompareResult *result,
+    AudioBuffer *expected,
+    AudioBuffer *actual,
+    AudioCompareOptions *options
+);
+static bool audio_compare_files(
+    AudioCompareResult *result,
+    char *expected_path,
+    char *actual_path,
+    AudioCompareOptions *options,
+    char *ffmpeg_path
+);
+static bool audio_compare_reconstruction_buffers(
+    AudioCompareResult *result,
+    AudioBuffer *mixture,
+    AudioBuffer *first_stem,
+    AudioBuffer *second_stem,
+    AudioCompareOptions *options
+);
+static void audio_compare_result_print(
+    AudioCompareResult *result,
+    char *name
 );
 
 #endif /* AUDIO_H */
