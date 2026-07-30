@@ -379,7 +379,6 @@ cli_parse(CliOptions *options, int32 argc, char **argv) {
         if (strequal(argv[i], "-h")
             || strequal(argv[i], "--help")) {
             cli_print_usage(stdout);
-            return 1;
         }
         if (strequal(argv[i], "--denoise")) {
             options->denoise = true;
