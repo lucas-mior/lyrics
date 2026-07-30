@@ -5,6 +5,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static float
+mdx_output_sample(
+    MdxConfig *config,
+    float input_sample,
+    float model_sample
+) {
+    float sample;
+
+    sample = model_sample;
+    if (config->model_output == MDX_MODEL_OUTPUT_INSTRUMENTAL) {
+        sample = input_sample - model_sample;
+    }
+
+    sample *= config->compensate;
+
+    if (config->clip_mode == MDX_CLIP_MODE_CLAMP) {
+        if (sample > 1.0f) {
+            sample = 1.0f;
+        }
+        if (sample < -1.0f) {
+            sample = -1.0f;
+        }
+    }
+
+    return sample;
+}
+
 void
 mdx_config_init(MdxConfig *config) {
     config->sample_rate = 44100;
@@ -25,6 +52,7 @@ mdx_config_init(MdxConfig *config) {
     config->denoise = false;
 
     config->model_output = MDX_MODEL_OUTPUT_VOCALS;
+    config->clip_mode = MDX_CLIP_MODE_CLAMP;
 
     return;
 }
@@ -640,10 +668,16 @@ mdx_process_song(
 
                 output_index = output_start + i;
                 window_index = (int64)config->trim + i;
-                output->left[output_index] =
-                    window_output_left[window_index];
-                output->right[output_index] =
-                    window_output_right[window_index];
+                output->left[output_index] = mdx_output_sample(
+                    config,
+                    input->left[output_index],
+                    window_output_left[window_index]
+                );
+                output->right[output_index] = mdx_output_sample(
+                    config,
+                    input->right[output_index],
+                    window_output_right[window_index]
+                );
             }
 
             ort_tensor_destroy(ort_context, &output_tensor);
@@ -869,6 +903,30 @@ main(void) {
     MDX_TEST_CHECK(config.chunk_size == 0, "empty chunk size");
     MDX_TEST_CHECK(config.trim == 0, "empty trim");
     MDX_TEST_CHECK(config.gen_size == 0, "empty gen_size");
+    MDX_TEST_CHECK(config.model_output == MDX_MODEL_OUTPUT_VOCALS,
+                   "default model output");
+    MDX_TEST_CHECK(config.clip_mode == MDX_CLIP_MODE_CLAMP,
+                   "default clip mode");
+    MDX_TEST_CHECK(mdx_float_close(
+        mdx_output_sample(&config, 0.75f, 0.5f),
+        0.5175f
+    ), "vocal output compensated");
+    config.model_output = MDX_MODEL_OUTPUT_INSTRUMENTAL;
+    MDX_TEST_CHECK(mdx_float_close(
+        mdx_output_sample(&config, 0.75f, 0.5f),
+        0.25875f
+    ), "instrumental output inverted");
+    config.compensate = 2.0f;
+    MDX_TEST_CHECK(mdx_float_close(
+        mdx_output_sample(&config, 0.75f, 0.0f),
+        1.0f
+    ), "clamped output");
+    config.clip_mode = MDX_CLIP_MODE_NONE;
+    MDX_TEST_CHECK(mdx_float_close(
+        mdx_output_sample(&config, 0.75f, 0.0f),
+        1.5f
+    ), "unclamped output");
+
 
     ort_model_init_empty(&model);
     model.input_name = "input";

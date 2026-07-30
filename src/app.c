@@ -52,6 +52,9 @@ app_run(int argc, char **argv) {
     if (options.model_output == CLI_MODEL_OUTPUT_INSTRUMENTAL) {
         mdx_config.model_output = MDX_MODEL_OUTPUT_INSTRUMENTAL;
     }
+    if (options.clip_mode == CLI_CLIP_MODE_NONE) {
+        mdx_config.clip_mode = MDX_CLIP_MODE_NONE;
+    }
 
     if (!audio_check_ffmpeg(options.ffmpeg_path)) {
         fprintf(stderr, "could not run ffmpeg: %s\n", options.ffmpeg_path);
@@ -155,7 +158,7 @@ app_run(int argc, char **argv) {
         goto cleanup;
     }
 
-    fprintf(stderr, "wrote extracted model output: %s\n", options.output_path);
+    fprintf(stderr, "wrote extracted vocals: %s\n", options.output_path);
     result = EXIT_SUCCESS;
 
 cleanup:

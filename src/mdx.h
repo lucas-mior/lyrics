@@ -13,6 +13,11 @@ enum MdxModelOutput {
     MDX_MODEL_OUTPUT_INSTRUMENTAL,
 };
 
+enum MdxClipMode {
+    MDX_CLIP_MODE_CLAMP,
+    MDX_CLIP_MODE_NONE,
+};
+
 typedef struct MdxConfig {
     int32 sample_rate;
     int32 channel_count;
@@ -32,6 +37,7 @@ typedef struct MdxConfig {
     bool denoise;
 
     enum MdxModelOutput model_output;
+    enum MdxClipMode clip_mode;
 } MdxConfig;
 
 typedef struct MdxModelInfo {
