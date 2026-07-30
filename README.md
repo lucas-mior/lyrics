@@ -13,6 +13,16 @@ The included model has one `float32[1,4]` input named `input`, one
 5. Checks output type, shape, element count, and values.
 6. Releases every ONNX Runtime object.
 
+## Reference working for separating vocals
+```sh
+pip install "audio-separator[gpu]" "audio-separator[cpu]"
+audio-separator Paranoid.flac \
+    --model_filename UVR-MDX-NET-Voc_FT.onnx \
+    --single_stem Vocals \
+    --output_format OPUS \
+    --output_bitrate 96k
+```
+
 ## Prerequisites
 
 - Linux on x86-64 or AArch64
