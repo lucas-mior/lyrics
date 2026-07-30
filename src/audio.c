@@ -715,6 +715,7 @@ audio_compare_result_print(
     char *name
 ) {
     char *label;
+    char *mode;
 
     label = name;
     if (label == NULL) {
@@ -725,14 +726,15 @@ audio_compare_result_print(
         return;
     }
 
+    mode = AUDIO_COMPARE_MODE_str(result->mode);
     error2(
-        "%s: passed=%d mode=%d expected_frames=%lld "
+        "%s: passed=%d mode=%s expected_frames=%lld "
         "actual_frames=%lld delta=%lld compared_frames=%lld "
         "offset=%lld max_abs=%g rms=%g snr_db=%.2f "
         "expected_peak=%g actual_peak=%g nan=%lld inf=%lld\n",
         label,
         result->passed,
-        result->mode,
+        mode,
         result->expected_frames,
         result->actual_frames,
         result->length_delta_frames,
@@ -745,6 +747,7 @@ audio_compare_result_print(
         (double)result->actual_peak,
         result->nan_samples,
         result->infinite_samples);
+    AUDIO_COMPARE_MODE_str_free(mode);
 
     return;
 }
@@ -787,6 +790,7 @@ audio_test_compare_helpers(void) {
     AudioBuffer stem_b;
     AudioCompareOptions options;
     AudioCompareResult result;
+    char *mode_name;
     float actual_left[] = {0.0f, 0.25f, -0.5f, 0.75f};
     float actual_right[] = {1.0f, -1.0f, 0.5f, -0.25f};
     float expected_left[] = {0.0f, 0.25f, -0.5f, 0.75f};
@@ -808,6 +812,16 @@ audio_test_compare_helpers(void) {
                       actual_left,
                       actual_right,
                       LENGTH(actual_left));
+
+    mode_name = AUDIO_COMPARE_MODE_str(AUDIO_COMPARE_MODE_OFFSET_TOLERANT);
+    if (!strequal(mode_name, "AUDIO_COMPARE_MODE_OFFSET_TOLERANT")) {
+        AUDIO_COMPARE_MODE_str_free(mode_name);
+        return audio_test_fail("compare mode string");
+    }
+    AUDIO_COMPARE_MODE_str_free(mode_name);
+    if (AUDIO_COMPARE_MODE_parse("SNR") != AUDIO_COMPARE_MODE_SNR) {
+        return audio_test_fail("compare mode parse");
+    }
 
     audio_compare_options_init(&options);
     options.mode = AUDIO_COMPARE_MODE_STRICT;

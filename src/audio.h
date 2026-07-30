@@ -12,12 +12,17 @@ typedef struct AudioBuffer {
     int32 channel_count;
 } AudioBuffer;
 
-enum AudioCompareMode {
-    AUDIO_COMPARE_MODE_STRICT,
-    AUDIO_COMPARE_MODE_TOLERANT,
-    AUDIO_COMPARE_MODE_OFFSET_TOLERANT,
-    AUDIO_COMPARE_MODE_SNR,
-};
+#define ENUM_NAME AudioCompareMode
+#define ENUM_BITFLAGS 0
+#define ENUM_PREFIX_ AUDIO_COMPARE_MODE_
+#define ENUM_FIELDS \
+    X(AUDIO_COMPARE_MODE_STRICT)          \
+    X(AUDIO_COMPARE_MODE_TOLERANT)        \
+    X(AUDIO_COMPARE_MODE_OFFSET_TOLERANT) \
+    X(AUDIO_COMPARE_MODE_SNR)
+#define XENUMS_NO_TESTS 1
+#include "cbase/xenums.c"
+#undef XENUMS_NO_TESTS
 
 typedef struct AudioCompareOptions {
     enum AudioCompareMode mode;
