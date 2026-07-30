@@ -289,6 +289,131 @@ mdx_model_info_init_empty(MdxModelInfo *info) {
 }
 
 bool
+mdx_unpack_output(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    float *tensor,
+    int64 tensor_len,
+    float *left,
+    float *right,
+    int64 frame_count
+) {
+    float *left_real;
+    float *left_imag;
+    float *right_real;
+    float *right_imag;
+    int64 full_len;
+    int64 wanted_len;
+    int64 channel_stride;
+    int32 stft_frames;
+    int32 complex_count;
+
+    if (config == NULL || stft_plan == NULL || tensor == NULL || left == NULL
+        || right == NULL) {
+        return false;
+    }
+    if (config->dim_c != 4 || config->dim_f <= 0 || config->dim_t <= 0) {
+        return false;
+    }
+    if (stft_plan->n_fft != config->n_fft || stft_plan->hop != config->hop) {
+        return false;
+    }
+    if (stft_plan->complex_count < config->dim_f) {
+        return false;
+    }
+    if (config->chunk_size <= 0 || frame_count != config->chunk_size) {
+        return false;
+    }
+
+    wanted_len = mdx_input_tensor_len(config);
+    if (wanted_len <= 0 || tensor_len < wanted_len) {
+        return false;
+    }
+
+    stft_frames = stft_frame_count(stft_plan, frame_count);
+    if (stft_frames != config->dim_t) {
+        return false;
+    }
+
+    complex_count = stft_plan->complex_count;
+    if ((int64)complex_count > INT64_MAX/(int64)stft_frames) {
+        return false;
+    }
+    full_len = (int64)complex_count*(int64)stft_frames;
+    if (full_len > INT64_MAX/(int64)sizeof(*left_real)) {
+        return false;
+    }
+
+    left_real = malloc((size_t)(full_len*sizeof(*left_real)));
+    left_imag = malloc((size_t)(full_len*sizeof(*left_imag)));
+    right_real = malloc((size_t)(full_len*sizeof(*right_real)));
+    right_imag = malloc((size_t)(full_len*sizeof(*right_imag)));
+    if (left_real == NULL || left_imag == NULL || right_real == NULL
+        || right_imag == NULL) {
+        free(left_real);
+        free(left_imag);
+        free(right_real);
+        free(right_imag);
+        return false;
+    }
+
+    for (int64 i = 0; i < full_len; i += 1) {
+        left_real[i] = 0.0f;
+        left_imag[i] = 0.0f;
+        right_real[i] = 0.0f;
+        right_imag[i] = 0.0f;
+    }
+
+    channel_stride = (int64)config->dim_f*(int64)config->dim_t;
+    for (int32 bin = 0; bin < config->dim_f; bin += 1) {
+        for (int32 frame = 0; frame < config->dim_t; frame += 1) {
+            int64 input_index;
+            int64 output_index;
+
+            input_index = (int64)bin*(int64)config->dim_t + (int64)frame;
+            output_index = (int64)bin*(int64)stft_frames + (int64)frame;
+
+            left_real[output_index] = tensor[input_index];
+            left_imag[output_index] = tensor[channel_stride + input_index];
+            right_real[output_index] = tensor[2*channel_stride + input_index];
+            right_imag[output_index] = tensor[3*channel_stride + input_index];
+        }
+    }
+
+    if (!stft_inverse_channel(stft_plan,
+                              left_real,
+                              left_imag,
+                              stft_frames,
+                              left,
+                              frame_count)) {
+        free(left_real);
+        free(left_imag);
+        free(right_real);
+        free(right_imag);
+        return false;
+    }
+    if (!stft_inverse_channel(stft_plan,
+                              right_real,
+                              right_imag,
+                              stft_frames,
+                              right,
+                              frame_count)) {
+        free(left_real);
+        free(left_imag);
+        free(right_real);
+        free(right_imag);
+        return false;
+    }
+
+    free(left_real);
+    free(left_imag);
+    free(right_real);
+    free(right_imag);
+
+    return true;
+}
+
+bool
 mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     int64 input_batch;
     int64 input_channels;
@@ -455,12 +580,14 @@ main(void) {
     StftPlan stft_plan;
     float left[12];
     float right[12];
-    float tensor[48];
-    float too_small[47];
+    float tensor[80];
+    float too_small[79];
     float left_real[20];
     float left_imag[20];
     float right_real[20];
     float right_imag[20];
+    float unpack_left[12];
+    float unpack_right[12];
     int64 channel_stride;
 
     mdx_config_init(&config);
@@ -615,6 +742,77 @@ main(void) {
                            "right imag tensor channel");
         }
     }
+
+    for (int64 i = 0; i < mdx_input_tensor_len(&config); i += 1) {
+        tensor[i] = 0.0f;
+    }
+    MDX_TEST_CHECK(!mdx_unpack_output(&config,
+                                      &stft_plan,
+                                      tensor,
+                                      mdx_input_tensor_len(&config),
+                                      unpack_left,
+                                      unpack_right,
+                                      config.chunk_size - 1),
+                   "reject short unpack frame count");
+    MDX_TEST_CHECK(!mdx_unpack_output(&config,
+                                      &stft_plan,
+                                      too_small,
+                                      mdx_input_tensor_len(&config) - 1,
+                                      unpack_left,
+                                      unpack_right,
+                                      config.chunk_size),
+                   "reject short unpack tensor");
+    MDX_TEST_CHECK(mdx_unpack_output(&config,
+                                     &stft_plan,
+                                     tensor,
+                                     mdx_input_tensor_len(&config),
+                                     unpack_left,
+                                     unpack_right,
+                                     config.chunk_size),
+                   "unpack zero output");
+    for (int32 i = 0; i < config.chunk_size; i += 1) {
+        MDX_TEST_CHECK(mdx_float_close(unpack_left[i], 0.0f),
+                       "zero left unpack");
+        MDX_TEST_CHECK(mdx_float_close(unpack_right[i], 0.0f),
+                       "zero right unpack");
+    }
+
+    stft_plan_destroy(&stft_plan);
+    mdx_config_init(&config);
+    config.n_fft = 8;
+    config.hop = 4;
+    config.dim_f = 5;
+    config.dim_t = 4;
+    MDX_TEST_CHECK(mdx_config_prepare(&config), "full-bin unpack config");
+    MDX_TEST_CHECK(stft_plan_init(&stft_plan, config.n_fft, config.hop),
+                   "full-bin stft plan");
+    for (int32 i = 0; i < config.chunk_size; i += 1) {
+        left[i] = (float)i/8.0f - 0.5f;
+        right[i] = 0.25f - (float)i/16.0f;
+    }
+    MDX_TEST_CHECK(mdx_pack_input(&config,
+                                  &stft_plan,
+                                  left,
+                                  right,
+                                  config.chunk_size,
+                                  tensor,
+                                  mdx_input_tensor_len(&config)),
+                   "pack full-bin input");
+    MDX_TEST_CHECK(mdx_unpack_output(&config,
+                                     &stft_plan,
+                                     tensor,
+                                     mdx_input_tensor_len(&config),
+                                     unpack_left,
+                                     unpack_right,
+                                     config.chunk_size),
+                   "unpack full-bin output");
+    for (int32 i = 0; i < config.chunk_size; i += 1) {
+        MDX_TEST_CHECK(mdx_float_close(unpack_left[i], left[i]),
+                       "full-bin left roundtrip");
+        MDX_TEST_CHECK(mdx_float_close(unpack_right[i], right[i]),
+                       "full-bin right roundtrip");
+    }
+
     stft_plan_destroy(&stft_plan);
 
     return 0;

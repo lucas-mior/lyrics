@@ -58,6 +58,15 @@ bool mdx_pack_input(
     float *tensor,
     int64 tensor_len
 );
+bool mdx_unpack_output(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    float *tensor,
+    int64 tensor_len,
+    float *left,
+    float *right,
+    int64 frame_count
+);
 void mdx_model_info_init_empty(MdxModelInfo *info);
 bool mdx_model_inspect(
     MdxModelInfo *info,
