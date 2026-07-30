@@ -20,7 +20,7 @@ FFTW_PKG_CONFIG_NAME=${FFTW_PKG_CONFIG_NAME:-fftw3f}
 
 PROGRAM=${PROGRAM:-bin/uvr-c}
 PROGRAM_SOURCE=${PROGRAM_SOURCE:-src/main.c}
-TEST_MODULES=$(find src -iname "*.c")
+TEST_MODULES=$(find src -iname "*.c" | grep -v "main.c")
 MODEL=${MODEL:-models/identity.onnx}
 INPUT=${INPUT:-song.mp3}
 OUTPUT=${OUTPUT:-vocals.wav}
@@ -159,13 +159,14 @@ build_program() {
     trace_on
     $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags $PROGRAM_SOURCE \
         $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS $EXTRA_LDLIBS \
-        -o "$PROGRAM"
+        -o $PROGRAM
     trace_off
 }
 
 run_tests() {
     for module in $TEST_MODULES; do
-        output="bin/test_$module"
+        name=$(basename "$module" | sed 's/.c//g')
+        output="bin/test_$name"
 
         mkdir -p bin
         dep_cflags=$(dependency_cflags)
@@ -173,9 +174,9 @@ run_tests() {
 
         trace_on
         $CC $CPPFLAGS $CFLAGS $EXTRA_CFLAGS $dep_cflags \
-            "-DTESTING_$module=1" "$module" \
+            "-DTESTING_$name=1" "$module" \
             $EXTRA_LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
-            $EXTRA_LDLIBS -o "$output"
+            $EXTRA_LDLIBS -o $output
         "$output"
         trace_off
     done
@@ -190,7 +191,7 @@ case "$command" in
     run)
         build_program
         trace_on
-        "$PROGRAM" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
+        "$PROGRAM" -i "$INPUT" -o $OUTPUT -m "$MODEL"
         trace_off
         ;;
     test)
