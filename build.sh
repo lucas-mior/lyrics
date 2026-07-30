@@ -320,12 +320,9 @@ build_program() {
     trace_off
 }
 
-test_modules() {
-    find src -iname "*.c" | grep -v '/main\.c$' | sort
-}
-
 run_tests() {
-    test_modules | while read -r module; do
+    find src -iname "*.c" | grep -v '/main\.c$' | sort \
+        | while read -r module; do
         name=$(basename "$module" | sed 's/\.c$//')
         test_exe="/tmp/${name}_test"
 
