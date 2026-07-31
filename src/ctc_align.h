@@ -44,7 +44,7 @@ typedef struct LrcCtcTrellis {
 
 typedef struct LrcCtcPathStep {
     int64 frame_index;
-    int64 column_index;
+    int64 state_index;
     int64 token_index;
     int32 token_id;
 
@@ -141,7 +141,7 @@ static void lrc_ctc_line_timestamps_destroy(LrcCtcLineTimestamps *timestamps);
 static float *lrc_ctc_trellis_cell(
     LrcCtcTrellis *trellis,
     int64 frame_index,
-    int64 column_index
+    int64 state_index
 );
 static bool lrc_ctc_trellis_allocate(
     LrcCtcTrellis *trellis,

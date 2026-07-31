@@ -531,7 +531,7 @@ lrc_ctc_path_allocate(
 
     for (int64 i = 0; i < path->step_count; i += 1) {
         path->steps[i].frame_index = -1;
-        path->steps[i].column_index = -1;
+        path->steps[i].state_index = -1;
         path->steps[i].token_index = -1;
         path->steps[i].token_id = -1;
         path->steps[i].is_blank = true;
@@ -590,7 +590,7 @@ static int64 *
 lrc_ctc_trellis_previous_state_cell(
     LrcCtcTrellis *trellis,
     int64 frame_index,
-    int64 column_index
+    int64 state_index
 ) {
     if (trellis == NULL) {
         return NULL;
@@ -601,20 +601,20 @@ lrc_ctc_trellis_previous_state_cell(
     if ((frame_index < 0) || (frame_index >= trellis->frame_count)) {
         return NULL;
     }
-    if ((column_index < 0) || (column_index >= trellis->column_count)) {
+    if ((state_index < 0) || (state_index >= trellis->column_count)) {
         return NULL;
     }
 
     return trellis->previous_states
            + frame_index*trellis->column_count
-           + column_index;
+           + state_index;
 }
 
 static float *
 lrc_ctc_trellis_cell(
     LrcCtcTrellis *trellis,
     int64 frame_index,
-    int64 column_index
+    int64 state_index
 ) {
     if (trellis == NULL) {
         return NULL;
@@ -625,11 +625,11 @@ lrc_ctc_trellis_cell(
     if ((frame_index < 0) || (frame_index >= trellis->frame_count)) {
         return NULL;
     }
-    if ((column_index < 0) || (column_index >= trellis->column_count)) {
+    if ((state_index < 0) || (state_index >= trellis->column_count)) {
         return NULL;
     }
 
-    return trellis->scores + frame_index*trellis->column_count + column_index;
+    return trellis->scores + frame_index*trellis->column_count + state_index;
 }
 
 static bool
@@ -1138,48 +1138,21 @@ lrc_ctc_trellis_ready_for_backtracking(
     return true;
 }
 
-static bool
-lrc_ctc_score_close(float a, float b) {
-    float diff;
-
-    if (!isfinite(a) || !isfinite(b)) {
-        return false;
-    }
-
-    diff = fabsf(a - b);
-
-    return diff <= 0.0001f;
-}
-
-static bool
-lrc_ctc_score_can_backtrack(float current, float previous, float emission) {
-    if (!isfinite(current)) {
-        return false;
-    }
-    if (!isfinite(previous)) {
-        return false;
-    }
-    if (!isfinite(emission)) {
-        return false;
-    }
-
-    return lrc_ctc_score_close(current, previous + emission);
-}
-
 static void
 lrc_ctc_path_set_blank_step(
     LrcCtcPath *path,
     int64 frame_index,
-    int64 column_index,
+    int64 state_index,
     int32 blank_token_id
 ) {
     ASSERT(path != NULL);
     ASSERT(path->steps != NULL);
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < path->step_count);
+    ASSERT(state_index >= 0);
 
     path->steps[frame_index].frame_index = frame_index;
-    path->steps[frame_index].column_index = column_index;
+    path->steps[frame_index].state_index = state_index;
     path->steps[frame_index].token_index = -1;
     path->steps[frame_index].token_id = blank_token_id;
     path->steps[frame_index].is_blank = true;
@@ -1191,18 +1164,20 @@ static void
 lrc_ctc_path_set_token_step(
     LrcCtcPath *path,
     int64 frame_index,
-    int64 column_index,
+    int64 state_index,
+    int64 token_index,
     int32 token_id
 ) {
     ASSERT(path != NULL);
     ASSERT(path->steps != NULL);
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < path->step_count);
-    ASSERT(column_index > 0);
+    ASSERT(state_index >= 0);
+    ASSERT(token_index >= 0);
 
     path->steps[frame_index].frame_index = frame_index;
-    path->steps[frame_index].column_index = column_index;
-    path->steps[frame_index].token_index = column_index - 1;
+    path->steps[frame_index].state_index = state_index;
+    path->steps[frame_index].token_index = token_index;
     path->steps[frame_index].token_id = token_id;
     path->steps[frame_index].is_blank = false;
 
@@ -1226,17 +1201,20 @@ lrc_ctc_path_set_graph_state_step(
     ASSERT(frame_index < path->step_count);
 
     state = graph->states + state_index;
-    path->steps[frame_index].frame_index = frame_index;
-    path->steps[frame_index].column_index = state_index;
-    path->steps[frame_index].token_index = state->token_index;
-    path->steps[frame_index].token_id = state->token_id;
-    path->steps[frame_index].is_blank = false;
-
     if (state->kind == LRC_CTC_ALIGN_STATE_BLANK) {
-        path->steps[frame_index].token_index = -1;
-        path->steps[frame_index].token_id = blank_token_id;
-        path->steps[frame_index].is_blank = true;
+        lrc_ctc_path_set_blank_step(path,
+                                    frame_index,
+                                    state_index,
+                                    blank_token_id);
+        return;
     }
+
+    ASSERT(state->kind == LRC_CTC_ALIGN_STATE_TOKEN);
+    lrc_ctc_path_set_token_step(path,
+                                frame_index,
+                                state_index,
+                                state->token_index,
+                                state->token_id);
 
     return;
 }
@@ -1401,6 +1379,16 @@ lrc_ctc_path_step_valid(
         );
         return false;
     }
+    if (step->state_index < 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path state index is invalid",
+            step->frame_index,
+            step->token_index
+        );
+        return false;
+    }
     if (step->is_blank) {
         return true;
     }
@@ -1556,6 +1544,7 @@ lrc_ctc_path_to_token_spans(
     int64 span_count;
     int64 span_index;
     int64 score_count;
+    int64 previous_token_index;
     float score_sum;
     LrcCtcTokenSpan *span;
 
@@ -1576,6 +1565,7 @@ lrc_ctc_path_to_token_spans(
 
     span_index = -1;
     score_count = 0;
+    previous_token_index = -1;
     score_sum = 0.0f;
     span = NULL;
     for (int64 i = 0; i < path->step_count; i += 1) {
@@ -1603,7 +1593,20 @@ lrc_ctc_path_to_token_spans(
                                           frame_duration_seconds);
             }
 
+            if (step->token_index != previous_token_index + 1) {
+                lrc_ctc_align_result_set(
+                    result,
+                    LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                    "CTC path token states are not target ordered",
+                    step->frame_index,
+                    step->token_index
+                );
+                lrc_ctc_token_spans_destroy(spans);
+                return false;
+            }
+
             span_index += 1;
+            previous_token_index = step->token_index;
             ASSERT(span_index < spans->span_count);
             span = spans->spans + span_index;
             span->token_index = step->token_index;
@@ -3693,17 +3696,21 @@ ctc_align_test_backtracks_simple_path(void) {
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
     ASSERT(path.step_count == 4);
     ASSERT(path.steps[0].frame_index == 0);
+    ASSERT(path.steps[0].state_index == 0);
     ASSERT(path.steps[0].is_blank);
     ASSERT(path.steps[0].token_id == 0);
     ASSERT(path.steps[1].frame_index == 1);
+    ASSERT(path.steps[1].state_index == 1);
     ASSERT(!path.steps[1].is_blank);
     ASSERT(path.steps[1].token_index == 0);
     ASSERT(path.steps[1].token_id == 1);
     ASSERT(path.steps[2].frame_index == 2);
+    ASSERT(path.steps[2].state_index == 3);
     ASSERT(!path.steps[2].is_blank);
     ASSERT(path.steps[2].token_index == 1);
     ASSERT(path.steps[2].token_id == 2);
     ASSERT(path.steps[3].frame_index == 3);
+    ASSERT(path.steps[3].state_index == 4);
     ASSERT(path.steps[3].is_blank);
     ASSERT(path.steps[3].token_id == 0);
 
@@ -3751,13 +3758,16 @@ ctc_align_test_backtracks_repeated_tokens(void) {
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
     ASSERT(path.step_count == 4);
     ASSERT(path.steps[1].frame_index == 1);
+    ASSERT(path.steps[1].state_index == 1);
     ASSERT(!path.steps[1].is_blank);
     ASSERT(path.steps[1].token_index == 0);
     ASSERT(path.steps[1].token_id == 1);
     ASSERT(path.steps[2].frame_index == 2);
+    ASSERT(path.steps[2].state_index == 2);
     ASSERT(path.steps[2].is_blank);
     ASSERT(path.steps[2].token_id == 0);
     ASSERT(path.steps[3].frame_index == 3);
+    ASSERT(path.steps[3].state_index == 3);
     ASSERT(!path.steps[3].is_blank);
     ASSERT(path.steps[3].token_index == 1);
     ASSERT(path.steps[3].token_id == 1);
@@ -4009,10 +4019,10 @@ ctc_align_test_token_spans_collapse_contiguous_steps(void) {
         return ctc_align_test_fail("allocate manual span path");
     }
 
-    lrc_ctc_path_set_token_step(&path, 0, 1, 1);
-    lrc_ctc_path_set_token_step(&path, 1, 1, 1);
-    lrc_ctc_path_set_blank_step(&path, 2, 1, 0);
-    lrc_ctc_path_set_token_step(&path, 3, 2, 2);
+    lrc_ctc_path_set_token_step(&path, 0, 1, 0, 1);
+    lrc_ctc_path_set_token_step(&path, 1, 1, 0, 1);
+    lrc_ctc_path_set_blank_step(&path, 2, 2, 0);
+    lrc_ctc_path_set_token_step(&path, 3, 3, 1, 2);
     if (!lrc_ctc_path_to_token_spans(&path,
                                      &emissions,
                                      0.1f,
@@ -4082,7 +4092,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
         return ctc_align_test_fail("allocate invalid span path");
     }
     lrc_ctc_path_set_blank_step(&path, 0, 0, 0);
-    lrc_ctc_path_set_token_step(&path, 1, 1, 1);
+    lrc_ctc_path_set_token_step(&path, 1, 1, 0, 1);
     if (lrc_ctc_path_to_token_spans(&path,
                                     &emissions,
                                     0.0f,
@@ -4107,6 +4117,41 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
 
     return 0;
 }
+
+
+static int32
+ctc_align_test_token_spans_reject_out_of_order_targets(void) {
+    LrcCtcAlignResult result;
+    LrcCtcPath path;
+    LrcCtcEmissions emissions;
+    LrcCtcTokenSpans spans;
+    float values[] = {
+        -5.00f, -0.10f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 1, 2);
+    lrc_ctc_path_init(&path);
+    lrc_ctc_token_spans_init(&spans);
+    if (!lrc_ctc_path_allocate(&path, 1, &result)) {
+        return ctc_align_test_fail("allocate out-of-order span path");
+    }
+
+    lrc_ctc_path_set_token_step(&path, 0, 3, 1, 1);
+    if (lrc_ctc_path_to_token_spans(&path,
+                                    &emissions,
+                                    0.1f,
+                                    &spans,
+                                    &result)) {
+        return ctc_align_test_fail("out-of-order path target accepted");
+    }
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_PATH);
+    ASSERT(spans.spans == NULL);
+
+    lrc_ctc_path_destroy(&path);
+
+    return 0;
+}
+
 
 
 static int32
@@ -5760,6 +5805,9 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_token_spans_reject_bad_inputs() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_token_spans_reject_out_of_order_targets() != 0) {
         exit(1);
     }
     if (ctc_align_test_word_spans_group_generated_words() != 0) {
