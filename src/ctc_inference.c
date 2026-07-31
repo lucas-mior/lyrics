@@ -76,15 +76,15 @@ lrc_ctc_emissions_shape_valid(
     int64 *shape,
     int32 shape_len,
     int64 *row_count,
-    int64 *row_frame_count,
-    int64 *frame_count,
+    int64 *row_emission_count,
+    int64 *total_emission_count,
     int64 *vocabulary_size,
     int64 *value_count,
     LrcCtcInferenceResult *result
 ) {
     int64 rows;
-    int64 row_frames;
-    int64 frames;
+    int64 row_emissions;
+    int64 total_emissions;
     int64 vocab;
     int64 count;
 
@@ -101,14 +101,14 @@ lrc_ctc_emissions_shape_valid(
 
     if (shape_len == 2) {
         rows = 1;
-        row_frames = shape[0];
+        row_emissions = shape[0];
         vocab = shape[1];
     } else {
         rows = shape[0];
-        row_frames = shape[1];
+        row_emissions = shape[1];
         vocab = shape[2];
     }
-    if ((rows <= 0) || (row_frames <= 0) || (vocab <= 0)) {
+    if ((rows <= 0) || (row_emissions <= 0) || (vocab <= 0)) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
@@ -117,7 +117,7 @@ lrc_ctc_emissions_shape_valid(
         );
         return false;
     }
-    if (rows > INT64_MAX/row_frames) {
+    if (rows > INT64_MAX/row_emissions) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
@@ -126,8 +126,8 @@ lrc_ctc_emissions_shape_valid(
         );
         return false;
     }
-    frames = rows*row_frames;
-    if (frames > INT64_MAX/vocab) {
+    total_emissions = rows*row_emissions;
+    if (total_emissions > INT64_MAX/vocab) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
@@ -137,10 +137,10 @@ lrc_ctc_emissions_shape_valid(
         return false;
     }
 
-    count = frames*vocab;
+    count = total_emissions*vocab;
     *row_count = rows;
-    *row_frame_count = row_frames;
-    *frame_count = frames;
+    *row_emission_count = row_emissions;
+    *total_emission_count = total_emissions;
     *vocabulary_size = vocab;
     *value_count = count;
 
@@ -188,8 +188,8 @@ lrc_ctc_emissions_copy_shape(
     LrcCtcInferenceResult *result
 ) {
     int64 row_count;
-    int64 row_frame_count;
-    int64 frame_count;
+    int64 row_emission_count;
+    int64 total_emission_count;
     int64 vocabulary_size;
     int64 expected_count;
 
@@ -210,8 +210,8 @@ lrc_ctc_emissions_copy_shape(
     if (!lrc_ctc_emissions_shape_valid(shape,
                                        shape_len,
                                        &row_count,
-                                       &row_frame_count,
-                                       &frame_count,
+                                       &row_emission_count,
+                                       &total_emission_count,
                                        &vocabulary_size,
                                        &expected_count,
                                        result)) {
@@ -243,8 +243,8 @@ lrc_ctc_emissions_copy_shape(
     memcpy64(emissions->values, values, value_count*SIZEOF(*values));
     emissions->value_count = value_count;
     emissions->row_count = row_count;
-    emissions->row_frame_count = row_frame_count;
-    emissions->frame_count = frame_count;
+    emissions->row_frame_count = row_emission_count;
+    emissions->frame_count = total_emission_count;
     emissions->vocabulary_size = vocabulary_size;
     emissions->shape_len = shape_len;
     for (int32 i = 0; i < shape_len; i += 1) {
@@ -255,8 +255,8 @@ lrc_ctc_emissions_copy_shape(
 }
 
 static bool
-lrc_ctc_emissions_trimmed_output_count(
-    int64 frame_count,
+lrc_ctc_emissions_value_count(
+    int64 emission_count,
     int64 vocabulary_size,
     int64 *value_count,
     LrcCtcInferenceResult *result
@@ -271,7 +271,7 @@ lrc_ctc_emissions_trimmed_output_count(
         return false;
     }
     *value_count = 0;
-    if ((frame_count <= 0) || (vocabulary_size <= 0)) {
+    if ((emission_count <= 0) || (vocabulary_size <= 0)) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
@@ -280,7 +280,7 @@ lrc_ctc_emissions_trimmed_output_count(
         );
         return false;
     }
-    if (frame_count > INT64_MAX/vocabulary_size) {
+    if (emission_count > INT64_MAX/vocabulary_size) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
@@ -290,7 +290,7 @@ lrc_ctc_emissions_trimmed_output_count(
         return false;
     }
 
-    *value_count = frame_count*vocabulary_size;
+    *value_count = emission_count*vocabulary_size;
     if (*value_count > INT64_MAX/SIZEOF(float)) {
         lrc_ctc_inference_result_set(
             result,
@@ -307,8 +307,7 @@ lrc_ctc_emissions_trimmed_output_count(
 static bool
 lrc_ctc_emissions_input_chunks_ready(
     LrcCtcModelInput *input,
-    int64 row_count,
-    int64 row_frame_count,
+    int64 raw_chunk_count,
     LrcCtcInferenceResult *result
 ) {
     if ((input == NULL) || (input->chunks == NULL)) {
@@ -320,23 +319,71 @@ lrc_ctc_emissions_input_chunks_ready(
         );
         return false;
     }
-    if ((input->chunk_count <= 0) || (input->original_emission_count <= 0)
-        || (input->raw_chunk_emission_count <= 0)
-        || (input->kept_emission_count < input->original_emission_count)) {
+    if ((input->chunk_count <= 0) || (input->chunk_count != raw_chunk_count)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
-            "CTC input chunk metadata is invalid",
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC rank-3 output chunk count does not match input metadata",
             -1
         );
         return false;
     }
-    if ((row_count != input->chunk_count)
-        || (row_frame_count != input->raw_chunk_emission_count)) {
+    if (input->chunked) {
+        if ((input->original_emission_count <= 0)
+            || (input->window_frame_count <= 0)
+            || (input->context_frame_count < 0)
+            || (input->kept_emission_count
+                < input->original_emission_count)) {
+            lrc_ctc_inference_result_set(
+                result,
+                LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
+                "CTC input chunk metadata is invalid",
+                -1
+            );
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_emissions_output_frame_count(
+    LrcCtcModelInput *input,
+    int64 raw_chunk_emission_count,
+    int64 *output_frame_count,
+    LrcCtcInferenceResult *result
+) {
+    if (output_frame_count == NULL) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC trimmed output frame count destination is missing",
+            -1
+        );
+        return false;
+    }
+    *output_frame_count = 0;
+    if ((input == NULL) || (raw_chunk_emission_count <= 0)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC trimmed output frame count arguments are invalid",
+            -1
+        );
+        return false;
+    }
+
+    if (input->chunked) {
+        *output_frame_count = input->original_emission_count;
+    } else {
+        *output_frame_count = raw_chunk_emission_count;
+    }
+    if (*output_frame_count <= 0) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
-            "CTC rank-3 output shape does not match chunk metadata",
+            "CTC rank-3 output trimming produced no frames",
             -1
         );
         return false;
@@ -346,16 +393,20 @@ lrc_ctc_emissions_input_chunks_ready(
 }
 
 static bool
-lrc_ctc_emissions_chunk_trim_valid(
+lrc_ctc_emissions_chunk_trim_range(
+    LrcCtcModelInput *input,
     LrcCtcModelChunk *chunk,
     int64 chunk_index,
-    int64 row_frame_count,
+    int64 raw_chunk_emission_count,
+    int64 *kept_offset,
+    int64 *kept_count,
     LrcCtcInferenceResult *result
 ) {
-    int64 expected_start;
-    int64 kept_offset;
+    int64 offset;
+    int64 count;
 
-    if (chunk == NULL) {
+    if ((input == NULL) || (chunk == NULL) || (kept_offset == NULL)
+        || (kept_count == NULL)) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
@@ -364,57 +415,39 @@ lrc_ctc_emissions_chunk_trim_valid(
         );
         return false;
     }
-    if (chunk_index > INT64_MAX/row_frame_count) {
+    *kept_offset = 0;
+    *kept_count = 0;
+    if (raw_chunk_emission_count <= 0) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
-            "CTC rank-3 chunk index is too large",
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC rank-3 output chunk has invalid frame count",
             chunk_index
         );
         return false;
     }
 
-    expected_start = chunk_index*row_frame_count;
-    kept_offset = chunk->kept_emission_start - chunk->raw_emission_start;
-    if ((chunk->raw_emission_start != expected_start)
-        || (chunk->raw_emission_count != row_frame_count)
-        || (chunk->trim_left_emissions < 0)
-        || (chunk->trim_right_emissions < 0)
-        || (chunk->trim_left_emissions > chunk->raw_emission_count)
-        || (chunk->trim_right_emissions > chunk->raw_emission_count)
-        || (chunk->kept_emission_count < 0)
-        || (kept_offset < 0)
-        || (kept_offset > row_frame_count)
-        || (chunk->kept_emission_count > row_frame_count - kept_offset)) {
+    if (input->chunked) {
+        offset = chunk->trim_left_emissions;
+        count = chunk->kept_emission_count;
+    } else {
+        offset = 0;
+        count = raw_chunk_emission_count;
+    }
+
+    if ((offset < 0) || (count <= 0) || (offset > raw_chunk_emission_count)
+        || (count > raw_chunk_emission_count - offset)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
-            "CTC input chunk trim range is invalid",
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC rank-3 output is too short for input chunk trimming",
             chunk_index
         );
         return false;
     }
-    if (chunk->trim_left_emissions
-        > chunk->raw_emission_count - chunk->trim_right_emissions) {
-        lrc_ctc_inference_result_set(
-            result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
-            "CTC input chunk trims more emissions than it has",
-            chunk_index
-        );
-        return false;
-    }
-    if (chunk->kept_emission_count
-        != chunk->raw_emission_count - chunk->trim_left_emissions
-                                  - chunk->trim_right_emissions) {
-        lrc_ctc_inference_result_set(
-            result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
-            "CTC input chunk kept emission count is inconsistent",
-            chunk_index
-        );
-        return false;
-    }
+
+    *kept_offset = offset;
+    *kept_count = count;
 
     return true;
 }
@@ -429,26 +462,28 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     bool print_progress,
     LrcCtcInferenceResult *result
 ) {
-    int64 row_count;
-    int64 row_frame_count;
-    int64 raw_frame_count;
+    int64 raw_chunk_count;
+    int64 raw_chunk_emission_count;
+    int64 raw_emission_count;
     int64 vocabulary_size;
-    int64 expected_raw_count;
-    int64 output_value_count;
-    int64 output_frame;
+    int64 raw_value_count;
+    int64 output_frame_count;
+    int64 kept_value_count;
+    int64 kept_frame;
     LrcProgress progress;
 
     if (!lrc_ctc_emissions_shape_valid(shape,
                                        3,
-                                       &row_count,
-                                       &row_frame_count,
-                                       &raw_frame_count,
+                                       &raw_chunk_count,
+                                       &raw_chunk_emission_count,
+                                       &raw_emission_count,
                                        &vocabulary_size,
-                                       &expected_raw_count,
+                                       &raw_value_count,
                                        result)) {
         return false;
     }
-    if (value_count != expected_raw_count) {
+    (void)raw_emission_count;
+    if (value_count != raw_value_count) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
@@ -467,82 +502,91 @@ lrc_ctc_emissions_copy_rank3_trimmed(
         return false;
     }
     if (!lrc_ctc_emissions_input_chunks_ready(input,
-                                             row_count,
-                                             row_frame_count,
+                                             raw_chunk_count,
                                              result)) {
         return false;
     }
-    if (!lrc_ctc_emissions_trimmed_output_count(
-            input->original_emission_count,
-            vocabulary_size,
-            &output_value_count,
-            result)) {
+    if (!lrc_ctc_emissions_output_frame_count(input,
+                                              raw_chunk_emission_count,
+                                              &output_frame_count,
+                                              result)) {
         return false;
     }
-    for (int64 i = 0; i < input->chunk_count; i += 1) {
-        if (!lrc_ctc_emissions_chunk_trim_valid(&input->chunks[i],
-                                                i,
-                                                row_frame_count,
-                                                result)) {
-            return false;
-        }
+    if (!lrc_ctc_emissions_value_count(output_frame_count,
+                                       vocabulary_size,
+                                       &kept_value_count,
+                                       result)) {
+        return false;
     }
 
     emissions->values = malloc2(
-        output_value_count*SIZEOF(*emissions->values)
+        kept_value_count*SIZEOF(*emissions->values)
     );
     lrc_progress_init(&progress,
                       print_progress,
                       "trim CTC emissions",
                       input->chunk_count);
     lrc_progress_begin(&progress);
-    output_frame = 0;
+    kept_frame = 0;
     for (int64 i = 0; i < input->chunk_count; i += 1) {
         LrcCtcModelChunk *chunk;
         int64 kept_offset;
-        int64 raw_chunk_offset;
+        int64 chunk_kept_count;
+        int64 raw_value_offset;
 
         chunk = &input->chunks[i];
-        kept_offset = chunk->kept_emission_start - chunk->raw_emission_start;
-        raw_chunk_offset = i*row_frame_count*vocabulary_size;
-        for (int64 j = 0; j < chunk->kept_emission_count; j += 1) {
+        if (!lrc_ctc_emissions_chunk_trim_range(input,
+                                                chunk,
+                                                i,
+                                                raw_chunk_emission_count,
+                                                &kept_offset,
+                                                &chunk_kept_count,
+                                                result)) {
+            lrc_progress_cancel(&progress);
+            free2(emissions->values,
+                  kept_value_count*SIZEOF(*emissions->values));
+            emissions->values = NULL;
+            return false;
+        }
+        raw_value_offset = i*raw_chunk_emission_count*vocabulary_size;
+        for (int64 j = 0; j < chunk_kept_count; j += 1) {
             int64 source_offset;
             int64 output_offset;
 
-            if (output_frame >= input->original_emission_count) {
+            if (kept_frame >= output_frame_count) {
                 break;
             }
-            source_offset = raw_chunk_offset
+            source_offset = raw_value_offset
                             + (kept_offset + j)*vocabulary_size;
-            output_offset = output_frame*vocabulary_size;
+            output_offset = kept_frame*vocabulary_size;
             memcpy64(emissions->values + output_offset,
                      values + source_offset,
                      vocabulary_size*SIZEOF(*values));
-            output_frame += 1;
+            kept_frame += 1;
         }
         lrc_progress_update(&progress, i + 1);
     }
-    if (output_frame != input->original_emission_count) {
+    if (kept_frame != output_frame_count) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
             "CTC rank-3 output trimming produced too few frames",
-            output_frame
+            kept_frame
         );
         lrc_progress_cancel(&progress);
         free2(emissions->values,
-              output_value_count*SIZEOF(*emissions->values));
+              kept_value_count*SIZEOF(*emissions->values));
         emissions->values = NULL;
         return false;
     }
 
-    emissions->value_count = output_value_count;
+    emissions->value_count = kept_value_count;
     emissions->row_count = 1;
-    emissions->row_frame_count = input->original_emission_count;
-    emissions->frame_count = input->original_emission_count;
+    emissions->row_frame_count = output_frame_count;
+    emissions->frame_count = output_frame_count;
     emissions->vocabulary_size = vocabulary_size;
     emissions->shape_len = 2;
-    emissions->shape[0] = input->original_emission_count;
+    emissions->shape[0] = output_frame_count;
     emissions->shape[1] = vocabulary_size;
     if (!lrc_ctc_emissions_values_valid(emissions->values,
                                         emissions->value_count,
@@ -908,8 +952,8 @@ lrc_ctc_fake_inference_set_shape(
     int32 shape_len
 ) {
     int64 row_count;
-    int64 row_frame_count;
-    int64 frame_count;
+    int64 row_emission_count;
+    int64 total_emission_count;
     int64 vocabulary_size;
     int64 expected_count;
 
@@ -919,8 +963,8 @@ lrc_ctc_fake_inference_set_shape(
     if (!lrc_ctc_emissions_shape_valid(shape,
                                        shape_len,
                                        &row_count,
-                                       &row_frame_count,
-                                       &frame_count,
+                                       &row_emission_count,
+                                       &total_emission_count,
                                        &vocabulary_size,
                                        &expected_count,
                                        NULL)) {
@@ -938,8 +982,8 @@ lrc_ctc_fake_inference_set_shape(
     }
 
     (void)row_count;
-    (void)row_frame_count;
-    (void)frame_count;
+    (void)row_emission_count;
+    (void)total_emission_count;
     (void)vocabulary_size;
 
     return true;
@@ -1319,9 +1363,12 @@ ctc_inference_make_rank3_trim_input(
     input->shape[0] = 2;
     input->shape[1] = 3;
 
+    input->chunked = true;
     input->chunk_count = 2;
     input->chunks = chunks;
     input->raw_chunk_emission_count = 3;
+    input->window_frame_count = 1;
+    input->context_frame_count = 1;
     input->kept_emission_count = 2;
     input->original_emission_count = original_emission_count;
 
@@ -1364,9 +1411,12 @@ ctc_inference_make_custom_rank3_trim_input(
     input->shape[0] = chunk_count;
     input->shape[1] = raw_chunk_emission_count;
 
+    input->chunked = true;
     input->chunk_count = chunk_count;
     input->chunks = chunks;
     input->raw_chunk_emission_count = raw_chunk_emission_count;
+    input->window_frame_count = kept_count;
+    input->context_frame_count = trim_left;
     input->kept_emission_count = kept_count*chunk_count;
     input->original_emission_count = original_emission_count;
 
@@ -1763,6 +1813,129 @@ ctc_inference_test_rank3_probability_trim_before_convert(void) {
     ASSERT(ctc_inference_float_close(emissions.values[3],
                                      logf(0.10f),
                                      0.00001f));
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+
+static int32
+ctc_inference_test_rank3_accepts_short_actual_model_length(void) {
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunk;
+    int64 shape[3];
+    float values[] = {
+        10.0f,
+        11.0f,
+        12.0f,
+    };
+
+    shape[0] = 1;
+    shape[1] = 3;
+    shape[2] = 1;
+
+    lrc_ctc_model_input_init(&input);
+    memset64(&chunk, 0, SIZEOF(chunk));
+    input.samples = values;
+    input.sample_count = 4;
+    input.shape_len = LRC_CTC_MODEL_INPUT_RANK;
+    input.shape[0] = 1;
+    input.shape[1] = 4;
+    input.chunk_count = 1;
+    input.chunks = &chunk;
+    input.raw_chunk_emission_count = 4;
+    input.original_emission_count = 4;
+    input.kept_emission_count = 4;
+    chunk.raw_emission_count = 4;
+    chunk.kept_emission_count = 4;
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set short actual rank-3 output");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+
+    if (!lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
+        return ctc_inference_test_fail("run short actual rank-3 output");
+    }
+
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(emissions.frame_count == 3);
+    ASSERT(emissions.value_count == 3);
+    ASSERT(emissions.values[0] == 10.0f);
+    ASSERT(emissions.values[1] == 11.0f);
+    ASSERT(emissions.values[2] == 12.0f);
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_rank3_accepts_wav2vec_actual_chunk_length(void) {
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunks[2];
+    int64 shape[3];
+    float values[10];
+    float expected[] = {
+        2.0f,
+        3.0f,
+        4.0f,
+        102.0f,
+        103.0f,
+        104.0f,
+    };
+
+    for (int64 chunk = 0; chunk < 2; chunk += 1) {
+        for (int64 frame = 0; frame < 5; frame += 1) {
+            values[chunk*5 + frame] = (float)(chunk*100 + frame);
+        }
+    }
+    shape[0] = 2;
+    shape[1] = 5;
+    shape[2] = 1;
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    ctc_inference_make_custom_rank3_trim_input(&input,
+                                               chunks,
+                                               2,
+                                               6,
+                                               2,
+                                               1,
+                                               LENGTH(expected));
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set actual wav2vec rank-3 output");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+
+    if (!lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
+        return ctc_inference_test_fail("run actual wav2vec rank-3 output");
+    }
+
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(emissions.frame_count == LENGTH(expected));
+    for (int32 i = 0; i < LENGTH(expected); i += 1) {
+        ASSERT(emissions.values[i] == expected[i]);
+    }
 
     lrc_ctc_emissions_destroy(&emissions);
 
@@ -2372,6 +2545,12 @@ main(void) {
         exit(1);
     }
     if (ctc_inference_test_rank3_probability_trim_before_convert() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_rank3_accepts_short_actual_model_length() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_rank3_accepts_wav2vec_actual_chunk_length() != 0) {
         exit(1);
     }
     if (ctc_inference_test_rank3_python_slicing_vectors() != 0) {
