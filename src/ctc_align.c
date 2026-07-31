@@ -708,6 +708,37 @@ lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments) {
 }
 
 static void
+lrc_ctc_aligned_token_intervals_init(
+    LrcCtcAlignedTokenIntervals *intervals
+) {
+    if (intervals == NULL) {
+        return;
+    }
+
+    memset64(intervals, 0, SIZEOF(*intervals));
+
+    return;
+}
+
+static void
+lrc_ctc_aligned_token_intervals_destroy(
+    LrcCtcAlignedTokenIntervals *intervals
+) {
+    if (intervals == NULL) {
+        return;
+    }
+
+    if (intervals->intervals) {
+        free2(intervals->intervals,
+              intervals->interval_cap*SIZEOF(*intervals->intervals));
+    }
+
+    lrc_ctc_aligned_token_intervals_init(intervals);
+
+    return;
+}
+
+static void
 lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans) {
     if (spans == NULL) {
         return;
@@ -895,6 +926,61 @@ lrc_ctc_path_segments_allocate(
         segments->segments[i].token_id = -1;
         segments->segments[i].is_blank = true;
         segments->segments[i].is_star = false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_aligned_token_intervals_allocate(
+    LrcCtcAlignedTokenIntervals *intervals,
+    int64 interval_count,
+    LrcCtcAlignResult *result
+) {
+    int64 alloc_size;
+
+    if (intervals == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC aligned token intervals destination is missing",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (interval_count <= 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            "CTC aligned token interval count must be positive",
+            -1,
+            interval_count
+        );
+        return false;
+    }
+    if (!lrc_ctc_align_checked_multiply(
+        interval_count,
+        SIZEOF(*intervals->intervals),
+        &alloc_size,
+        "CTC aligned token interval allocation is too large",
+        result
+    )) {
+        return false;
+    }
+
+    lrc_ctc_aligned_token_intervals_destroy(intervals);
+    intervals->intervals = malloc2(alloc_size);
+    intervals->interval_count = interval_count;
+    intervals->interval_cap = interval_count;
+
+    for (int64 i = 0; i < intervals->interval_count; i += 1) {
+        intervals->intervals[i].target_token_index = -1;
+        intervals->intervals[i].segment_start_index = -1;
+        intervals->intervals[i].segment_end_index = -1;
+        intervals->intervals[i].token_start_frame = -1;
+        intervals->intervals[i].token_end_frame = -1;
+        intervals->intervals[i].is_star = false;
     }
 
     return true;
@@ -2504,6 +2590,273 @@ lrc_ctc_path_to_segments(
 }
 
 static bool
+lrc_ctc_path_segment_valid_for_intervals(
+    LrcCtcPathSegment *segment,
+    int64 segment_index,
+    int64 previous_end_frame,
+    LrcCtcAlignResult *result
+) {
+    if ((segment->start_frame < 0)
+        || (segment->end_frame <= segment->start_frame)
+        || (segment->start_frame < previous_end_frame)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path segment frame range is invalid",
+            segment->start_frame,
+            segment_index
+        );
+        return false;
+    }
+    if (segment->is_blank) {
+        if (segment->is_star || (segment->token_index != -1)) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                "CTC blank path segment has invalid labels",
+                segment->start_frame,
+                segment_index
+            );
+            return false;
+        }
+        return true;
+    }
+    if (segment->is_star) {
+        if ((segment->token_id < 0) || (segment->token_index != -1)) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                "CTC star path segment has invalid labels",
+                segment->start_frame,
+                segment_index
+            );
+            return false;
+        }
+        return true;
+    }
+    if ((segment->token_index < 0) || (segment->token_id < 0)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC token path segment has invalid labels",
+            segment->start_frame,
+            segment_index
+        );
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_path_segments_ready_for_intervals(
+    LrcCtcPathSegments *segments,
+    LrcCtcAlignedTokenIntervals *intervals,
+    LrcCtcAlignResult *result
+) {
+    int64 previous_end_frame;
+
+    if ((segments == NULL) || (intervals == NULL)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC segment interval conversion received invalid arguments",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if ((segments->segments == NULL) || (segments->segment_count <= 0)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path segments are empty",
+            -1,
+            -1
+        );
+        return false;
+    }
+
+    previous_end_frame = -1;
+    for (int64 i = 0; i < segments->segment_count; i += 1) {
+        LrcCtcPathSegment *segment = segments->segments + i;
+
+        if (!lrc_ctc_path_segment_valid_for_intervals(segment,
+                                                     i,
+                                                     previous_end_frame,
+                                                     result)) {
+            return false;
+        }
+        previous_end_frame = segment->end_frame;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_interval_segment_matches_state(
+    LrcCtcPathSegment *segment,
+    LrcCtcAlignState *state,
+    int64 segment_index,
+    int64 label_index,
+    LrcCtcAlignResult *result
+) {
+    if (state->kind == LRC_CTC_ALIGN_STATE_STAR) {
+        if (!segment->is_star || (segment->token_id != state->token_id)) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                "CTC path segment does not match target star",
+                segment->start_frame,
+                label_index
+            );
+            return false;
+        }
+        return true;
+    }
+    if (state->kind != LRC_CTC_ALIGN_STATE_TOKEN) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC interval target stream contains an invalid label",
+            segment->start_frame,
+            label_index
+        );
+        return false;
+    }
+    if (segment->is_star || (segment->token_id != state->token_id)
+        || (segment->token_index != state->token_index)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path segment does not match target token",
+            segment->start_frame,
+            segment_index
+        );
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_path_segments_to_aligned_token_intervals(
+    LrcCtcPathSegments *segments,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    enum LrcCtcAlignStarMode star_mode,
+    int32 star_token_id,
+    LrcCtcAlignedTokenIntervals *intervals,
+    LrcCtcAlignResult *result
+) {
+    LrcCtcAlignGraph graph;
+    int64 label_count;
+    int64 label_index;
+    bool ok;
+
+    if (result) {
+        lrc_ctc_align_result_init(result);
+    }
+    if (!lrc_ctc_path_segments_ready_for_intervals(segments,
+                                                   intervals,
+                                                   result)) {
+        return false;
+    }
+    if ((star_mode != LRC_CTC_ALIGN_STAR_MODE_NONE)
+        && (star_token_id < 0)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
+            "CTC interval star token id is invalid",
+            -1,
+            star_token_id
+        );
+        return false;
+    }
+
+    lrc_ctc_align_graph_init(&graph);
+    if (!lrc_ctc_align_graph_build_for_mode(&graph,
+                                            target_token_ids,
+                                            target_token_count,
+                                            star_mode,
+                                            target_segment_starts,
+                                            star_token_id,
+                                            result)) {
+        lrc_ctc_align_graph_destroy(&graph);
+        return false;
+    }
+
+    label_count = (graph.state_count - 1)/2;
+    if (!lrc_ctc_aligned_token_intervals_allocate(intervals,
+                                                  label_count,
+                                                  result)) {
+        lrc_ctc_align_graph_destroy(&graph);
+        return false;
+    }
+
+    ok = true;
+    label_index = 0;
+    for (int64 i = 0; i < segments->segment_count; i += 1) {
+        LrcCtcAlignedTokenInterval *interval;
+        LrcCtcPathSegment *segment = segments->segments + i;
+        LrcCtcAlignState *state;
+
+        if (segment->is_blank) {
+            continue;
+        }
+        if (label_index >= label_count) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                "CTC path segments contain too many target labels",
+                segment->start_frame,
+                i
+            );
+            ok = false;
+            break;
+        }
+
+        state = graph.states + 2*label_index + 1;
+        if (!lrc_ctc_interval_segment_matches_state(segment,
+                                                    state,
+                                                    i,
+                                                    label_index,
+                                                    result)) {
+            ok = false;
+            break;
+        }
+
+        interval = intervals->intervals + label_index;
+        interval->target_token_index = state->token_index;
+        interval->segment_start_index = i;
+        interval->segment_end_index = i + 1;
+        interval->token_start_frame = segment->start_frame;
+        interval->token_end_frame = segment->end_frame;
+        interval->is_star = state->kind == LRC_CTC_ALIGN_STATE_STAR;
+
+        label_index += 1;
+    }
+    if (ok && (label_index != label_count)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path segments do not cover all target labels",
+            -1,
+            label_index
+        );
+        ok = false;
+    }
+
+    if (!ok) {
+        lrc_ctc_aligned_token_intervals_destroy(intervals);
+    }
+    lrc_ctc_align_graph_destroy(&graph);
+
+    return ok;
+}
+
+static bool
 lrc_ctc_path_step_starts_span(
     LrcCtcPath *path,
     int64 step_index
@@ -4066,6 +4419,38 @@ ctc_align_join_path(
     len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
     ASSERT(len > 0);
     ASSERT(len < buffer_len);
+
+    return;
+}
+
+static void
+ctc_align_set_path_segment(
+    LrcCtcPathSegments *segments,
+    int64 segment_index,
+    int64 token_index,
+    int64 start_frame,
+    int64 end_frame,
+    int32 token_id,
+    bool is_blank,
+    bool is_star
+) {
+    LrcCtcPathSegment *segment;
+
+    ASSERT(segments != NULL);
+    ASSERT(segments->segments != NULL);
+    ASSERT(segment_index >= 0);
+    ASSERT(segment_index < segments->segment_count);
+
+    segment = segments->segments + segment_index;
+    segment->token_index = token_index;
+    segment->start_frame = start_frame;
+    segment->end_frame = end_frame;
+    segment->start_seconds = (float)start_frame*0.10f;
+    segment->end_seconds = (float)end_frame*0.10f;
+    segment->score = -0.10f;
+    segment->token_id = token_id;
+    segment->is_blank = is_blank;
+    segment->is_star = is_star;
 
     return;
 }
@@ -5829,6 +6214,125 @@ ctc_align_test_path_segments_keep_stars(void) {
 
     lrc_ctc_path_segments_destroy(&segments);
     lrc_ctc_path_destroy(&path);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_aligned_intervals_keep_edge_star_order(void) {
+    LrcCtcAlignResult result;
+    LrcCtcPathSegments segments;
+    LrcCtcAlignedTokenIntervals intervals;
+    int32 target_token_ids[] = {1, 2};
+    int32 star_token_id = 3;
+
+    lrc_ctc_path_segments_init(&segments);
+    lrc_ctc_aligned_token_intervals_init(&intervals);
+    if (!lrc_ctc_path_segments_allocate(&segments, 5, &result)) {
+        return ctc_align_test_fail("allocate edge-star interval segments");
+    }
+
+    ctc_align_set_path_segment(&segments, 0, -1, 0, 2, star_token_id,
+                               false, true);
+    ctc_align_set_path_segment(&segments, 1, 0, 2, 3, 1, false, false);
+    ctc_align_set_path_segment(&segments, 2, -1, 3, 4, 0, true, false);
+    ctc_align_set_path_segment(&segments, 3, 1, 4, 5, 2, false, false);
+    ctc_align_set_path_segment(&segments, 4, -1, 5, 6, star_token_id,
+                               false, true);
+    if (!lrc_ctc_path_segments_to_aligned_token_intervals(
+        &segments,
+        target_token_ids,
+        NULL,
+        2,
+        LRC_CTC_ALIGN_STAR_MODE_EDGES,
+        star_token_id,
+        &intervals,
+        &result
+    )) {
+        return ctc_align_test_fail("edge-star aligned intervals");
+    }
+
+    ASSERT(intervals.interval_count == 4);
+    ASSERT(intervals.intervals[0].is_star);
+    ASSERT(intervals.intervals[0].target_token_index == -1);
+    ASSERT(intervals.intervals[0].segment_start_index == 0);
+    ASSERT(intervals.intervals[0].segment_end_index == 1);
+    ASSERT(intervals.intervals[0].token_start_frame == 0);
+    ASSERT(intervals.intervals[0].token_end_frame == 2);
+    ASSERT(!intervals.intervals[1].is_star);
+    ASSERT(intervals.intervals[1].target_token_index == 0);
+    ASSERT(intervals.intervals[1].segment_start_index == 1);
+    ASSERT(intervals.intervals[1].segment_end_index == 2);
+    ASSERT(intervals.intervals[1].token_start_frame == 2);
+    ASSERT(intervals.intervals[1].token_end_frame == 3);
+    ASSERT(!intervals.intervals[2].is_star);
+    ASSERT(intervals.intervals[2].target_token_index == 1);
+    ASSERT(intervals.intervals[2].segment_start_index == 3);
+    ASSERT(intervals.intervals[2].segment_end_index == 4);
+    ASSERT(intervals.intervals[3].is_star);
+    ASSERT(intervals.intervals[3].target_token_index == -1);
+    ASSERT(intervals.intervals[3].segment_start_index == 4);
+    ASSERT(intervals.intervals[3].segment_end_index == 5);
+
+    lrc_ctc_aligned_token_intervals_destroy(&intervals);
+    lrc_ctc_path_segments_destroy(&segments);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_aligned_intervals_keep_segment_star_order(void) {
+    LrcCtcAlignResult result;
+    LrcCtcPathSegments segments;
+    LrcCtcAlignedTokenIntervals intervals;
+    int32 target_token_ids[] = {1, 2, 3};
+    bool target_segment_starts[] = {true, false, true};
+    int32 star_token_id = 4;
+
+    lrc_ctc_path_segments_init(&segments);
+    lrc_ctc_aligned_token_intervals_init(&intervals);
+    if (!lrc_ctc_path_segments_allocate(&segments, 6, &result)) {
+        return ctc_align_test_fail("allocate segment-star intervals");
+    }
+
+    ctc_align_set_path_segment(&segments, 0, -1, 0, 1, star_token_id,
+                               false, true);
+    ctc_align_set_path_segment(&segments, 1, 0, 1, 2, 1, false, false);
+    ctc_align_set_path_segment(&segments, 2, -1, 2, 3, 0, true, false);
+    ctc_align_set_path_segment(&segments, 3, 1, 3, 4, 2, false, false);
+    ctc_align_set_path_segment(&segments, 4, -1, 4, 5, star_token_id,
+                               false, true);
+    ctc_align_set_path_segment(&segments, 5, 2, 5, 6, 3, false, false);
+    if (!lrc_ctc_path_segments_to_aligned_token_intervals(
+        &segments,
+        target_token_ids,
+        target_segment_starts,
+        3,
+        LRC_CTC_ALIGN_STAR_MODE_SEGMENT,
+        star_token_id,
+        &intervals,
+        &result
+    )) {
+        return ctc_align_test_fail("segment-star aligned intervals");
+    }
+
+    ASSERT(intervals.interval_count == 5);
+    ASSERT(intervals.intervals[0].is_star);
+    ASSERT(intervals.intervals[0].target_token_index == -1);
+    ASSERT(intervals.intervals[1].target_token_index == 0);
+    ASSERT(intervals.intervals[1].segment_start_index == 1);
+    ASSERT(intervals.intervals[2].target_token_index == 1);
+    ASSERT(intervals.intervals[2].segment_start_index == 3);
+    ASSERT(intervals.intervals[3].is_star);
+    ASSERT(intervals.intervals[3].target_token_index == -1);
+    ASSERT(intervals.intervals[3].segment_start_index == 4);
+    ASSERT(intervals.intervals[4].target_token_index == 2);
+    ASSERT(intervals.intervals[4].segment_start_index == 5);
+    ASSERT(intervals.intervals[4].token_start_frame == 5);
+    ASSERT(intervals.intervals[4].token_end_frame == 6);
+
+    lrc_ctc_aligned_token_intervals_destroy(&intervals);
+    lrc_ctc_path_segments_destroy(&segments);
 
     return 0;
 }
@@ -8373,6 +8877,12 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_path_segments_keep_stars() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_aligned_intervals_keep_edge_star_order() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_aligned_intervals_keep_segment_star_order() != 0) {
         exit(1);
     }
     if (ctc_align_test_token_spans_from_backtracked_path() != 0) {

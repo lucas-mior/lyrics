@@ -85,6 +85,23 @@ typedef struct LrcCtcPathSegments {
     int64 segment_cap;
 } LrcCtcPathSegments;
 
+typedef struct LrcCtcAlignedTokenInterval {
+    int64 target_token_index;
+    int64 segment_start_index;
+    int64 segment_end_index;
+    int64 token_start_frame;
+    int64 token_end_frame;
+
+    bool is_star;
+} LrcCtcAlignedTokenInterval;
+
+typedef struct LrcCtcAlignedTokenIntervals {
+    LrcCtcAlignedTokenInterval *intervals;
+
+    int64 interval_count;
+    int64 interval_cap;
+} LrcCtcAlignedTokenIntervals;
+
 typedef struct LrcCtcTokenSpan {
     int64 token_index;
     int64 start_frame;
@@ -161,6 +178,12 @@ static void lrc_ctc_path_init(LrcCtcPath *path);
 static void lrc_ctc_path_destroy(LrcCtcPath *path);
 static void lrc_ctc_path_segments_init(LrcCtcPathSegments *segments);
 static void lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments);
+static void lrc_ctc_aligned_token_intervals_init(
+    LrcCtcAlignedTokenIntervals *intervals
+);
+static void lrc_ctc_aligned_token_intervals_destroy(
+    LrcCtcAlignedTokenIntervals *intervals
+);
 static void lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans);
 static void lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans);
 static void lrc_ctc_word_spans_init(LrcCtcWordSpans *spans);
