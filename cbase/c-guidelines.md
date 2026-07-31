@@ -140,6 +140,14 @@ typeof(var)  // good
 - Never typedef enums and unions.
 - Never typedef pointers.
 
+## Function declarations
+Most functions don't need to have an extra declaration, only the definition will
+suffice. Order the functions in a file properly so that extra declarations
+aren't needed. Functions that do need an extra pre declaration, put the
+declaration in a project-wide header file or in the header file associated with
+the C file itself. Avoid declaring functions defined in a C file, in another C
+file. 
+
 ## Struct declarations
 
 Try to organize big structs in logical groups or types with empty lines:

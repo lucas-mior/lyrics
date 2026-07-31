@@ -7,6 +7,7 @@
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 
+#define LRC_PIPELINE_ENABLE_GENERATE 1
 #include "pipeline.h"
 
 #include "audio.c"
@@ -76,9 +77,7 @@ lrc_extract_vocals(
 
 #include "pipeline.c"
 
-static void raw_print_usage(FILE *stream) __attribute((noreturn));
-
-static void
+static void __attribute((noreturn))
 raw_print_usage(FILE *stream) {
     error2(
         "usage: %s -i VOCALS -l LYRICS.txt -o OUTPUT.lrc "

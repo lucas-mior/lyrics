@@ -1,9 +1,14 @@
 #include "cbase.h"
-#include "pipeline.h"
 
 #if !defined(TESTING_pipeline)
 #define TESTING_pipeline 0
 #endif
+
+#if !defined(LRC_PIPELINE_ENABLE_GENERATE)
+#define LRC_PIPELINE_ENABLE_GENERATE TESTING_pipeline
+#endif
+
+#include "pipeline.h"
 
 static void
 lrc_pipeline_error_set(
@@ -369,6 +374,7 @@ lrc_pipeline_extract_vocals(
     return true;
 }
 
+#if LRC_PIPELINE_ENABLE_GENERATE
 static void
 lrc_pipeline_generate_result_init(LrcPipelineGenerateResult *result) {
     if (result == NULL) {
@@ -1042,6 +1048,7 @@ lrc_pipeline_generate_lrc(
 
     return ok;
 }
+#endif
 
 #if TESTING_pipeline
 

@@ -14,6 +14,10 @@
 #include "ctc_align.h"
 #include "lrc.h"
 
+#if !defined(LRC_PIPELINE_ENABLE_GENERATE)
+#define LRC_PIPELINE_ENABLE_GENERATE 0
+#endif
+
 enum LrcPipelineError {
     LRC_PIPELINE_ERROR_NONE,
     LRC_PIPELINE_ERROR_INVALID_ARGUMENT,
@@ -130,6 +134,7 @@ static bool lrc_pipeline_validate_ctc_assets(
     LrcPipeline *pipeline,
     LrcCtcAssetsResult *result
 );
+#if LRC_PIPELINE_ENABLE_GENERATE
 static void lrc_pipeline_generate_result_init(
     LrcPipelineGenerateResult *result
 );
@@ -141,5 +146,6 @@ static bool lrc_generate_from_song(
     LrcPipelineConfig *config,
     LrcPipelineGenerateResult *result
 );
+#endif
 
 #endif /* PIPELINE_H */

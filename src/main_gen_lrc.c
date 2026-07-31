@@ -7,6 +7,7 @@
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 
+#define LRC_PIPELINE_ENABLE_GENERATE 1
 #include "pipeline.h"
 
 #include "fftw.c"
@@ -25,9 +26,7 @@
 #include "lrc.c"
 #include "pipeline.c"
 
-static void full_print_usage(FILE *stream) __attribute((noreturn));
-
-static void
+static void __attribute((noreturn))
 full_print_usage(FILE *stream) {
     error2(
         "usage: %s -i SONG -l LYRICS.txt -o OUTPUT.lrc "
