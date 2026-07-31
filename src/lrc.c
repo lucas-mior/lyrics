@@ -78,6 +78,43 @@ lrc_format_result_set(
     return;
 }
 
+static void
+lrc_write_result_init(LrcWriteResult *result) {
+    if (result == NULL) {
+        return;
+    }
+
+    result->error = LRC_WRITE_ERROR_NONE;
+    result->format_error = LRC_FORMAT_ERROR_NONE;
+    result->message = "ok";
+    result->path = NULL;
+
+    result->line_index = -1;
+
+    return;
+}
+
+static void
+lrc_write_result_set(
+    LrcWriteResult *result,
+    enum LrcWriteError error,
+    char *message,
+    char *path,
+    int32 line_index
+) {
+    if (result == NULL) {
+        return;
+    }
+
+    result->error = error;
+    result->message = message;
+    result->path = path;
+
+    result->line_index = line_index;
+
+    return;
+}
+
 static int32
 lrc_decimal_digit_count(int32 value) {
     int32 digits;
@@ -681,6 +718,313 @@ lrc_parse_text(
     return true;
 }
 
+static bool
+lrc_output_line_validate(
+    LrcOutputLine *line,
+    int32 line_index,
+    LrcWriteResult *result
+) {
+    if (line == NULL) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output line is missing",
+                             NULL,
+                             line_index);
+        return false;
+    }
+    if (line->text_len < 0) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_LINE,
+                             "LRC output line text length is negative",
+                             NULL,
+                             line_index);
+        return false;
+    }
+    if ((line->text == NULL) && (line->text_len > 0)) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_LINE,
+                             "LRC output line text is missing",
+                             NULL,
+                             line_index);
+        return false;
+    }
+
+    switch (line->kind) {
+    case LRC_OUTPUT_LINE_KIND_TIMESTAMPED:
+        if (line->timestamp_hundredths < 0) {
+            lrc_write_result_set(result,
+                                 LRC_WRITE_ERROR_INVALID_LINE,
+                                 "LRC output timestamp is invalid",
+                                 NULL,
+                                 line_index);
+            return false;
+        }
+        break;
+    case LRC_OUTPUT_LINE_KIND_BLANK:
+        break;
+    default:
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_LINE,
+                             "LRC output line kind is invalid",
+                             NULL,
+                             line_index);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_format_output_lines(
+    StrBuilder *builder,
+    LrcOutputLine *lines,
+    int32 line_count,
+    LrcWriteResult *result
+) {
+    if (result) {
+        lrc_write_result_init(result);
+    }
+    if (builder == NULL) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output builder is missing",
+                             NULL,
+                             -1);
+        return false;
+    }
+    if (line_count < 0) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output line count is negative",
+                             NULL,
+                             -1);
+        return false;
+    }
+    if ((lines == NULL) && (line_count > 0)) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output lines are missing",
+                             NULL,
+                             -1);
+        return false;
+    }
+
+    for (int32 i = 0; i < line_count; i += 1) {
+        LrcOutputLine *line;
+
+        line = lines + i;
+        if (!lrc_output_line_validate(line, i, result)) {
+            return false;
+        }
+
+        if (line->kind == LRC_OUTPUT_LINE_KIND_TIMESTAMPED) {
+            LrcFormatResult format_result;
+
+            if (!lrc_format_timestamped_line_hundredths(
+                builder,
+                line->timestamp_hundredths,
+                line->text,
+                line->text_len,
+                &format_result
+            )) {
+                lrc_write_result_set(result,
+                                     LRC_WRITE_ERROR_FORMAT_FAILED,
+                                     "LRC output line formatting failed",
+                                     NULL,
+                                     i);
+                if (result) {
+                    result->format_error = format_result.error;
+                }
+                return false;
+            }
+        } else {
+            sb_append(builder, line->text, line->text_len);
+        }
+        sb_append_byte(builder, '\n');
+    }
+
+    return true;
+}
+
+static bool
+lrc_make_temp_output_path(char *path, char *buffer, int32 buffer_len) {
+    int32 len;
+
+    len = snprintf2(buffer,
+                    buffer_len,
+                    "%s.tmp.%lld.XXXXXX",
+                    path,
+                    (int64)getpid());
+    if ((len <= 0) || (len >= buffer_len)) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_write_all_fd(int32 fd, char *text, int32 text_len) {
+    int32 written;
+
+    written = 0;
+    while (written < text_len) {
+        int64 n;
+
+        n = write64(fd, text + written, text_len - written);
+        if (n <= 0) {
+            return false;
+        }
+        if (n > ((int64)text_len - written)) {
+            return false;
+        }
+        written += (int32)n;
+    }
+
+    return true;
+}
+
+static bool
+lrc_write_text_file_atomic(
+    char *path,
+    char *text,
+    int32 text_len,
+    LrcWriteResult *result
+) {
+    char temp_path[PATH_MAX];
+    int32 fd;
+
+    if (path == NULL) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output path is missing",
+                             path,
+                             -1);
+        return false;
+    }
+    if (path[0] == '\0') {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output path is empty",
+                             path,
+                             -1);
+        return false;
+    }
+    if ((text == NULL) && (text_len > 0)) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output text is missing",
+                             path,
+                             -1);
+        return false;
+    }
+    if (text_len < 0) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output text length is negative",
+                             path,
+                             -1);
+        return false;
+    }
+    if (!lrc_make_temp_output_path(path, temp_path, SIZEOF(temp_path))) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_TEMP_PATH_TOO_LONG,
+                             "LRC temporary output path is too long",
+                             path,
+                             -1);
+        return false;
+    }
+
+    fd = mkstemp(temp_path);
+    if (fd < 0) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_TEMP_OPEN_FAILED,
+                             "could not open temporary LRC output",
+                             path,
+                             -1);
+        return false;
+    }
+
+    if (!lrc_write_all_fd(fd, text, text_len)) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_WRITE_FAILED,
+                             "could not write temporary LRC output",
+                             path,
+                             -1);
+        close(fd);
+        unlink(temp_path);
+        return false;
+    }
+
+    if (close(fd) < 0) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_CLOSE_FAILED,
+                             "could not close temporary LRC output",
+                             path,
+                             -1);
+        unlink(temp_path);
+        return false;
+    }
+
+    if (rename(temp_path, path) < 0) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_RENAME_FAILED,
+                             "could not rename temporary LRC output",
+                             path,
+                             -1);
+        unlink(temp_path);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_write_output_file(
+    char *path,
+    LrcOutputLine *lines,
+    int32 line_count,
+    LrcWriteResult *result
+) {
+    StrBuilder builder;
+
+    if (result) {
+        lrc_write_result_init(result);
+    }
+    if (path == NULL) {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output path is missing",
+                             path,
+                             -1);
+        return false;
+    }
+    if (path[0] == '\0') {
+        lrc_write_result_set(result,
+                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             "LRC output path is empty",
+                             path,
+                             -1);
+        return false;
+    }
+
+    sb_init(&builder);
+    if (!lrc_format_output_lines(&builder, lines, line_count, result)) {
+        sb_free(&builder);
+        return false;
+    }
+    if (!lrc_write_text_file_atomic(path,
+                                    builder.data,
+                                    builder.len,
+                                    result)) {
+        sb_free(&builder);
+        return false;
+    }
+
+    sb_free(&builder);
+
+    return true;
+}
+
 #if TESTING_lrc
 
 #define CBASE_IMPLEMENT
@@ -1022,6 +1366,183 @@ lrc_test_format_reject_bad_inputs(void) {
     return 0;
 }
 
+static void
+lrc_test_set_output_line(
+    LrcOutputLine *line,
+    enum LrcOutputLineKind kind,
+    int32 timestamp_hundredths,
+    char *text,
+    int32 text_len
+) {
+    line->text = text;
+    line->text_len = text_len;
+    line->timestamp_hundredths = timestamp_hundredths;
+    line->kind = kind;
+
+    return;
+}
+
+static void
+lrc_test_output_path(char *buffer, int32 buffer_len, char *dir) {
+    int32 len;
+
+    len = snprintf2(buffer, buffer_len, "%s/out.lrc", dir);
+    ASSERT(len > 0);
+    ASSERT(len < buffer_len);
+
+    return;
+}
+
+static int32
+lrc_test_write_generated_file(void) {
+    LrcOutputLine lines[3];
+    LrcWriteResult result;
+    char temp_dir[PATH_MAX];
+    char path[PATH_MAX];
+    char first[] = "Olá café";
+    char blank[] = "";
+    char second[] = "World";
+    char expected[] = "[00:00.00]Olá café\n\n[00:01.23]World\n";
+    char *text;
+    int32 text_len;
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_write");
+    lrc_test_output_path(path, SIZEOF(path), temp_dir);
+
+    lrc_test_set_output_line(lines + 0,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             0,
+                             first,
+                             strlen32(first));
+    lrc_test_set_output_line(lines + 1,
+                             LRC_OUTPUT_LINE_KIND_BLANK,
+                             -1,
+                             blank,
+                             strlen32(blank));
+    lrc_test_set_output_line(lines + 2,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             123,
+                             second,
+                             strlen32(second));
+
+    if (!lrc_write_output_file(path, lines, 3, &result)) {
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("write generated lrc file");
+    }
+    ASSERT(result.error == LRC_WRITE_ERROR_NONE);
+    ASSERT(util_file_exists(path));
+
+    text = read_entire_file(path, &text_len);
+    ASSERT(text_len == strlen32(expected));
+    ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
+
+    free2(text, ((int64)text_len + 1)*SIZEOF(*text));
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+static int32
+lrc_test_write_overwrites_existing_file(void) {
+    LrcOutputLine first_lines[1];
+    LrcOutputLine second_lines[1];
+    LrcWriteResult result;
+    char temp_dir[PATH_MAX];
+    char path[PATH_MAX];
+    char first[] = "First";
+    char second[] = "Second";
+    char expected[] = "[00:02.00]Second\n";
+    char *text;
+    int32 text_len;
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_overwrite");
+    lrc_test_output_path(path, SIZEOF(path), temp_dir);
+
+    lrc_test_set_output_line(first_lines + 0,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             100,
+                             first,
+                             strlen32(first));
+    lrc_test_set_output_line(second_lines + 0,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             200,
+                             second,
+                             strlen32(second));
+
+    if (!lrc_write_output_file(path,
+                               first_lines,
+                               1,
+                               &result)) {
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("write first lrc file");
+    }
+    if (!lrc_write_output_file(path,
+                               second_lines,
+                               1,
+                               &result)) {
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("overwrite lrc file");
+    }
+
+    text = read_entire_file(path, &text_len);
+    ASSERT(text_len == strlen32(expected));
+    ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
+
+    free2(text, ((int64)text_len + 1)*SIZEOF(*text));
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+static int32
+lrc_test_write_rejects_bad_inputs(void) {
+    LrcOutputLine lines[1];
+    LrcWriteResult result;
+    char text[] = "Bad";
+
+    lrc_test_set_output_line(lines + 0,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             -1,
+                             text,
+                             strlen32(text));
+
+    if (lrc_write_output_file(NULL, lines, 1, &result)) {
+        return lrc_test_fail("accepted missing output path");
+    }
+    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+
+    if (lrc_write_output_file("", lines, 1, &result)) {
+        return lrc_test_fail("accepted empty output path");
+    }
+    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+
+    if (lrc_write_output_file("bad.lrc", NULL, 1, &result)) {
+        return lrc_test_fail("accepted missing output lines");
+    }
+    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+
+    if (lrc_write_output_file("bad.lrc", lines, -1, &result)) {
+        return lrc_test_fail("accepted negative output line count");
+    }
+    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+
+    if (lrc_write_output_file("bad.lrc", lines, 1, &result)) {
+        return lrc_test_fail("accepted negative output timestamp");
+    }
+    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_LINE);
+    ASSERT(result.line_index == 0);
+
+    lines[0].timestamp_hundredths = 0;
+    lines[0].text = NULL;
+    lines[0].text_len = 1;
+    if (lrc_write_output_file("bad.lrc", lines, 1, &result)) {
+        return lrc_test_fail("accepted missing output line text");
+    }
+    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_LINE);
+
+    return 0;
+}
+
 static int32
 lrc_test_optional_maxwell_formatting(void) {
     LrcParsedFile parsed;
@@ -1077,6 +1598,134 @@ lrc_test_optional_maxwell_formatting(void) {
     lrc_parsed_file_destroy(&parsed);
     sb_free(&builder);
     free2(text, ((int64)text_len + 1)*SIZEOF(*text));
+
+    return 0;
+}
+
+static void
+lrc_test_assert_same_parsed_structure(
+    LrcParsedFile *a,
+    LrcParsedFile *b
+) {
+    ASSERT(a->line_count == b->line_count);
+    ASSERT(a->timestamped_line_count == b->timestamped_line_count);
+    ASSERT(a->blank_line_count == b->blank_line_count);
+
+    for (int32 i = 0; i < a->line_count; i += 1) {
+        ASSERT(a->lines[i].kind == b->lines[i].kind);
+        ASSERT(a->lines[i].timestamp_hundredths
+               == b->lines[i].timestamp_hundredths);
+        ASSERT(strequal2(a->lines[i].text,
+                         a->lines[i].text_len,
+                         b->lines[i].text,
+                         b->lines[i].text_len));
+    }
+
+    return;
+}
+
+static void
+lrc_test_output_lines_from_parsed(
+    LrcParsedFile *parsed,
+    LrcOutputLine *lines
+) {
+    for (int32 i = 0; i < parsed->line_count; i += 1) {
+        LrcParsedLine *parsed_line;
+        enum LrcOutputLineKind kind;
+
+        parsed_line = parsed->lines + i;
+        if (parsed_line->kind == LRC_PARSED_LINE_KIND_TIMESTAMPED) {
+            kind = LRC_OUTPUT_LINE_KIND_TIMESTAMPED;
+        } else {
+            kind = LRC_OUTPUT_LINE_KIND_BLANK;
+        }
+        lrc_test_set_output_line(lines + i,
+                                 kind,
+                                 parsed_line->timestamp_hundredths,
+                                 parsed_line->text,
+                                 parsed_line->text_len);
+    }
+
+    return;
+}
+
+static int32
+lrc_test_optional_maxwell_write_structure(void) {
+    LrcParsedFile parsed;
+    LrcParsedFile reparsed;
+    LrcParseResult parse_result;
+    LrcWriteResult write_result;
+    LrcOutputLine *lines;
+    char temp_dir[PATH_MAX];
+    char out_path[PATH_MAX];
+    char *fixture_path;
+    char *fixture_text;
+    char *written_text;
+    int32 fixture_text_len;
+    int32 written_text_len;
+    int32 line_count;
+
+    fixture_path = getenv("LRC_TEST_MAXWELL_LRC");
+    if (fixture_path == NULL) {
+        fixture_path = "next-phase/maxwell.lrc";
+    }
+    if (!util_file_exists(fixture_path)) {
+        return 0;
+    }
+
+    fixture_text = read_entire_file(fixture_path, &fixture_text_len);
+    lrc_parsed_file_init(&parsed);
+    if (!lrc_parse_text(&parsed,
+                        fixture_text,
+                        fixture_text_len,
+                        &parse_result)) {
+        free2(fixture_text,
+              ((int64)fixture_text_len + 1)*SIZEOF(*fixture_text));
+        return lrc_test_fail("parse maxwell lrc before write");
+    }
+
+    line_count = parsed.line_count;
+    lines = malloc2(line_count*SIZEOF(*lines));
+    lrc_test_output_lines_from_parsed(&parsed, lines);
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_maxwell_write");
+    lrc_test_output_path(out_path, SIZEOF(out_path), temp_dir);
+    if (!lrc_write_output_file(out_path,
+                               lines,
+                               parsed.line_count,
+                               &write_result)) {
+        free2(lines, line_count*SIZEOF(*lines));
+        lrc_parsed_file_destroy(&parsed);
+        free2(fixture_text,
+              ((int64)fixture_text_len + 1)*SIZEOF(*fixture_text));
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("write maxwell lrc structure");
+    }
+
+    written_text = read_entire_file(out_path, &written_text_len);
+    lrc_parsed_file_init(&reparsed);
+    if (!lrc_parse_text(&reparsed,
+                        written_text,
+                        written_text_len,
+                        &parse_result)) {
+        free2(lines, line_count*SIZEOF(*lines));
+        lrc_parsed_file_destroy(&parsed);
+        free2(fixture_text,
+              ((int64)fixture_text_len + 1)*SIZEOF(*fixture_text));
+        free2(written_text,
+              ((int64)written_text_len + 1)*SIZEOF(*written_text));
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("parse written maxwell lrc");
+    }
+
+    lrc_test_assert_same_parsed_structure(&parsed, &reparsed);
+
+    lrc_parsed_file_destroy(&reparsed);
+    free2(lines, line_count*SIZEOF(*lines));
+    lrc_parsed_file_destroy(&parsed);
+    free2(fixture_text, ((int64)fixture_text_len + 1)*SIZEOF(*fixture_text));
+    free2(written_text, ((int64)written_text_len + 1)*SIZEOF(*written_text));
+    test_remove_tree(temp_dir);
 
     return 0;
 }
@@ -1173,7 +1822,19 @@ main(void) {
     if (lrc_test_format_reject_bad_inputs() != 0) {
         exit(1);
     }
+    if (lrc_test_write_generated_file() != 0) {
+        exit(1);
+    }
+    if (lrc_test_write_overwrites_existing_file() != 0) {
+        exit(1);
+    }
+    if (lrc_test_write_rejects_bad_inputs() != 0) {
+        exit(1);
+    }
     if (lrc_test_optional_maxwell_formatting() != 0) {
+        exit(1);
+    }
+    if (lrc_test_optional_maxwell_write_structure() != 0) {
         exit(1);
     }
     if (lrc_test_optional_maxwell_lrc() != 0) {

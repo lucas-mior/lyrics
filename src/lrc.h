@@ -23,6 +23,23 @@ enum LrcFormatError {
     LRC_FORMAT_ERROR_TOO_LARGE,
 };
 
+enum LrcWriteError {
+    LRC_WRITE_ERROR_NONE,
+    LRC_WRITE_ERROR_INVALID_ARGUMENT,
+    LRC_WRITE_ERROR_INVALID_LINE,
+    LRC_WRITE_ERROR_FORMAT_FAILED,
+    LRC_WRITE_ERROR_TEMP_PATH_TOO_LONG,
+    LRC_WRITE_ERROR_TEMP_OPEN_FAILED,
+    LRC_WRITE_ERROR_WRITE_FAILED,
+    LRC_WRITE_ERROR_CLOSE_FAILED,
+    LRC_WRITE_ERROR_RENAME_FAILED,
+};
+
+enum LrcOutputLineKind {
+    LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+    LRC_OUTPUT_LINE_KIND_BLANK,
+};
+
 typedef struct LrcParsedLine {
     char *text;
 
@@ -50,6 +67,24 @@ typedef struct LrcFormatResult {
     int32 timestamp_hundredths;
 } LrcFormatResult;
 
+typedef struct LrcWriteResult {
+    enum LrcWriteError error;
+    enum LrcFormatError format_error;
+    char *message;
+    char *path;
+
+    int32 line_index;
+} LrcWriteResult;
+
+typedef struct LrcOutputLine {
+    char *text;
+
+    int32 text_len;
+    int32 timestamp_hundredths;
+
+    enum LrcOutputLineKind kind;
+} LrcOutputLine;
+
 typedef struct LrcParsedFile {
     char *text;
     LrcParsedLine *lines;
@@ -64,6 +99,7 @@ typedef struct LrcParsedFile {
 
 static void lrc_parse_result_init(LrcParseResult *result);
 static void lrc_format_result_init(LrcFormatResult *result);
+static void lrc_write_result_init(LrcWriteResult *result);
 static void lrc_parsed_file_init(LrcParsedFile *parsed);
 static void lrc_parsed_file_destroy(LrcParsedFile *parsed);
 static bool lrc_timestamp_hundredths_from_seconds(
@@ -104,6 +140,18 @@ static bool lrc_parse_text(
     char *text,
     int32 text_len,
     LrcParseResult *result
+);
+static bool lrc_format_output_lines(
+    StrBuilder *builder,
+    LrcOutputLine *lines,
+    int32 line_count,
+    LrcWriteResult *result
+);
+static bool lrc_write_output_file(
+    char *path,
+    LrcOutputLine *lines,
+    int32 line_count,
+    LrcWriteResult *result
 );
 
 #endif /* LRC_H */
