@@ -40,6 +40,24 @@ lrc_pipeline_path_missing(char *path) {
     return false;
 }
 
+static void
+lrc_pipeline_vocals_result_set(
+    LrcVocalsExtractResult *result,
+    enum LrcVocalsExtractError error,
+    char *message,
+    char *path
+) {
+    if (result == NULL) {
+        return;
+    }
+
+    result->error = error;
+    result->message = message;
+    result->path = path;
+
+    return;
+}
+
 static bool
 lrc_pipeline_store_owned_temp_dir(LrcPipeline *pipeline) {
     int32 len;
@@ -346,20 +364,31 @@ lrc_pipeline_extract_vocals(
 ) {
     LrcVocalsExtractRequest request;
 
+    lrc_pipeline_vocals_result_set(
+        result,
+        LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+        "pipeline is missing",
+        NULL
+    );
+
     if (!lrc_pipeline_vocals_request(pipeline, &request)) {
-        if (result) {
-            lrc_vocals_extract_result_init(result);
-            result->error = LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT;
-            if (pipeline) {
-                result->message = pipeline->message;
-                result->path = pipeline->path;
-            } else {
-                result->message = "pipeline is missing";
-                result->path = NULL;
-            }
+        if (pipeline != NULL) {
+            lrc_pipeline_vocals_result_set(
+                result,
+                LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+                pipeline->message,
+                pipeline->path
+            );
         }
         return false;
     }
+
+    lrc_pipeline_vocals_result_set(
+        result,
+        LRC_VOCALS_EXTRACT_ERROR_MDX_PROCESS_FAILED,
+        "vocals extraction failed",
+        request.output_path
+    );
 
     if (!lrc_extract_vocals(&request, result)) {
         lrc_pipeline_error_set(

@@ -70,7 +70,12 @@ lrc_extract_vocals(
     LrcVocalsExtractResult *result
 ) {
     (void)request;
-    (void)result;
+
+    if (result != NULL) {
+        result->error = LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT;
+        result->message = "raw LRC generation cannot extract vocals";
+        result->path = NULL;
+    }
 
     return false;
 }
@@ -96,6 +101,18 @@ raw_print_usage(FILE *stream) {
     }
 
     exit(EXIT_FAILURE);
+}
+
+static bool
+raw_path_missing(char *path) {
+    if (path == NULL) {
+        return true;
+    }
+    if (path[0] == '\0') {
+        return true;
+    }
+
+    return false;
 }
 
 static bool
@@ -284,23 +301,23 @@ raw_parse_args(
         config->tokenizer_path = env;
     }
 
-    if (config->existing_vocals_path == NULL) {
+    if (raw_path_missing(config->existing_vocals_path)) {
         error2("missing required option: -i/--input\n");
         return false;
     }
-    if (config->lyrics_text_path == NULL) {
+    if (raw_path_missing(config->lyrics_text_path)) {
         error2("missing required option: -l/--lyrics\n");
         return false;
     }
-    if (config->output_lrc_path == NULL) {
+    if (raw_path_missing(config->output_lrc_path)) {
         error2("missing required option: -o/--output\n");
         return false;
     }
-    if (config->ctc_model_path == NULL) {
+    if (raw_path_missing(config->ctc_model_path)) {
         error2("missing required option: --ctc-model\n");
         return false;
     }
-    if (config->tokenizer_path == NULL) {
+    if (raw_path_missing(config->tokenizer_path)) {
         error2("missing required option: --tokenizer\n");
         return false;
     }
