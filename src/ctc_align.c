@@ -2351,6 +2351,232 @@ ctc_align_fill_predictable_values(
     return;
 }
 
+static bool
+ctc_align_parse_lrc_file(
+    LrcParsedFile *parsed,
+    char *path,
+    char **file_text,
+    int32 *file_text_len
+) {
+    LrcParseResult result;
+
+    ASSERT(parsed != NULL);
+    ASSERT(file_text != NULL);
+    ASSERT(file_text_len != NULL);
+
+    *file_text = NULL;
+    *file_text_len = 0;
+    if ((path == NULL) || (path[0] == '\0') || !util_file_exists(path)) {
+        return false;
+    }
+
+    *file_text = read_entire_file(path, file_text_len);
+    if (!lrc_parse_text(parsed, *file_text, *file_text_len, &result)) {
+        free2(*file_text, ((int64)*file_text_len + 1)*SIZEOF(**file_text));
+        *file_text = NULL;
+        *file_text_len = 0;
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+ctc_align_expected_line_timestamp(
+    LrcParsedFile *parsed,
+    int32 source_line_index,
+    float *timestamp_seconds
+) {
+    ASSERT(parsed != NULL);
+    ASSERT(timestamp_seconds != NULL);
+
+    for (int32 i = 0; i < parsed->line_count; i += 1) {
+        LrcParsedLine *line = parsed->lines + i;
+
+        if (line->kind != LRC_PARSED_LINE_KIND_TIMESTAMPED) {
+            continue;
+        }
+        if (line->source_line_index != source_line_index) {
+            continue;
+        }
+
+        *timestamp_seconds = line->timestamp_seconds;
+        return true;
+    }
+
+    return false;
+}
+
+static int64
+ctc_align_seconds_to_frame(float seconds, float frame_duration_seconds) {
+    double frame;
+
+    ASSERT(isfinite(seconds));
+    ASSERT(seconds >= 0.0f);
+    ASSERT(isfinite(frame_duration_seconds));
+    ASSERT(frame_duration_seconds > 0.0f);
+
+    frame = (double)seconds/(double)frame_duration_seconds + 0.5;
+    if (frame > (double)INT64_MAX) {
+        return -1;
+    }
+
+    return (int64)frame;
+}
+
+static bool
+ctc_align_make_line_timed_token_frames(
+    LrcParsedFile *expected,
+    LrcCtcTokenizedText *tokens,
+    float frame_duration_seconds,
+    int64 *token_frames,
+    int64 *frame_count
+) {
+    int32 current_line;
+    int64 previous_frame;
+    int64 line_start_frame;
+    int64 line_token_offset;
+
+    if ((expected == NULL) || (tokens == NULL) || (token_frames == NULL)
+        || (frame_count == NULL) || (tokens->tokens == NULL)
+        || (tokens->token_count <= 0)
+        || !isfinite(frame_duration_seconds)
+        || (frame_duration_seconds <= 0.0f)) {
+        return false;
+    }
+
+    current_line = -1;
+    previous_frame = -1;
+    line_start_frame = -1;
+    line_token_offset = 0;
+    *frame_count = 0;
+    for (int64 i = 0; i < tokens->token_count; i += 1) {
+        LrcCtcTextToken *token = tokens->tokens + i;
+        int64 frame;
+
+        if (token->line_index != current_line) {
+            float timestamp_seconds;
+
+            if (!ctc_align_expected_line_timestamp(expected,
+                                                   token->line_index,
+                                                   &timestamp_seconds)) {
+                return false;
+            }
+            line_start_frame = ctc_align_seconds_to_frame(
+                timestamp_seconds,
+                frame_duration_seconds
+            );
+            if (line_start_frame < 0) {
+                return false;
+            }
+            if ((i > 0) && (line_start_frame > 0)) {
+                line_start_frame -= 1;
+            }
+            if (line_start_frame <= previous_frame) {
+                line_start_frame = previous_frame + 1;
+            }
+
+            current_line = token->line_index;
+            line_token_offset = 0;
+        }
+
+        frame = line_start_frame + line_token_offset;
+        if (frame <= previous_frame) {
+            return false;
+        }
+        token_frames[i] = frame;
+        previous_frame = frame;
+        line_token_offset += 1;
+    }
+
+    if (previous_frame > INT64_MAX - 2) {
+        return false;
+    }
+    *frame_count = previous_frame + 2;
+
+    return true;
+}
+
+static void
+ctc_align_fill_token_frame_values(
+    float *values,
+    int64 frame_count,
+    int64 vocabulary_size,
+    int32 blank_token_id,
+    int32 *token_ids,
+    int64 *token_frames,
+    int64 token_count
+) {
+    for (int64 i = 0; i < frame_count*vocabulary_size; i += 1) {
+        values[i] = -12.0f;
+    }
+    for (int64 frame = 0; frame < frame_count; frame += 1) {
+        values[frame*vocabulary_size + blank_token_id] = -0.05f;
+    }
+    for (int64 i = 0; i < token_count; i += 1) {
+        int64 frame = token_frames[i];
+
+        ASSERT(frame >= 0);
+        ASSERT(frame < frame_count);
+        values[frame*vocabulary_size + blank_token_id] = -6.0f;
+        values[frame*vocabulary_size + token_ids[i]] = -0.05f;
+    }
+
+    return;
+}
+
+static bool
+ctc_align_parsed_files_close(
+    LrcParsedFile *actual,
+    LrcParsedFile *expected,
+    float max_error_seconds
+) {
+    if ((actual == NULL) || (expected == NULL)) {
+        return false;
+    }
+    if (actual->line_count != expected->line_count) {
+        error2("LRC line count mismatch: actual=%d expected=%d\n",
+               actual->line_count, expected->line_count);
+        return false;
+    }
+
+    for (int32 i = 0; i < expected->line_count; i += 1) {
+        LrcParsedLine *actual_line = actual->lines + i;
+        LrcParsedLine *expected_line = expected->lines + i;
+        float diff;
+
+        if (actual_line->kind != expected_line->kind) {
+            error2("LRC line %d kind mismatch\n", i);
+            return false;
+        }
+        if (!strequal2(actual_line->text,
+                       actual_line->text_len,
+                       expected_line->text,
+                       expected_line->text_len)) {
+            error2("LRC line %d text mismatch\n", i);
+            return false;
+        }
+        if (expected_line->kind != LRC_PARSED_LINE_KIND_TIMESTAMPED) {
+            continue;
+        }
+
+        diff = fabsf(actual_line->timestamp_seconds
+                     - expected_line->timestamp_seconds);
+        if (diff > max_error_seconds) {
+            error2(
+                "LRC line %d timestamp diff %.3f actual %.3f expected %.3f\n",
+                i,
+                (double)diff,
+                (double)actual_line->timestamp_seconds,
+                (double)expected_line->timestamp_seconds
+            );
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 static bool
 ctc_align_output_lines_from_timestamps(
@@ -4285,6 +4511,328 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
 }
 
 static int32
+ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
+    LrcCtcAudioConfig audio_config;
+    LrcCtcAudioResult audio_result;
+    LrcCtcAudio audio;
+    LrcCtcModelConfig model_config;
+    LrcCtcModelInputResult model_result;
+    LrcCtcModelInput input;
+    LrcLyrics lyrics;
+    LrcLyricsLoadResult lyrics_result;
+    LrcLyricsNormalized normalized;
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizeResult tokenize_result;
+    LrcCtcFakeInference fake;
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult inference_result;
+    LrcCtcEmissions emissions;
+    LrcCtcAlignResult align_result;
+    LrcCtcTrellis trellis;
+    LrcCtcPath path;
+    LrcCtcTokenSpans token_spans;
+    LrcCtcWordSpans word_spans;
+    LrcCtcLineTimestamps line_timestamps;
+    LrcParsedFile expected_lrc;
+    LrcParsedFile actual_lrc;
+    LrcOutputLine *output_lines;
+    LrcWriteResult write_result;
+    char *lyrics_path;
+    char *vocals_path;
+    char *expected_lrc_path;
+    char *expected_lrc_text;
+    char *actual_lrc_text;
+    int32 expected_lrc_text_len;
+    int32 actual_lrc_text_len;
+    char temp_dir[PATH_MAX];
+    char output_lrc_path[PATH_MAX];
+    int32 *target_token_ids;
+    int64 *token_frames;
+    float *values;
+    float frame_duration_seconds;
+    int64 token_count;
+    int64 frame_count;
+    int64 vocabulary_size;
+    int64 value_count;
+    bool ok;
+
+    lyrics_path = getenv("LRC_TEST_MAXWELL_TXT");
+    if (lyrics_path == NULL) {
+        lyrics_path = "next-phase/maxwell.txt";
+    }
+    vocals_path = getenv("LRC_TEST_MAXWELL_VOCALS");
+    if (vocals_path == NULL) {
+        vocals_path = "next-phase/maxwell_vocals.opus";
+    }
+    expected_lrc_path = getenv("LRC_TEST_MAXWELL_LRC");
+    if (expected_lrc_path == NULL) {
+        expected_lrc_path = "next-phase/maxwell.lrc";
+    }
+    if (!test_command_exists("ffmpeg") || !util_file_exists(lyrics_path)
+        || !util_file_exists(vocals_path)
+        || !util_file_exists(expected_lrc_path)) {
+        return 0;
+    }
+
+    lrc_ctc_audio_init(&audio);
+    lrc_ctc_model_input_init(&input);
+    lrc_lyrics_init(&lyrics);
+    lrc_lyrics_normalized_init(&normalized);
+    lrc_ctc_tokenizer_init(&tokenizer);
+    lrc_ctc_tokenized_text_init(&tokens);
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    lrc_ctc_token_spans_init(&token_spans);
+    lrc_ctc_word_spans_init(&word_spans);
+    lrc_ctc_line_timestamps_init(&line_timestamps);
+    lrc_parsed_file_init(&expected_lrc);
+    lrc_parsed_file_init(&actual_lrc);
+
+    output_lines = NULL;
+    expected_lrc_text = NULL;
+    actual_lrc_text = NULL;
+    expected_lrc_text_len = 0;
+    actual_lrc_text_len = 0;
+    target_token_ids = NULL;
+    token_frames = NULL;
+    values = NULL;
+    frame_count = 0;
+    vocabulary_size = 0;
+    value_count = 0;
+    ok = true;
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_maxwell_lrc");
+    ctc_align_join_path(output_lrc_path,
+                        SIZEOF(output_lrc_path),
+                        temp_dir,
+                        "generated.lrc");
+
+    if (!ctc_align_parse_lrc_file(&expected_lrc,
+                                  expected_lrc_path,
+                                  &expected_lrc_text,
+                                  &expected_lrc_text_len)) {
+        ok = false;
+    }
+
+    lrc_ctc_audio_config_init(&audio_config);
+    audio_config.sample_rate = LRC_CTC_AUDIO_DEFAULT_SAMPLE_RATE;
+    if (ok && !lrc_ctc_audio_decode_file(&audio,
+                                         vocals_path,
+                                         &audio_config,
+                                         &audio_result)) {
+        ok = false;
+    }
+    if (ok && ((audio.sample_rate != LRC_CTC_AUDIO_DEFAULT_SAMPLE_RATE)
+               || (audio.channel_count != 1)
+               || (audio.sample_count <= 0))) {
+        ok = false;
+    }
+
+    lrc_ctc_model_config_init(&model_config);
+    if (ok && !lrc_ctc_model_input_prepare(&input,
+                                           &audio,
+                                           &model_config,
+                                           &model_result)) {
+        ok = false;
+    }
+    frame_duration_seconds = (float)(input.stride_ms/1000.0);
+
+    if (ok && !lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_lyrics_normalize(&lyrics, &normalized)) {
+        ok = false;
+    }
+    if (ok && !ctc_align_load_alphabet_tokenizer(&tokenizer)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
+                                                     &normalized,
+                                                     &tokens,
+                                                     &tokenize_result)) {
+        ok = false;
+    }
+
+    token_count = tokens.token_count;
+    if (ok && (token_count <= 0)) {
+        ok = false;
+    }
+    if (ok) {
+        target_token_ids = malloc2(token_count*SIZEOF(*target_token_ids));
+        token_frames = malloc2(token_count*SIZEOF(*token_frames));
+        for (int64 i = 0; i < token_count; i += 1) {
+            target_token_ids[i] = tokens.tokens[i].token_id;
+        }
+        if (!ctc_align_make_line_timed_token_frames(&expected_lrc,
+                                                    &tokens,
+                                                    frame_duration_seconds,
+                                                    token_frames,
+                                                    &frame_count)) {
+            ok = false;
+        }
+    }
+    if (ok && ((frame_count <= 0)
+               || ((double)frame_count*(double)frame_duration_seconds
+                   > audio.duration_seconds + 0.5))) {
+        ok = false;
+    }
+
+    vocabulary_size = tokenizer.token_count;
+    if (ok && (frame_count > INT64_MAX/vocabulary_size)) {
+        ok = false;
+    }
+    if (ok) {
+        value_count = frame_count*vocabulary_size;
+        values = malloc2(value_count*SIZEOF(*values));
+        ctc_align_fill_token_frame_values(values,
+                                          frame_count,
+                                          vocabulary_size,
+                                          tokenizer.blank_id,
+                                          target_token_ids,
+                                          token_frames,
+                                          token_count);
+    }
+
+    if (ok && !lrc_ctc_fake_inference_set(&fake,
+                                          values,
+                                          frame_count,
+                                          vocabulary_size)) {
+        ok = false;
+    }
+    if (ok) {
+        lrc_ctc_fake_inference_backend(&fake, &backend);
+        if (!lrc_ctc_inference_run(&backend,
+                                   &input,
+                                   &emissions,
+                                   &inference_result)) {
+            ok = false;
+        }
+    }
+    if (ok && !lrc_ctc_emissions_convert_to_log_probabilities(
+        &emissions,
+        LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES,
+        &inference_result
+    )) {
+        ok = false;
+    }
+
+    if (ok && !lrc_ctc_trellis_score_forward(&trellis,
+                                             &emissions,
+                                             target_token_ids,
+                                             token_count,
+                                             tokenizer.blank_id,
+                                             &align_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_trellis_backtrack(&trellis,
+                                         &emissions,
+                                         target_token_ids,
+                                         token_count,
+                                         tokenizer.blank_id,
+                                         &path,
+                                         &align_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_path_to_token_spans(&path,
+                                           &emissions,
+                                           frame_duration_seconds,
+                                           &token_spans,
+                                           &align_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_token_spans_to_word_spans(&token_spans,
+                                                 &tokens,
+                                                 &normalized,
+                                                 &word_spans,
+                                                 &align_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_word_spans_to_line_timestamps(&word_spans,
+                                                     &normalized,
+                                                     &line_timestamps,
+                                                     &align_result)) {
+        ok = false;
+    }
+
+    if (ok && (line_timestamps.line_count > INT32_MAX)) {
+        ok = false;
+    }
+    if (ok) {
+        output_lines = malloc2(
+            line_timestamps.line_count*SIZEOF(*output_lines)
+        );
+        if (!ctc_align_output_lines_from_timestamps(&lyrics,
+                                                    &line_timestamps,
+                                                    output_lines)) {
+            ok = false;
+        }
+    }
+    if (ok && !lrc_write_output_file(output_lrc_path,
+                                     output_lines,
+                                     (int32)line_timestamps.line_count,
+                                     &write_result)) {
+        ok = false;
+    }
+    if (ok && !ctc_align_parse_lrc_file(&actual_lrc,
+                                        output_lrc_path,
+                                        &actual_lrc_text,
+                                        &actual_lrc_text_len)) {
+        ok = false;
+    }
+    if (ok && !ctc_align_parsed_files_close(&actual_lrc,
+                                            &expected_lrc,
+                                            0.015f)) {
+        ok = false;
+    }
+
+    if (actual_lrc_text) {
+        free2(actual_lrc_text,
+              ((int64)actual_lrc_text_len + 1)*SIZEOF(*actual_lrc_text));
+    }
+    if (expected_lrc_text) {
+        free2(expected_lrc_text,
+              ((int64)expected_lrc_text_len + 1)*SIZEOF(*expected_lrc_text));
+    }
+    if (output_lines) {
+        free2(output_lines,
+              line_timestamps.line_count*SIZEOF(*output_lines));
+    }
+    if (values) {
+        free2(values, value_count*SIZEOF(*values));
+    }
+    if (token_frames) {
+        free2(token_frames, token_count*SIZEOF(*token_frames));
+    }
+    if (target_token_ids) {
+        free2(target_token_ids, token_count*SIZEOF(*target_token_ids));
+    }
+    lrc_parsed_file_destroy(&actual_lrc);
+    lrc_parsed_file_destroy(&expected_lrc);
+    lrc_ctc_line_timestamps_destroy(&line_timestamps);
+    lrc_ctc_word_spans_destroy(&word_spans);
+    lrc_ctc_token_spans_destroy(&token_spans);
+    lrc_ctc_path_destroy(&path);
+    lrc_ctc_trellis_destroy(&trellis);
+    lrc_ctc_emissions_destroy(&emissions);
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+    lrc_ctc_model_input_destroy(&input);
+    lrc_ctc_audio_destroy(&audio);
+    test_remove_tree(temp_dir);
+
+    if (!ok) {
+        return ctc_align_test_fail("maxwell fixture lrc pipeline");
+    }
+
+    return 0;
+}
+
+static int32
 ctc_align_test_prepare_rejects_invalid_emissions(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis;
@@ -4388,6 +4936,9 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_full_synthetic_lrc_pipeline() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_maxwell_fixture_lrc_pipeline() != 0) {
         exit(1);
     }
     if (ctc_align_test_maxwell_fake_token_timing() != 0) {
