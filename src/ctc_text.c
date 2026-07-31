@@ -224,6 +224,15 @@ lrc_lyrics_normalized_append_bytes(
 ) {
     LrcLyricsNormalizedByte *map;
 
+    if (bytes_len < 0) {
+        return false;
+    }
+    if (bytes_len == 0) {
+        return true;
+    }
+    if (bytes == NULL) {
+        return false;
+    }
     if (!lrc_lyrics_normalized_reserve(normalized, bytes_len)) {
         return false;
     }

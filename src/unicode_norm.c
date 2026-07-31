@@ -19,7 +19,10 @@ ctc_unicode_norm_result_init(CtcUnicodeNormResult *result) {
         return;
     }
 
-    memset64(result, 0, SIZEOF(*result));
+    result->text = NULL;
+    result->text_len = 0;
+    result->text_cap = 0;
+    result->used_icu = false;
 
     return;
 }
@@ -46,13 +49,19 @@ ctc_unicode_norm_reserve(
 ) {
     int32 new_cap;
 
+    if (result == NULL) {
+        return false;
+    }
     if (needed < 0) {
         return false;
     }
-    if ((needed + 1) <= result->text_cap) {
+    if ((result->text != NULL) && ((needed + 1) <= result->text_cap)) {
         return true;
     }
 
+    if (result->text == NULL) {
+        result->text_cap = 0;
+    }
     new_cap = result->text_cap;
     if (new_cap <= 0) {
         new_cap = 64;
