@@ -114,6 +114,72 @@ ort_model_read_tensor_info(
     return true;
 }
 
+
+static void
+ort_model_io_info_init_empty(OrtModelIoInfo *info) {
+    info->name = NULL;
+
+    info->shape_len = 0;
+    info->count = 0;
+
+    return;
+}
+
+static bool
+ort_model_copy_io_info(
+    OrtModel *model,
+    OrtModelIoInfo *info,
+    enum OrtModelIoKind kind
+) {
+    int64 *source_shape;
+    int32 source_shape_len;
+
+    if ((model == NULL) || (info == NULL)) {
+        error2("ONNX model I/O info arguments are invalid\n");
+        return false;
+    }
+
+    ort_model_io_info_init_empty(info);
+    if (kind == ORT_MODEL_IO_INPUT) {
+        info->name = model->input_name;
+        info->count = model->input_count;
+        source_shape = model->input_shape;
+        source_shape_len = model->input_shape_len;
+    } else {
+        info->name = model->output_name;
+        info->count = model->output_count;
+        source_shape = model->output_shape;
+        source_shape_len = model->output_shape_len;
+    }
+
+    if ((info->count <= 0) || (info->name == NULL)
+        || (source_shape_len <= 0)) {
+        error2("ONNX model I/O info is not loaded\n");
+        return false;
+    }
+    if (source_shape_len > ORT_TENSOR_MAX_RANK) {
+        error2("ONNX model I/O rank is too large: %d\n", source_shape_len);
+        return false;
+    }
+
+    info->shape_len = source_shape_len;
+    for (int32 i = 0; i < info->shape_len; i += 1) {
+        info->shape[i] = source_shape[i];
+    }
+
+    return true;
+}
+
+static bool
+ort_model_input_info(OrtModel *model, OrtModelIoInfo *info) {
+    return ort_model_copy_io_info(model, info, ORT_MODEL_IO_INPUT);
+}
+
+static bool
+ort_model_output_info(OrtModel *model, OrtModelIoInfo *info) {
+    return ort_model_copy_io_info(model, info, ORT_MODEL_IO_OUTPUT);
+}
+
 static void
 ort_context_init_empty(OrtContext *context) {
     context->api = NULL;
@@ -377,6 +443,38 @@ ort_tensor_init_empty(OrtTensor *tensor) {
 }
 
 static bool
+ort_tensor_shape_element_count(
+    int64 *shape,
+    int32 shape_len,
+    int64 *element_count
+) {
+    int64 count;
+
+    if (element_count == NULL) {
+        return false;
+    }
+    *element_count = 0;
+    if ((shape == NULL) || (shape_len <= 0)
+        || (shape_len > ORT_TENSOR_MAX_RANK)) {
+        return false;
+    }
+
+    count = 1;
+    for (int32 i = 0; i < shape_len; i += 1) {
+        if (shape[i] <= 0) {
+            return false;
+        }
+        if (count > INT64_MAX/shape[i]) {
+            return false;
+        }
+        count *= shape[i];
+    }
+
+    *element_count = count;
+    return true;
+}
+
+static bool
 ort_tensor_create_f32(
     OrtContext *context,
     OrtTensor *tensor,
@@ -400,30 +498,18 @@ ort_tensor_create_f32(
         error2("ONNX tensor data is empty\n");
         return false;
     }
-    if ((shape == NULL) || (shape_len <= 0)
-        || (shape_len > ORT_TENSOR_MAX_RANK)) {
+    if (!ort_tensor_shape_element_count(shape, shape_len, &shape_count)) {
         error2("ONNX tensor shape is invalid\n");
         return false;
-    }
-
-    shape_count = 1;
-    for (int32 i = 0; i < shape_len; i += 1) {
-        if (shape[i] <= 0) {
-            error2("ONNX tensor shape dimension is invalid\n");
-            return false;
-        }
-        if (shape_count > data_len/shape[i]) {
-            error2("ONNX tensor shape overflows data length\n");
-            return false;
-        }
-
-        shape_count *= shape[i];
-        ort_shape[i] = (int64_t)shape[i];
-        tensor->shape[i] = shape[i];
     }
     if (shape_count != data_len) {
         error2("ONNX tensor shape does not match data length\n");
         return false;
+    }
+
+    for (int32 i = 0; i < shape_len; i += 1) {
+        ort_shape[i] = (int64_t)shape[i];
+        tensor->shape[i] = shape[i];
     }
 
     status = api->CreateTensorWithDataAsOrtValue(
@@ -596,15 +682,288 @@ ort_tensor_destroy(OrtContext *context, OrtTensor *tensor) {
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 
-int
-main(void) {
+static int32
+ort_test_fail(char *name) {
+    error2("ort test failed: %s\n", name);
+
+    return 1;
+}
+
+static int32
+ort_test_empty_initializers(void) {
     OrtContext context;
     OrtModel model;
+    OrtModelIoInfo info;
     OrtTensor tensor;
 
     ort_context_init_empty(&context);
     ort_model_init_empty(&model);
+    ort_model_io_info_init_empty(&info);
     ort_tensor_init_empty(&tensor);
+
+    ASSERT(context.api == NULL);
+    ASSERT(context.environment == NULL);
+    ASSERT(context.memory_info == NULL);
+    ASSERT(context.allocator == NULL);
+
+    ASSERT(model.session == NULL);
+    ASSERT(model.input_name == NULL);
+    ASSERT(model.output_name == NULL);
+    ASSERT(model.input_shape_len == 0);
+    ASSERT(model.output_shape_len == 0);
+    ASSERT(model.input_count == 0);
+    ASSERT(model.output_count == 0);
+
+    ASSERT(info.name == NULL);
+    ASSERT(info.shape_len == 0);
+    ASSERT(info.count == 0);
+
+    ASSERT(tensor.value == NULL);
+    ASSERT(tensor.data == NULL);
+    ASSERT(tensor.data_len == 0);
+    ASSERT(tensor.shape_len == 0);
+
+    return 0;
+}
+
+static int32
+ort_test_model_io_info_copy(void) {
+    OrtModel model;
+    OrtModelIoInfo info;
+
+    ort_model_init_empty(&model);
+    model.input_name = "input";
+    model.output_name = "output";
+    model.input_count = 1;
+    model.output_count = 1;
+    model.input_shape_len = 2;
+    model.output_shape_len = 2;
+    model.input_shape[0] = 1;
+    model.input_shape[1] = 3;
+    model.output_shape[0] = 1;
+    model.output_shape[1] = 3;
+
+    if (!ort_model_input_info(&model, &info)) {
+        return ort_test_fail("copy input info");
+    }
+    ASSERT(strequal(info.name, "input"));
+    ASSERT(info.count == 1);
+    ASSERT(info.shape_len == 2);
+    ASSERT(info.shape[0] == 1);
+    ASSERT(info.shape[1] == 3);
+
+    if (!ort_model_output_info(&model, &info)) {
+        return ort_test_fail("copy output info");
+    }
+    ASSERT(strequal(info.name, "output"));
+    ASSERT(info.count == 1);
+    ASSERT(info.shape_len == 2);
+    ASSERT(info.shape[0] == 1);
+    ASSERT(info.shape[1] == 3);
+
+    return 0;
+}
+
+static int32
+ort_test_tensor_shape_element_count(void) {
+    int64 shape[3];
+    int64 count;
+
+    shape[0] = 2;
+    shape[1] = 3;
+    shape[2] = 4;
+    if (!ort_tensor_shape_element_count(shape, 3, &count)) {
+        return ort_test_fail("valid tensor shape count");
+    }
+    ASSERT(count == 24);
+
+    shape[1] = 0;
+    if (ort_tensor_shape_element_count(shape, 3, &count)) {
+        return ort_test_fail("zero tensor dimension accepted");
+    }
+    ASSERT(count == 0);
+
+    shape[0] = INT64_MAX;
+    shape[1] = 2;
+    if (ort_tensor_shape_element_count(shape, 2, &count)) {
+        return ort_test_fail("overflowing tensor shape accepted");
+    }
+    ASSERT(count == 0);
+
+    return 0;
+}
+
+static bool
+ort_test_write_identity_model(char *path, char *temp_dir) {
+    Command command;
+    char script_path[PATH_MAX];
+    char *script;
+    int32 len;
+    int exit_status;
+    bool ok;
+
+    if (!test_command_exists("python3")) {
+        return false;
+    }
+
+    len = snprintf2(script_path,
+                    SIZEOF(script_path),
+                    "%s/write_identity_model.py",
+                    temp_dir);
+    if ((len <= 0) || (len >= SIZEOF(script_path))) {
+        return false;
+    }
+
+    script =
+        "import sys\n"
+        "try:\n"
+        "    import onnx\n"
+        "    from onnx import TensorProto, helper\n"
+        "except Exception:\n"
+        "    sys.exit(77)\n"
+        "x = helper.make_tensor_value_info(\"input\", "
+            "TensorProto.FLOAT, [1, 3])\n"
+        "y = helper.make_tensor_value_info(\"output\", "
+            "TensorProto.FLOAT, [1, 3])\n"
+        "node = helper.make_node(\"Identity\", [\"input\"], "
+            "[\"output\"])\n"
+        "graph = helper.make_graph([node], \"identity\", [x], [y])\n"
+        "model = helper.make_model(\n"
+        "    graph,\n"
+        "    opset_imports=[helper.make_operatorsetid(\"\", 13)],\n"
+        ")\n"
+        "model.ir_version = 7\n"
+        "onnx.save(model, sys.argv[1])\n";
+
+    if (!write_entire_file(script_path, script, strlen32(script))) {
+        return false;
+    }
+
+    command = (Command){0};
+    COMMAND_PUSH(&command, "python3", script_path, path);
+    ok = command_run_sync(&command, &exit_status);
+    command_free(&command);
+    if (!ok || (exit_status != 0)) {
+        return false;
+    }
+
+    return true;
+}
+
+static int32
+ort_test_optional_identity_model(void) {
+    OrtContext context;
+    OrtModel model;
+    OrtModelIoInfo info;
+    OrtTensor input;
+    OrtTensor output;
+    float data[3];
+    int64 shape[2];
+    char temp_dir[PATH_MAX];
+    char model_path[PATH_MAX];
+    int32 len;
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ort_identity");
+    len = snprintf2(model_path,
+                    SIZEOF(model_path),
+                    "%s/identity.onnx",
+                    temp_dir);
+    if ((len <= 0) || (len >= SIZEOF(model_path))) {
+        test_remove_tree(temp_dir);
+        return ort_test_fail("identity model path");
+    }
+
+    if (!ort_test_write_identity_model(model_path, temp_dir)) {
+        test_remove_tree(temp_dir);
+        return 0;
+    }
+
+    ort_context_init_empty(&context);
+    ort_model_init_empty(&model);
+    ort_tensor_init_empty(&input);
+    ort_tensor_init_empty(&output);
+
+    if (!ort_context_init(&context)) {
+        test_remove_tree(temp_dir);
+        return ort_test_fail("context init");
+    }
+    if (!ort_model_load(&context, &model, model_path)) {
+        ort_context_destroy(&context);
+        test_remove_tree(temp_dir);
+        return ort_test_fail("identity model load");
+    }
+    if (!ort_model_input_info(&model, &info)) {
+        ort_model_destroy(&context, &model);
+        ort_context_destroy(&context);
+        test_remove_tree(temp_dir);
+        return ort_test_fail("identity input info");
+    }
+    ASSERT(strequal(info.name, "input"));
+    ASSERT(info.shape_len == 2);
+    ASSERT(info.shape[0] == 1);
+    ASSERT(info.shape[1] == 3);
+
+    if (!ort_model_output_info(&model, &info)) {
+        ort_model_destroy(&context, &model);
+        ort_context_destroy(&context);
+        test_remove_tree(temp_dir);
+        return ort_test_fail("identity output info");
+    }
+    ASSERT(strequal(info.name, "output"));
+    ASSERT(info.shape_len == 2);
+    ASSERT(info.shape[0] == 1);
+    ASSERT(info.shape[1] == 3);
+
+    data[0] = 1.0f;
+    data[1] = -2.0f;
+    data[2] = 3.5f;
+    shape[0] = 1;
+    shape[1] = 3;
+    if (!ort_tensor_create_f32(&context, &input, data, 3, shape, 2)) {
+        ort_model_destroy(&context, &model);
+        ort_context_destroy(&context);
+        test_remove_tree(temp_dir);
+        return ort_test_fail("identity input tensor");
+    }
+    if (!ort_model_run_f32(&context, &model, &input, &output)) {
+        ort_tensor_destroy(&context, &input);
+        ort_model_destroy(&context, &model);
+        ort_context_destroy(&context);
+        test_remove_tree(temp_dir);
+        return ort_test_fail("identity run");
+    }
+
+    ASSERT(output.data_len == 3);
+    ASSERT(output.shape_len == 2);
+    ASSERT(output.shape[0] == 1);
+    ASSERT(output.shape[1] == 3);
+    ASSERT(output.data[0] == data[0]);
+    ASSERT(output.data[1] == data[1]);
+    ASSERT(output.data[2] == data[2]);
+
+    ort_tensor_destroy(&context, &output);
+    ort_tensor_destroy(&context, &input);
+    ort_model_destroy(&context, &model);
+    ort_context_destroy(&context);
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+int32
+main(void) {
+    if (ort_test_empty_initializers() != 0) {
+        exit(1);
+    }
+    if (ort_test_model_io_info_copy() != 0) {
+        exit(1);
+    }
+    if (ort_test_tensor_shape_element_count() != 0) {
+        exit(1);
+    }
+    if (ort_test_optional_identity_model() != 0) {
+        exit(1);
+    }
 
     exit(0);
 }

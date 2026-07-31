@@ -5,12 +5,25 @@
 
 #define ORT_TENSOR_MAX_RANK 8
 
+enum OrtModelIoKind {
+    ORT_MODEL_IO_INPUT,
+    ORT_MODEL_IO_OUTPUT,
+};
+
 typedef struct OrtContext {
     void *api;
     void *environment;
     void *memory_info;
     void *allocator;
 } OrtContext;
+
+typedef struct OrtModelIoInfo {
+    char *name;
+
+    int64 shape[ORT_TENSOR_MAX_RANK];
+    int32 shape_len;
+    int32 count;
+} OrtModelIoInfo;
 
 typedef struct OrtModel {
     void *session;
@@ -41,6 +54,10 @@ static void ort_context_init_empty(OrtContext *context);
 static bool ort_context_init(OrtContext *context);
 static void ort_context_destroy(OrtContext *context);
 
+static void ort_model_io_info_init_empty(OrtModelIoInfo *info);
+static bool ort_model_input_info(OrtModel *model, OrtModelIoInfo *info);
+static bool ort_model_output_info(OrtModel *model, OrtModelIoInfo *info);
+
 static void ort_model_init_empty(OrtModel *model);
 static bool ort_model_load(
     OrtContext *context,
@@ -51,6 +68,11 @@ static bool ort_model_get_io_info(OrtContext *context, OrtModel *model);
 static void ort_model_destroy(OrtContext *context, OrtModel *model);
 
 static void ort_tensor_init_empty(OrtTensor *tensor);
+static bool ort_tensor_shape_element_count(
+    int64 *shape,
+    int32 shape_len,
+    int64 *element_count
+);
 static bool ort_tensor_create_f32(
     OrtContext *context,
     OrtTensor *tensor,

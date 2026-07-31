@@ -695,42 +695,46 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     int64 output_channels;
     int64 output_dim_f;
     int64 output_dim_t;
+    OrtModelIoInfo input_info;
+    OrtModelIoInfo output_info;
 
     mdx_model_info_init_empty(info);
     if ((config == NULL) || (model == NULL)) {
         error2("MDX model inspection arguments are invalid\n");
         return false;
     }
-    if ((model->input_name == NULL) || (model->output_name == NULL)) {
-        error2("ONNX model input/output names are missing\n");
+    ort_model_io_info_init_empty(&input_info);
+    ort_model_io_info_init_empty(&output_info);
+    if (!ort_model_input_info(model, &input_info)
+        || !ort_model_output_info(model, &output_info)) {
         return false;
     }
-    if ((model->input_count != 1) || (model->output_count != 1)) {
+    if ((input_info.count != 1) || (output_info.count != 1)) {
         error2(
             "MDX models must have 1 input and 1 output, got %d/%d\n",
-            model->input_count,
-            model->output_count);
+            input_info.count,
+            output_info.count);
         return false;
     }
-    if (model->input_shape_len != 4) {
+    if (input_info.shape_len != 4) {
         error2("MDX model input rank must be 4, got %d\n",
-                model->input_shape_len);
+                input_info.shape_len);
         return false;
     }
-    if (model->output_shape_len != 4) {
+    if (output_info.shape_len != 4) {
         error2("MDX model output rank must be 4, got %d\n",
-                model->output_shape_len);
+                output_info.shape_len);
         return false;
     }
 
-    input_batch = model->input_shape[0];
-    input_channels = model->input_shape[1];
-    input_dim_f = model->input_shape[2];
-    input_dim_t = model->input_shape[3];
-    output_batch = model->output_shape[0];
-    output_channels = model->output_shape[1];
-    output_dim_f = model->output_shape[2];
-    output_dim_t = model->output_shape[3];
+    input_batch = input_info.shape[0];
+    input_channels = input_info.shape[1];
+    input_dim_f = input_info.shape[2];
+    input_dim_t = input_info.shape[3];
+    output_batch = output_info.shape[0];
+    output_channels = output_info.shape[1];
+    output_dim_f = output_info.shape[2];
+    output_dim_t = output_info.shape[3];
 
     if ((input_batch > 0) && (input_batch != 1)) {
         error2("MDX model input batch must be 1, got %lld\n",
@@ -811,8 +815,8 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
         return false;
     }
 
-    info->input_name = model->input_name;
-    info->output_name = model->output_name;
+    info->input_name = input_info.name;
+    info->output_name = output_info.name;
     info->batch_size = 1;
     info->channel_count = config->dim_c;
     info->dim_f = config->dim_f;
