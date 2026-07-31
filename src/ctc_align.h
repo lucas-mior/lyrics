@@ -34,6 +34,7 @@ typedef struct LrcCtcAlignResult {
 
 typedef struct LrcCtcTrellis {
     float *scores;
+    int64 *previous_states;
 
     int64 frame_count;
     int64 target_token_count;
