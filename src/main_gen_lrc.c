@@ -18,6 +18,7 @@
 #include "mdx.c"
 #include "vocals.c"
 #include "lyrics.c"
+#include "unicode_norm.c"
 #include "ctc_text.c"
 #include "ctc_assets.c"
 #include "ctc_tokenizer.c"

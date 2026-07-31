@@ -176,9 +176,24 @@ pkg_config_add_flags() {
     pkg_config_flags="$pkg_config_flags $flags"
 }
 
+pkg_config_add_optional_flags() {
+    pkg="$1"
+    macro="$2"
+
+    if pkg-config --exists "$pkg"; then
+        trace_on
+        flags=$(pkg-config --cflags --libs "$pkg")
+        trace_off
+
+        CPPFLAGS="$CPPFLAGS -D$macro=1"
+        pkg_config_flags="$pkg_config_flags $flags"
+    fi
+}
+
 setup_pkg_config_flags() {
     require_command pkg-config
 
+    pkg_config_add_optional_flags icu-uc LRC_UNICODE_ENABLE_ICU
     pkg_config_add_flags libonnxruntime
     pkg_config_add_flags fftw3f
 }
