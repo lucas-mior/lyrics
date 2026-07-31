@@ -3,6 +3,7 @@
 
 #include "cbase.h"
 #include "ctc_inference.h"
+#include "ctc_tokenizer.h"
 
 
 enum LrcCtcAlignError {
@@ -14,6 +15,9 @@ enum LrcCtcAlignError {
     LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
     LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
     LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+    LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+    LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+    LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
     LRC_CTC_ALIGN_ERROR_INVALID_FRAME_DURATION,
     LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT,
     LRC_CTC_ALIGN_ERROR_TOO_LARGE,
@@ -71,6 +75,29 @@ typedef struct LrcCtcTokenSpans {
     int64 span_cap;
 } LrcCtcTokenSpans;
 
+typedef struct LrcCtcWordSpan {
+    int64 word_index;
+    int64 token_start_index;
+    int64 token_end_index;
+    int64 span_start_index;
+    int64 span_end_index;
+
+    int32 normalized_start;
+    int32 normalized_end;
+    int32 line_index;
+
+    float start_seconds;
+    float end_seconds;
+    float score;
+} LrcCtcWordSpan;
+
+typedef struct LrcCtcWordSpans {
+    LrcCtcWordSpan *spans;
+
+    int64 span_count;
+    int64 span_cap;
+} LrcCtcWordSpans;
+
 static void lrc_ctc_align_result_init(LrcCtcAlignResult *result);
 static void lrc_ctc_trellis_init(LrcCtcTrellis *trellis);
 static void lrc_ctc_trellis_destroy(LrcCtcTrellis *trellis);
@@ -78,6 +105,8 @@ static void lrc_ctc_path_init(LrcCtcPath *path);
 static void lrc_ctc_path_destroy(LrcCtcPath *path);
 static void lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans);
 static void lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans);
+static void lrc_ctc_word_spans_init(LrcCtcWordSpans *spans);
+static void lrc_ctc_word_spans_destroy(LrcCtcWordSpans *spans);
 static float *lrc_ctc_trellis_cell(
     LrcCtcTrellis *trellis,
     int64 frame_index,
@@ -118,6 +147,13 @@ static bool lrc_ctc_path_to_token_spans(
     LrcCtcEmissions *emissions,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_token_spans_to_word_spans(
+    LrcCtcTokenSpans *token_spans,
+    LrcCtcTokenizedText *tokens,
+    LrcLyricsNormalized *normalized,
+    LrcCtcWordSpans *word_spans,
     LrcCtcAlignResult *result
 );
 
