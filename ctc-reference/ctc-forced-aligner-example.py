@@ -70,7 +70,7 @@ def normalized_chars(text):
 def generate_lrc_with_ctc(music):
     audio_path = music
     base_name = os.path.splitext(music)[0]
-    
+
     text_path = f"{base_name}.txt"
     lrc_path = f"{base_name}.lrc"
     language = "eng"
