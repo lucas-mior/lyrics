@@ -661,15 +661,19 @@ lrc_ctc_onnx_model_input_info(
     if ((onnx == NULL) || (info == NULL)) {
         return false;
     }
+    memset64(info, 0, SIZEOF(*info));
     if (!ort_model_input_info(&onnx->model, &ort_info)) {
         return false;
     }
+    if ((ort_info.count != 1)
+        || (ort_info.shape_len != LRC_CTC_MODEL_INPUT_RANK)) {
+        return false;
+    }
 
-    memset64(info, 0, SIZEOF(*info));
     info->count = ort_info.count;
     info->shape_len = ort_info.shape_len;
     info->is_float32 = true;
-    for (int32 i = 0; i < info->shape_len; i += 1) {
+    for (int32 i = 0; i < LRC_CTC_MODEL_INPUT_RANK; i += 1) {
         info->shape[i] = ort_info.shape[i];
     }
 

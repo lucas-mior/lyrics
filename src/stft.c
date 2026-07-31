@@ -92,6 +92,7 @@ stft_forward_channel(
         return false;
     }
     if ((input_len < 0)
+        || (frame_count <= 0)
         || (frame_count != stft_frame_count(plan, input_len))) {
         return false;
     }
