@@ -43,6 +43,7 @@ typedef struct LrcCtcTrellis {
 
     int32 star_token_id;
     bool has_edge_stars;
+    bool has_segment_stars;
 } LrcCtcTrellis;
 
 typedef struct LrcCtcPathStep {
@@ -177,6 +178,16 @@ static bool lrc_ctc_trellis_score_forward_with_edge_stars(
     int32 star_token_id,
     LrcCtcAlignResult *result
 );
+static bool lrc_ctc_trellis_score_forward_with_segment_stars(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int32 blank_token_id,
+    int32 star_token_id,
+    LrcCtcAlignResult *result
+);
 static bool lrc_ctc_trellis_backtrack(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
@@ -190,6 +201,17 @@ static bool lrc_ctc_trellis_backtrack_with_edge_stars(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
+    int64 target_token_count,
+    int32 blank_token_id,
+    int32 star_token_id,
+    LrcCtcPath *path,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_trellis_backtrack_with_segment_stars(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
     int64 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,

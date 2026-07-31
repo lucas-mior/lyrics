@@ -52,6 +52,7 @@ enum LrcCtcAlignStateKind {
 enum LrcCtcAlignStarMode {
     LRC_CTC_ALIGN_STAR_MODE_NONE,
     LRC_CTC_ALIGN_STAR_MODE_EDGES,
+    LRC_CTC_ALIGN_STAR_MODE_SEGMENT,
 };
 
 typedef struct LrcCtcAlignState {
@@ -94,19 +95,84 @@ lrc_ctc_align_graph_destroy(LrcCtcAlignGraph *graph) {
     return;
 }
 
-static int64
-lrc_ctc_align_star_mode_extra_labels(enum LrcCtcAlignStarMode star_mode) {
-    if (star_mode == LRC_CTC_ALIGN_STAR_MODE_EDGES) {
-        return 2;
+static bool
+lrc_ctc_align_segment_star_count(
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int64 *star_count,
+    LrcCtcAlignResult *result
+) {
+    ASSERT(star_count != NULL);
+    *star_count = 0;
+
+    if (target_segment_starts == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC segment-star markers are missing",
+            -1,
+            -1
+        );
+        return false;
     }
 
-    return 0;
+    for (int64 i = 0; i < target_token_count; i += 1) {
+        if (target_segment_starts[i]) {
+            *star_count += 1;
+        }
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_align_star_mode_extra_labels(
+    enum LrcCtcAlignStarMode star_mode,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int64 *extra_labels,
+    LrcCtcAlignResult *result
+) {
+    if (extra_labels == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC graph extra-label destination is missing",
+            -1,
+            -1
+        );
+        return false;
+    }
+
+    *extra_labels = 0;
+    switch (star_mode) {
+    case LRC_CTC_ALIGN_STAR_MODE_NONE:
+        return true;
+    case LRC_CTC_ALIGN_STAR_MODE_EDGES:
+        *extra_labels = 2;
+        return true;
+    case LRC_CTC_ALIGN_STAR_MODE_SEGMENT:
+        return lrc_ctc_align_segment_star_count(target_segment_starts,
+                                                target_token_count,
+                                                extra_labels,
+                                                result);
+    default:
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC graph star mode is invalid",
+            -1,
+            star_mode
+        );
+        return false;
+    }
 }
 
 static bool
 lrc_ctc_align_graph_label_count(
     int64 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
+    bool *target_segment_starts,
     int64 *label_count,
     LrcCtcAlignResult *result
 ) {
@@ -135,7 +201,13 @@ lrc_ctc_align_graph_label_count(
         return false;
     }
 
-    extra_labels = lrc_ctc_align_star_mode_extra_labels(star_mode);
+    if (!lrc_ctc_align_star_mode_extra_labels(star_mode,
+                                              target_segment_starts,
+                                              target_token_count,
+                                              &extra_labels,
+                                              result)) {
+        return false;
+    }
     if (target_token_count > INT64_MAX - extra_labels) {
         lrc_ctc_align_result_set(
             result,
@@ -156,6 +228,7 @@ static bool
 lrc_ctc_align_graph_state_count_for_mode(
     int64 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
+    bool *target_segment_starts,
     int64 *state_count,
     LrcCtcAlignResult *result
 ) {
@@ -175,6 +248,7 @@ lrc_ctc_align_graph_state_count_for_mode(
 
     if (!lrc_ctc_align_graph_label_count(target_token_count,
                                          star_mode,
+                                         target_segment_starts,
                                          &label_count,
                                          result)) {
         return false;
@@ -204,6 +278,7 @@ lrc_ctc_align_graph_state_count(
     return lrc_ctc_align_graph_state_count_for_mode(
         target_token_count,
         LRC_CTC_ALIGN_STAR_MODE_NONE,
+        NULL,
         state_count,
         result
     );
@@ -280,6 +355,31 @@ lrc_ctc_align_checked_multiply(
     return true;
 }
 
+static void
+lrc_ctc_align_graph_set_star_state(
+    LrcCtcAlignState *state,
+    int32 star_token_id
+) {
+    state->kind = LRC_CTC_ALIGN_STATE_STAR;
+    state->token_index = -1;
+    state->token_id = star_token_id;
+
+    return;
+}
+
+static void
+lrc_ctc_align_graph_set_token_state(
+    LrcCtcAlignState *state,
+    int32 *target_token_ids,
+    int64 token_index
+) {
+    state->kind = LRC_CTC_ALIGN_STATE_TOKEN;
+    state->token_index = token_index;
+    state->token_id = target_token_ids[token_index];
+
+    return;
+}
+
 static bool
 lrc_ctc_align_graph_label_is_edge_star(
     int64 label_index,
@@ -293,30 +393,21 @@ lrc_ctc_align_graph_label_is_edge_star(
     return (label_index == 0) || (label_index == label_count - 1);
 }
 
-static int64
-lrc_ctc_align_graph_real_token_index(
-    int64 label_index,
-    enum LrcCtcAlignStarMode star_mode
-) {
-    if (star_mode == LRC_CTC_ALIGN_STAR_MODE_EDGES) {
-        return label_index - 1;
-    }
-
-    return label_index;
-}
-
 static bool
 lrc_ctc_align_graph_build_for_mode(
     LrcCtcAlignGraph *graph,
     int32 *target_token_ids,
     int64 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
+    bool *target_segment_starts,
     int32 star_token_id,
     LrcCtcAlignResult *result
 ) {
     int64 state_count;
     int64 label_count;
     int64 alloc_size;
+    int64 token_index;
+    bool segment_star_pending;
 
     if (result) {
         lrc_ctc_align_result_init(result);
@@ -345,12 +436,14 @@ lrc_ctc_align_graph_build_for_mode(
     lrc_ctc_align_graph_destroy(graph);
     if (!lrc_ctc_align_graph_label_count(target_token_count,
                                          star_mode,
+                                         target_segment_starts,
                                          &label_count,
                                          result)) {
         return false;
     }
     if (!lrc_ctc_align_graph_state_count_for_mode(target_token_count,
                                                   star_mode,
+                                                  target_segment_starts,
                                                   &state_count,
                                                   result)) {
         return false;
@@ -371,35 +464,45 @@ lrc_ctc_align_graph_build_for_mode(
 
     for (int64 i = 0; i < graph->state_count; i += 1) {
         LrcCtcAlignState *state = graph->states + i;
-        int64 label_index;
-        int64 token_index;
 
         state->kind = LRC_CTC_ALIGN_STATE_BLANK;
         state->token_index = -1;
         state->token_id = -1;
+    }
 
-        if ((i & 1) == 0) {
+    token_index = 0;
+    segment_star_pending = false;
+    for (int64 label_index = 0; label_index < label_count; label_index += 1) {
+        LrcCtcAlignState *state;
+        int64 state_index;
+        bool is_star;
+
+        state_index = 2*label_index + 1;
+        state = graph->states + state_index;
+        is_star = lrc_ctc_align_graph_label_is_edge_star(label_index,
+                                                         label_count,
+                                                         star_mode);
+        if ((star_mode == LRC_CTC_ALIGN_STAR_MODE_SEGMENT)
+            && (token_index < target_token_count)
+            && target_segment_starts[token_index]
+            && !segment_star_pending) {
+            is_star = true;
+            segment_star_pending = true;
+        }
+        if (is_star) {
+            lrc_ctc_align_graph_set_star_state(state, star_token_id);
             continue;
         }
 
-        label_index = i/2;
-        if (lrc_ctc_align_graph_label_is_edge_star(label_index,
-                                                   label_count,
-                                                   star_mode)) {
-            state->kind = LRC_CTC_ALIGN_STATE_STAR;
-            state->token_index = -1;
-            state->token_id = star_token_id;
-            continue;
-        }
-
-        token_index = lrc_ctc_align_graph_real_token_index(label_index,
-                                                           star_mode);
         ASSERT(token_index >= 0);
         ASSERT(token_index < target_token_count);
-        state->kind = LRC_CTC_ALIGN_STATE_TOKEN;
-        state->token_index = token_index;
-        state->token_id = target_token_ids[token_index];
+        lrc_ctc_align_graph_set_token_state(state,
+                                            target_token_ids,
+                                            token_index);
+        token_index += 1;
+        segment_star_pending = false;
     }
+    ASSERT(token_index == target_token_count);
 
     return true;
 }
@@ -416,6 +519,7 @@ lrc_ctc_align_graph_build(
         target_token_ids,
         target_token_count,
         LRC_CTC_ALIGN_STAR_MODE_NONE,
+        NULL,
         -1,
         result
     );
@@ -932,6 +1036,8 @@ lrc_ctc_trellis_allocate_for_state_count(
     trellis->cell_count = cell_count;
     trellis->star_token_id = star_token_id;
     trellis->has_edge_stars = star_mode == LRC_CTC_ALIGN_STAR_MODE_EDGES;
+    trellis->has_segment_stars =
+        star_mode == LRC_CTC_ALIGN_STAR_MODE_SEGMENT;
 
     for (int64 i = 0; i < trellis->cell_count; i += 1) {
         trellis->scores[i] = -INFINITY;
@@ -1368,6 +1474,7 @@ lrc_ctc_trellis_score_forward_for_mode(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
+    bool *target_segment_starts,
     int64 target_token_count,
     int32 blank_token_id,
     enum LrcCtcAlignStarMode star_mode,
@@ -1403,6 +1510,7 @@ lrc_ctc_trellis_score_forward_for_mode(
                                             target_token_ids,
                                             target_token_count,
                                             star_mode,
+                                            target_segment_starts,
                                             star_token_id,
                                             result)) {
         return false;
@@ -1523,6 +1631,7 @@ lrc_ctc_trellis_score_forward(
         trellis,
         emissions,
         target_token_ids,
+        NULL,
         target_token_count,
         blank_token_id,
         LRC_CTC_ALIGN_STAR_MODE_NONE,
@@ -1545,9 +1654,35 @@ lrc_ctc_trellis_score_forward_with_edge_stars(
         trellis,
         emissions,
         target_token_ids,
+        NULL,
         target_token_count,
         blank_token_id,
         LRC_CTC_ALIGN_STAR_MODE_EDGES,
+        star_token_id,
+        result
+    );
+}
+
+
+static bool
+lrc_ctc_trellis_score_forward_with_segment_stars(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int32 blank_token_id,
+    int32 star_token_id,
+    LrcCtcAlignResult *result
+) {
+    return lrc_ctc_trellis_score_forward_for_mode(
+        trellis,
+        emissions,
+        target_token_ids,
+        target_segment_starts,
+        target_token_count,
+        blank_token_id,
+        LRC_CTC_ALIGN_STAR_MODE_SEGMENT,
         star_token_id,
         result
     );
@@ -1559,12 +1694,14 @@ lrc_ctc_trellis_ready_for_backtracking(
     LrcCtcEmissions *emissions,
     int64 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
+    bool *target_segment_starts,
     int32 star_token_id,
     LrcCtcAlignResult *result
 ) {
     int64 state_count;
     int64 expected_cell_count;
     bool has_edge_stars;
+    bool has_segment_stars;
 
     if (trellis == NULL) {
         lrc_ctc_align_result_set(
@@ -1588,16 +1725,19 @@ lrc_ctc_trellis_ready_for_backtracking(
     }
     if (!lrc_ctc_align_graph_state_count_for_mode(target_token_count,
                                                   star_mode,
+                                                  target_segment_starts,
                                                   &state_count,
                                                   result)) {
         return false;
     }
 
     has_edge_stars = star_mode == LRC_CTC_ALIGN_STAR_MODE_EDGES;
+    has_segment_stars = star_mode == LRC_CTC_ALIGN_STAR_MODE_SEGMENT;
     if ((trellis->frame_count != emissions->frame_count)
         || (trellis->target_token_count != target_token_count)
         || (trellis->state_count != state_count)
         || (trellis->has_edge_stars != has_edge_stars)
+        || (trellis->has_segment_stars != has_segment_stars)
         || (trellis->star_token_id != star_token_id)) {
         lrc_ctc_align_result_set(
             result,
@@ -1797,6 +1937,7 @@ lrc_ctc_trellis_backtrack_for_mode(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
+    bool *target_segment_starts,
     int64 target_token_count,
     int32 blank_token_id,
     enum LrcCtcAlignStarMode star_mode,
@@ -1829,6 +1970,7 @@ lrc_ctc_trellis_backtrack_for_mode(
                                                 emissions,
                                                 target_token_count,
                                                 star_mode,
+                                                target_segment_starts,
                                                 star_token_id,
                                                 result)) {
         return false;
@@ -1842,6 +1984,7 @@ lrc_ctc_trellis_backtrack_for_mode(
                                             target_token_ids,
                                             target_token_count,
                                             star_mode,
+                                            target_segment_starts,
                                             star_token_id,
                                             result)) {
         lrc_ctc_path_destroy(path);
@@ -1910,6 +2053,7 @@ lrc_ctc_trellis_backtrack(
         trellis,
         emissions,
         target_token_ids,
+        NULL,
         target_token_count,
         blank_token_id,
         LRC_CTC_ALIGN_STAR_MODE_NONE,
@@ -1934,9 +2078,37 @@ lrc_ctc_trellis_backtrack_with_edge_stars(
         trellis,
         emissions,
         target_token_ids,
+        NULL,
         target_token_count,
         blank_token_id,
         LRC_CTC_ALIGN_STAR_MODE_EDGES,
+        star_token_id,
+        path,
+        result
+    );
+}
+
+
+static bool
+lrc_ctc_trellis_backtrack_with_segment_stars(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int32 blank_token_id,
+    int32 star_token_id,
+    LrcCtcPath *path,
+    LrcCtcAlignResult *result
+) {
+    return lrc_ctc_trellis_backtrack_for_mode(
+        trellis,
+        emissions,
+        target_token_ids,
+        target_segment_starts,
+        target_token_count,
+        blank_token_id,
+        LRC_CTC_ALIGN_STAR_MODE_SEGMENT,
         star_token_id,
         path,
         result
@@ -3861,6 +4033,7 @@ ctc_align_test_graph_build_edge_stars(void) {
                                             tokens,
                                             2,
                                             LRC_CTC_ALIGN_STAR_MODE_EDGES,
+                                            NULL,
                                             9,
                                             &result)) {
         return ctc_align_test_fail("build edge-star graph");
@@ -3890,6 +4063,7 @@ ctc_align_test_graph_build_edge_stars(void) {
                                             repeated_tokens,
                                             2,
                                             LRC_CTC_ALIGN_STAR_MODE_EDGES,
+                                            NULL,
                                             9,
                                             &result)) {
         return ctc_align_test_fail("build repeated edge-star graph");
@@ -3898,6 +4072,54 @@ ctc_align_test_graph_build_edge_stars(void) {
     ASSERT(!lrc_ctc_align_state_can_skip(&graph, 3, 5));
     ASSERT(lrc_ctc_align_state_can_skip(&graph, 5, 7));
     ASSERT(lrc_ctc_required_frame_count_for_graph(&graph) == 5);
+
+    lrc_ctc_align_graph_destroy(&graph);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_graph_build_segment_stars(void) {
+    LrcCtcAlignResult result;
+    LrcCtcAlignGraph graph;
+    int32 tokens[] = {4, 8, 6};
+    bool segment_starts[] = {true, false, true};
+
+    lrc_ctc_align_graph_init(&graph);
+    if (!lrc_ctc_align_graph_build_for_mode(
+        &graph,
+        tokens,
+        LENGTH(tokens),
+        LRC_CTC_ALIGN_STAR_MODE_SEGMENT,
+        segment_starts,
+        9,
+        &result
+    )) {
+        return ctc_align_test_fail("build segment-star graph");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(graph.target_token_count == 3);
+    ASSERT(graph.state_count == 11);
+    ASSERT(graph.states[1].kind == LRC_CTC_ALIGN_STATE_STAR);
+    ASSERT(graph.states[1].token_index == -1);
+    ASSERT(graph.states[1].token_id == 9);
+    ASSERT(graph.states[3].kind == LRC_CTC_ALIGN_STATE_TOKEN);
+    ASSERT(graph.states[3].token_index == 0);
+    ASSERT(graph.states[3].token_id == 4);
+    ASSERT(graph.states[5].kind == LRC_CTC_ALIGN_STATE_TOKEN);
+    ASSERT(graph.states[5].token_index == 1);
+    ASSERT(graph.states[5].token_id == 8);
+    ASSERT(graph.states[7].kind == LRC_CTC_ALIGN_STATE_STAR);
+    ASSERT(graph.states[7].token_index == -1);
+    ASSERT(graph.states[7].token_id == 9);
+    ASSERT(graph.states[9].kind == LRC_CTC_ALIGN_STATE_TOKEN);
+    ASSERT(graph.states[9].token_index == 2);
+    ASSERT(graph.states[9].token_id == 6);
+    ASSERT(lrc_ctc_align_state_can_skip(&graph, 1, 3));
+    ASSERT(lrc_ctc_align_state_can_skip(&graph, 3, 5));
+    ASSERT(lrc_ctc_align_state_can_skip(&graph, 5, 7));
+    ASSERT(lrc_ctc_align_state_can_skip(&graph, 7, 9));
 
     lrc_ctc_align_graph_destroy(&graph);
 
@@ -4578,6 +4800,87 @@ ctc_align_test_backtracks_edge_stars(void) {
     ASSERT(spans.spans[1].end_frame == 3);
 
     lrc_ctc_token_spans_destroy(&spans);
+    lrc_ctc_path_destroy(&path);
+    lrc_ctc_trellis_destroy(&trellis);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_backtracks_segment_stars(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    LrcCtcPath path;
+    LrcCtcTokenSpans token_spans;
+    int32 target_token_ids[] = {1, 2};
+    bool segment_starts[] = {true, true};
+    int32 star_token_id;
+    bool saw_star;
+    float values[] = {
+        -5.00f, -5.00f, -5.00f,
+        -5.00f, -0.10f, -5.00f,
+        -5.00f, -5.00f, -0.10f,
+        -5.00f, -5.00f, -5.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 4, 3);
+    star_token_id = (int32)emissions.vocabulary_size;
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    lrc_ctc_token_spans_init(&token_spans);
+
+    if (!lrc_ctc_trellis_score_forward_with_segment_stars(
+        &trellis,
+        &emissions,
+        target_token_ids,
+        segment_starts,
+        LENGTH(target_token_ids),
+        0,
+        star_token_id,
+        &result
+    )) {
+        return ctc_align_test_fail("score segment-star path");
+    }
+    ASSERT(trellis.has_segment_stars);
+    ASSERT(!trellis.has_edge_stars);
+
+    if (!lrc_ctc_trellis_backtrack_with_segment_stars(
+        &trellis,
+        &emissions,
+        target_token_ids,
+        segment_starts,
+        LENGTH(target_token_ids),
+        0,
+        star_token_id,
+        &path,
+        &result
+    )) {
+        return ctc_align_test_fail("backtrack segment-star path");
+    }
+
+    ASSERT(path.step_count == 4);
+    saw_star = false;
+    for (int64 i = 0; i < path.step_count; i += 1) {
+        if (path.steps[i].is_star) {
+            saw_star = true;
+            ASSERT(path.steps[i].token_id == star_token_id);
+        }
+    }
+    ASSERT(saw_star);
+
+    if (!lrc_ctc_path_to_token_spans(&path,
+                                      &emissions,
+                                      0.02f,
+                                      &token_spans,
+                                      &result)) {
+        return ctc_align_test_fail("segment-star token spans");
+    }
+    ASSERT(token_spans.span_count == 2);
+    ASSERT(token_spans.spans[0].token_index == 0);
+    ASSERT(token_spans.spans[1].token_index == 1);
+
+    lrc_ctc_token_spans_destroy(&token_spans);
     lrc_ctc_path_destroy(&path);
     lrc_ctc_trellis_destroy(&trellis);
 
@@ -7082,6 +7385,9 @@ main(void) {
     if (ctc_align_test_graph_build_edge_stars() != 0) {
         exit(1);
     }
+    if (ctc_align_test_graph_build_segment_stars() != 0) {
+        exit(1);
+    }
     if (ctc_align_test_graph_rejects_bad_inputs() != 0) {
         exit(1);
     }
@@ -7131,6 +7437,9 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_backtracks_edge_stars() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_backtracks_segment_stars() != 0) {
         exit(1);
     }
     if (ctc_align_test_edge_stars_reject_bad_star_token() != 0) {

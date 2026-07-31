@@ -45,6 +45,9 @@ typedef struct LrcCtcTextToken {
     int32 normalized_start;
     int32 normalized_end;
     int32 line_index;
+    int32 segment_index;
+
+    bool starts_segment;
 } LrcCtcTextToken;
 
 typedef struct LrcCtcTokenizedText {

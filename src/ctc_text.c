@@ -2485,14 +2485,22 @@ typedef struct CtcTextReferenceWordFixture {
                    [CTC_TEXT_REFERENCE_WORD_TEXT_MAX];
     char tokens[CTC_TEXT_REFERENCE_WORD_MAX]
                [CTC_TEXT_REFERENCE_WORD_TEXT_MAX];
+    char edges_tokens[CTC_TEXT_REFERENCE_WORD_MAX*2]
+                     [CTC_TEXT_REFERENCE_WORD_TEXT_MAX];
+    char segment_tokens[CTC_TEXT_REFERENCE_WORD_MAX*2]
+                       [CTC_TEXT_REFERENCE_WORD_TEXT_MAX];
 
     int32 input_len;
     int32 text_split_lens[CTC_TEXT_REFERENCE_WORD_MAX];
     int32 normalized_lens[CTC_TEXT_REFERENCE_WORD_MAX];
     int32 tokens_lens[CTC_TEXT_REFERENCE_WORD_MAX];
+    int32 edges_tokens_lens[CTC_TEXT_REFERENCE_WORD_MAX*2];
+    int32 segment_tokens_lens[CTC_TEXT_REFERENCE_WORD_MAX*2];
     int32 text_split_count;
     int32 normalized_count;
     int32 tokens_count;
+    int32 edges_tokens_count;
+    int32 segment_tokens_count;
 } CtcTextReferenceWordFixture;
 
 static int32
@@ -2663,6 +2671,36 @@ ctc_text_reference_load_word_fixture(
                 );
                 ASSERT(fixture->tokens_lens[index] >= 0);
                 fixture->tokens_count += 1;
+            } else if (ctc_text_reference_field_equal(line,
+                                                      tab,
+                                                      "edges_tokens")) {
+                int32 index;
+
+                index = fixture->edges_tokens_count;
+                ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX*2);
+                fixture->edges_tokens_lens[index] = ctc_text_decode_hex(
+                    fixture->edges_tokens[index],
+                    CTC_TEXT_REFERENCE_WORD_TEXT_MAX,
+                    line + tab + 1,
+                    line_len - tab - 1
+                );
+                ASSERT(fixture->edges_tokens_lens[index] >= 0);
+                fixture->edges_tokens_count += 1;
+            } else if (ctc_text_reference_field_equal(line,
+                                                      tab,
+                                                      "segment_tokens")) {
+                int32 index;
+
+                index = fixture->segment_tokens_count;
+                ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX*2);
+                fixture->segment_tokens_lens[index] = ctc_text_decode_hex(
+                    fixture->segment_tokens[index],
+                    CTC_TEXT_REFERENCE_WORD_TEXT_MAX,
+                    line + tab + 1,
+                    line_len - tab - 1
+                );
+                ASSERT(fixture->segment_tokens_lens[index] >= 0);
+                fixture->segment_tokens_count += 1;
             }
         }
     }
@@ -2676,6 +2714,8 @@ ctc_text_reference_load_word_fixture(
     ASSERT(fixture->text_split_count > 0);
     ASSERT(fixture->normalized_count == fixture->text_split_count);
     ASSERT(fixture->tokens_count == fixture->text_split_count);
+    ASSERT(fixture->edges_tokens_count == fixture->tokens_count + 2);
+    ASSERT(fixture->segment_tokens_count == fixture->tokens_count*2);
 
     return true;
 }
@@ -2861,6 +2901,114 @@ ctc_text_test_word_targets_match_reference_fixtures(void) {
     status += ctc_text_test_word_target_fixture_case("accents");
     status += ctc_text_test_word_target_fixture_case("portuguese_soltasbruxa");
     status += ctc_text_test_word_target_fixture_case("german_ich_will");
+
+    return status;
+}
+
+static void
+ctc_text_test_assert_target_item(
+    LrcLyricsNormalized *normalized,
+    CtcTextSegment *segment,
+    char *expected,
+    int32 expected_len
+) {
+    int32 target_len;
+
+    target_len = segment->target_end - segment->target_start;
+    ASSERT(target_len >= 0);
+    ASSERT(strequal2(normalized->target_text + segment->target_start,
+                     target_len,
+                     expected,
+                     expected_len));
+
+    return;
+}
+
+static int32
+ctc_text_test_star_target_sequence_fixture_case(char *fixture_name) {
+    CtcTextReferenceWordFixture fixture;
+    LrcLyricsPreprocessOptions options;
+    LrcLyricsNormalized normalized;
+    LrcLyrics lyrics;
+    int32 expected_index;
+
+    if (!ctc_text_reference_load_word_fixture(fixture_name, &fixture)) {
+        return ctc_text_test_fail("load star sequence fixture");
+    }
+    if (!ctc_text_load_lyrics(&lyrics, fixture.input, fixture_name)) {
+        return ctc_text_test_fail("load star sequence lyrics");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+
+    lrc_lyrics_normalized_init(&normalized);
+    if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
+        lrc_lyrics_destroy(&lyrics);
+        return ctc_text_test_fail("normalize star sequence lyrics");
+    }
+
+    ASSERT(normalized.segment_count == fixture.tokens_count);
+
+    ASSERT(strequal2(fixture.edges_tokens[0],
+                     fixture.edges_tokens_lens[0],
+                     STRLIT("<star>")));
+    expected_index = 1;
+    for (int32 i = 0; i < normalized.segment_count; i += 1) {
+        CtcTextSegment *segment;
+
+        segment = lrc_lyrics_normalized_segment(&normalized, i);
+        ASSERT(segment);
+        ctc_text_test_assert_target_item(
+            &normalized,
+            segment,
+            fixture.edges_tokens[expected_index],
+            fixture.edges_tokens_lens[expected_index]
+        );
+        expected_index += 1;
+    }
+    ASSERT(strequal2(fixture.edges_tokens[expected_index],
+                     fixture.edges_tokens_lens[expected_index],
+                     STRLIT("<star>")));
+    ASSERT(expected_index + 1 == fixture.edges_tokens_count);
+
+    expected_index = 0;
+    for (int32 i = 0; i < normalized.segment_count; i += 1) {
+        CtcTextSegment *segment;
+
+        segment = lrc_lyrics_normalized_segment(&normalized, i);
+        ASSERT(segment);
+        ASSERT(strequal2(fixture.segment_tokens[expected_index],
+                         fixture.segment_tokens_lens[expected_index],
+                         STRLIT("<star>")));
+        expected_index += 1;
+        ctc_text_test_assert_target_item(
+            &normalized,
+            segment,
+            fixture.segment_tokens[expected_index],
+            fixture.segment_tokens_lens[expected_index]
+        );
+        expected_index += 1;
+    }
+    ASSERT(expected_index == fixture.segment_tokens_count);
+
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
+ctc_text_test_star_target_sequences_match_reference(void) {
+    int32 status;
+
+    status = 0;
+
+    status += ctc_text_test_star_target_sequence_fixture_case("plain_english");
+    status += ctc_text_test_star_target_sequence_fixture_case("apostrophes");
+    status += ctc_text_test_star_target_sequence_fixture_case(
+        "punctuation_digits"
+    );
 
     return status;
 }
@@ -3164,6 +3312,7 @@ main(void) {
     status += ctc_text_test_word_normalization_matches_reference_fixtures();
     status += ctc_text_test_word_target_text_is_character_spaced();
     status += ctc_text_test_word_targets_match_reference_fixtures();
+    status += ctc_text_test_star_target_sequences_match_reference();
     status += ctc_text_test_char_split_matches_reference_fixtures();
 
     return status;
