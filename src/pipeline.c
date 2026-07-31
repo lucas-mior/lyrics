@@ -888,6 +888,7 @@ lrc_pipeline_generate_lrc(
     }
     if (ok) {
         lrc_ctc_onnx_inference_backend(&onnx, &backend);
+        backend.values_kind = pipeline->config.ctc_emission_values_kind;
         if (!lrc_ctc_inference_run(&backend,
                                    &input,
                                    &emissions,
@@ -903,22 +904,6 @@ lrc_pipeline_generate_lrc(
             }
             ok = false;
         }
-    }
-    if (ok && !lrc_ctc_emissions_convert_to_log_probabilities(
-        &emissions,
-        pipeline->config.ctc_emission_values_kind,
-        &inference_result
-    )) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_EMISSION_CONVERSION_FAILED,
-            inference_result.message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = inference_result.output_index;
-        }
-        ok = false;
     }
     if (ok && !lrc_pipeline_generate_targets(&tokens,
                                              &target_token_ids,

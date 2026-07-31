@@ -783,6 +783,36 @@ lrc_ctc_emissions_convert_to_log_probabilities(
 }
 
 static bool
+lrc_ctc_emissions_build_trimmed_from_model_output(
+    LrcCtcEmissions *emissions,
+    LrcCtcModelInput *input,
+    float *values,
+    int64 value_count,
+    int64 *shape,
+    int32 shape_len,
+    enum LrcCtcEmissionValuesKind values_kind,
+    LrcCtcInferenceResult *result
+) {
+    if (!lrc_ctc_emissions_copy_model_output(emissions,
+                                             input,
+                                             values,
+                                             value_count,
+                                             shape,
+                                             shape_len,
+                                             result)) {
+        return false;
+    }
+    if (!lrc_ctc_emissions_convert_to_log_probabilities(emissions,
+                                                        values_kind,
+                                                        result)) {
+        lrc_ctc_emissions_destroy(emissions);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 lrc_ctc_inference_input_ready(
     LrcCtcModelInput *input,
     LrcCtcInferenceResult *result
@@ -834,7 +864,11 @@ lrc_ctc_inference_run(
         return false;
     }
 
-    return backend->run(backend->backend, input, emissions, result);
+    return backend->run(backend->backend,
+                        input,
+                        emissions,
+                        backend->values_kind,
+                        result);
 }
 
 static void
@@ -923,6 +957,7 @@ lrc_ctc_fake_inference_run(
     void *backend,
     LrcCtcModelInput *input,
     LrcCtcEmissions *emissions,
+    enum LrcCtcEmissionValuesKind values_kind,
     LrcCtcInferenceResult *result
 ) {
     LrcCtcFakeInference *fake;
@@ -938,13 +973,16 @@ lrc_ctc_fake_inference_run(
         return false;
     }
 
-    return lrc_ctc_emissions_copy_model_output(emissions,
-                                               input,
-                                               fake->values,
-                                               fake->value_count,
-                                               fake->shape,
-                                               fake->shape_len,
-                                               result);
+    return lrc_ctc_emissions_build_trimmed_from_model_output(
+        emissions,
+        input,
+        fake->values,
+        fake->value_count,
+        fake->shape,
+        fake->shape_len,
+        values_kind,
+        result
+    );
 }
 
 static void
@@ -958,6 +996,7 @@ lrc_ctc_fake_inference_backend(
 
     backend->backend = fake;
     backend->run = lrc_ctc_fake_inference_run;
+    backend->values_kind = LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES;
 
     return;
 }
@@ -1084,6 +1123,7 @@ lrc_ctc_onnx_inference_run(
     void *backend,
     LrcCtcModelInput *input,
     LrcCtcEmissions *emissions,
+    enum LrcCtcEmissionValuesKind values_kind,
     LrcCtcInferenceResult *result
 ) {
 #if LRC_CTC_INFERENCE_ENABLE_ORT
@@ -1139,13 +1179,16 @@ lrc_ctc_onnx_inference_run(
                            &input_tensor,
                            &output_tensor);
     if (ok) {
-        ok = lrc_ctc_emissions_copy_model_output(emissions,
-                                                    input,
-                                                    output_tensor.data,
-                                                    output_tensor.data_len,
-                                                    output_tensor.shape,
-                                                    output_tensor.shape_len,
-                                                    result);
+        ok = lrc_ctc_emissions_build_trimmed_from_model_output(
+            emissions,
+            input,
+            output_tensor.data,
+            output_tensor.data_len,
+            output_tensor.shape,
+            output_tensor.shape_len,
+            values_kind,
+            result
+        );
     } else {
         lrc_ctc_inference_result_set(
             result,
@@ -1163,6 +1206,7 @@ lrc_ctc_onnx_inference_run(
     (void)backend;
     (void)input;
     (void)emissions;
+    (void)values_kind;
     lrc_ctc_inference_result_set(
         result,
         LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
@@ -1184,6 +1228,7 @@ lrc_ctc_onnx_inference_backend(
 
     backend->backend = onnx;
     backend->run = lrc_ctc_onnx_inference_run;
+    backend->values_kind = LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES;
 
     return;
 }
@@ -1437,6 +1482,130 @@ ctc_inference_test_rank3_extension_truncated(void) {
     ASSERT(emissions.shape[1] == 2);
     ASSERT(emissions.values[0] == 2.0f);
     ASSERT(emissions.values[1] == 3.0f);
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_rank3_logits_converted_after_trim(void) {
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunks[2];
+    int64 shape[3];
+    float values[] = {
+        10000.0f, -10000.0f,
+        0.0f, 0.0f,
+        -10000.0f, 10000.0f,
+        5000.0f, -5000.0f,
+        2.0f, 0.0f,
+        -5000.0f, 5000.0f,
+    };
+    double row0_norm;
+    double row1_norm;
+
+    shape[0] = 2;
+    shape[1] = 3;
+    shape[2] = 2;
+    row0_norm = log(2.0);
+    row1_norm = log(exp(2.0) + 1.0);
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    ctc_inference_make_rank3_trim_input(&input, chunks, 2);
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set rank-3 logits");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+    backend.values_kind = LRC_CTC_EMISSION_VALUES_LOGITS;
+
+    if (!lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
+        return ctc_inference_test_fail("run rank-3 logits backend");
+    }
+
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(emissions.frame_count == 2);
+    ASSERT(emissions.vocabulary_size == 2);
+    ASSERT(ctc_inference_float_close(emissions.values[0],
+                                     (float)-row0_norm,
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[1],
+                                     (float)-row0_norm,
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[2],
+                                     (float)(2.0 - row1_norm),
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[3],
+                                     (float)-row1_norm,
+                                     0.00001f));
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_rank3_probability_trim_before_convert(void) {
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunks[2];
+    int64 shape[3];
+    float values[] = {
+        0.0f, -1.0f,
+        0.25f, 0.75f,
+        -2.0f, 0.0f,
+        0.0f, -3.0f,
+        0.90f, 0.10f,
+        -4.0f, 0.0f,
+    };
+
+    shape[0] = 2;
+    shape[1] = 3;
+    shape[2] = 2;
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    ctc_inference_make_rank3_trim_input(&input, chunks, 2);
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set rank-3 probabilities");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+    backend.values_kind = LRC_CTC_EMISSION_VALUES_PROBABILITIES;
+
+    if (!lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
+        return ctc_inference_test_fail("run rank-3 probabilities backend");
+    }
+
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(emissions.frame_count == 2);
+    ASSERT(emissions.vocabulary_size == 2);
+    ASSERT(ctc_inference_float_close(emissions.values[0],
+                                     logf(0.25f),
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[1],
+                                     logf(0.75f),
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[2],
+                                     logf(0.90f),
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[3],
+                                     logf(0.10f),
+                                     0.00001f));
 
     lrc_ctc_emissions_destroy(&emissions);
 
@@ -1811,6 +1980,12 @@ main(void) {
         exit(1);
     }
     if (ctc_inference_test_rank3_extension_truncated() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_rank3_logits_converted_after_trim() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_rank3_probability_trim_before_convert() != 0) {
         exit(1);
     }
     if (ctc_inference_test_rank3_rejects_mismatched_chunks() != 0) {

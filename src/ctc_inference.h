@@ -54,12 +54,15 @@ typedef bool (*LrcCtcInferenceRunFunction)(
     void *backend,
     LrcCtcModelInput *input,
     LrcCtcEmissions *emissions,
+    enum LrcCtcEmissionValuesKind values_kind,
     LrcCtcInferenceResult *result
 );
 
 typedef struct LrcCtcInferenceBackend {
     void *backend;
     LrcCtcInferenceRunFunction run;
+
+    enum LrcCtcEmissionValuesKind values_kind;
 } LrcCtcInferenceBackend;
 
 typedef struct LrcCtcFakeInference {
