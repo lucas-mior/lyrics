@@ -9,6 +9,7 @@
 #endif
 
 #include "pipeline.h"
+#include "progress.c"
 
 static void
 lrc_pipeline_error_set(
@@ -24,6 +25,31 @@ lrc_pipeline_error_set(
     pipeline->error = error;
     pipeline->message = message;
     pipeline->path = path;
+
+    return;
+}
+
+
+static bool
+lrc_pipeline_progress_enabled(LrcPipeline *pipeline) {
+    if (pipeline == NULL) {
+        return false;
+    }
+
+    return pipeline->config.print_info;
+}
+
+static void
+lrc_pipeline_progress_start(
+    LrcPipeline *pipeline,
+    LrcProgress *progress,
+    char *label
+) {
+    lrc_progress_init(progress,
+                      lrc_pipeline_progress_enabled(pipeline),
+                      label,
+                      1);
+    lrc_progress_begin(progress);
 
     return;
 }
@@ -363,6 +389,7 @@ lrc_pipeline_extract_vocals(
     LrcVocalsExtractResult *result
 ) {
     LrcVocalsExtractRequest request;
+    LrcProgress progress;
 
     lrc_pipeline_vocals_result_set(
         result,
@@ -390,7 +417,9 @@ lrc_pipeline_extract_vocals(
         request.output_path
     );
 
+    lrc_pipeline_progress_start(pipeline, &progress, "extract vocals");
     if (!lrc_extract_vocals(&request, result)) {
+        lrc_progress_cancel(&progress);
         lrc_pipeline_error_set(
             pipeline,
             LRC_PIPELINE_ERROR_VOCALS_EXTRACT_FAILED,
@@ -399,6 +428,7 @@ lrc_pipeline_extract_vocals(
         );
         return false;
     }
+    lrc_progress_finish(&progress);
 
     return true;
 }
@@ -727,6 +757,7 @@ lrc_pipeline_generate_lrc(
     int32 *target_token_ids;
     int64 target_token_count;
     float frame_duration_seconds;
+    LrcProgress progress;
     bool ok;
 
     if (result) {
@@ -779,117 +810,173 @@ lrc_pipeline_generate_lrc(
     target_token_count = 0;
     ok = true;
 
-    if (ok && !lrc_pipeline_prepare_vocals_stage_for_generation(pipeline,
-                                                                 result)) {
-        ok = false;
-    }
-    if (ok && !lrc_pipeline_validate_ctc_assets(pipeline, &assets_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_CTC_ASSETS_INVALID,
-            assets_result.message,
-            assets_result.path
-        );
-        ok = false;
-    }
-    if (ok && !lrc_lyrics_load_file(&lyrics,
-                                    pipeline->config.lyrics_text_path,
-                                    &lyrics_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_LYRICS_LOAD_FAILED,
-            lyrics_result.message,
-            lyrics_result.path
-        );
-        ok = false;
-    }
-    if (ok && !lrc_lyrics_normalize(&lyrics, &normalized)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_LYRICS_NORMALIZE_FAILED,
-            "could not normalize lyrics",
-            pipeline->config.lyrics_text_path
-        );
-        ok = false;
-    }
-    if (ok && !lrc_ctc_tokenizer_load_file(&tokenizer,
-                                           pipeline->ctc_assets.tokenizer_path,
-                                           &tokenizer_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_TOKENIZER_LOAD_FAILED,
-            tokenizer_result.message,
-            tokenizer_result.path
-        );
-        ok = false;
-    }
-    if (ok && !lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
-                                                     &normalized,
-                                                     &tokens,
-                                                     &tokenize_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_TOKENIZE_FAILED,
-            tokenize_result.message,
-            NULL
-        );
-        if (result) {
-            result->line_index = tokenize_result.line_index;
-            result->token_index = tokenize_result.token_id;
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "prepare vocals");
+        if (!lrc_pipeline_prepare_vocals_stage_for_generation(pipeline,
+                                                              result)) {
+            lrc_progress_cancel(&progress);
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
-        ok = false;
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "validate CTC assets");
+        if (!lrc_pipeline_validate_ctc_assets(pipeline, &assets_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_CTC_ASSETS_INVALID,
+                assets_result.message,
+                assets_result.path
+            );
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "load lyrics");
+        if (!lrc_lyrics_load_file(&lyrics,
+                                  pipeline->config.lyrics_text_path,
+                                  &lyrics_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_LYRICS_LOAD_FAILED,
+                lyrics_result.message,
+                lyrics_result.path
+            );
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "normalize lyrics");
+        if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_LYRICS_NORMALIZE_FAILED,
+                "could not normalize lyrics",
+                pipeline->config.lyrics_text_path
+            );
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "load tokenizer");
+        if (!lrc_ctc_tokenizer_load_file(&tokenizer,
+                                         pipeline->ctc_assets.tokenizer_path,
+                                         &tokenizer_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_TOKENIZER_LOAD_FAILED,
+                tokenizer_result.message,
+                tokenizer_result.path
+            );
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "tokenize lyrics");
+        if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
+                                                   &normalized,
+                                                   &tokens,
+                                                   &tokenize_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_TOKENIZE_FAILED,
+                tokenize_result.message,
+                NULL
+            );
+            if (result) {
+                result->line_index = tokenize_result.line_index;
+                result->token_index = tokenize_result.token_id;
+            }
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
     }
 
     lrc_ctc_audio_config_init(&audio_config);
     audio_config.ffmpeg_path = pipeline->config.ffmpeg_path;
     audio_config.sample_rate = pipeline->config.ctc_model_config.sample_rate;
-    if (ok && !lrc_ctc_audio_decode_file(&audio,
-                                         pipeline->vocals_stage_path,
-                                         &audio_config,
-                                         &audio_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_AUDIO_DECODE_FAILED,
-            audio_result.message,
-            audio_result.path
-        );
-        if (result) {
-            result->frame_index = audio_result.sample_index;
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "decode CTC audio");
+        if (!lrc_ctc_audio_decode_file(&audio,
+                                       pipeline->vocals_stage_path,
+                                       &audio_config,
+                                       &audio_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_AUDIO_DECODE_FAILED,
+                audio_result.message,
+                audio_result.path
+            );
+            if (result) {
+                result->frame_index = audio_result.sample_index;
+            }
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
-        ok = false;
-    }
-    if (ok && !lrc_ctc_model_input_prepare(&input,
-                                           &audio,
-                                           &pipeline->config.ctc_model_config,
-                                           &model_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_MODEL_INPUT_FAILED,
-            model_result.message,
-            pipeline->vocals_stage_path
-        );
-        if (result) {
-            result->frame_index = model_result.sample_index;
-        }
-        ok = false;
-    }
-    if (ok && !lrc_ctc_onnx_inference_load(&onnx,
-                                           pipeline->ctc_assets.model_path,
-                                           &inference_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_CTC_MODEL_LOAD_FAILED,
-            inference_result.message,
-            pipeline->ctc_assets.model_path
-        );
-        ok = false;
     }
     if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "prepare CTC input");
+        if (!lrc_ctc_model_input_prepare(&input,
+                                         &audio,
+                                         &pipeline->config.ctc_model_config,
+                                         &model_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_MODEL_INPUT_FAILED,
+                model_result.message,
+                pipeline->vocals_stage_path
+            );
+            if (result) {
+                result->frame_index = model_result.sample_index;
+            }
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "load CTC model");
+        if (!lrc_ctc_onnx_inference_load(&onnx,
+                                         pipeline->ctc_assets.model_path,
+                                         &inference_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_CTC_MODEL_LOAD_FAILED,
+                inference_result.message,
+                pipeline->ctc_assets.model_path
+            );
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "run CTC inference");
         lrc_ctc_onnx_inference_backend(&onnx, &backend);
         if (!lrc_ctc_inference_run(&backend,
                                    &input,
                                    &emissions,
                                    &inference_result)) {
+            lrc_progress_cancel(&progress);
             lrc_pipeline_generate_result_set(
                 result,
                 LRC_PIPELINE_GENERATE_ERROR_CTC_INFERENCE_FAILED,
@@ -900,141 +987,199 @@ lrc_pipeline_generate_lrc(
                 result->frame_index = inference_result.output_index;
             }
             ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
     }
-    if (ok && !lrc_ctc_emissions_convert_to_log_probabilities(
-        &emissions,
-        pipeline->config.ctc_emission_values_kind,
-        &inference_result
-    )) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_EMISSION_CONVERSION_FAILED,
-            inference_result.message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = inference_result.output_index;
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "convert emissions");
+        if (!lrc_ctc_emissions_convert_to_log_probabilities(
+            &emissions,
+            pipeline->config.ctc_emission_values_kind,
+            &inference_result
+        )) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_EMISSION_CONVERSION_FAILED,
+                inference_result.message,
+                NULL
+            );
+            if (result) {
+                result->frame_index = inference_result.output_index;
+            }
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
-        ok = false;
     }
-    if (ok && !lrc_pipeline_generate_targets(&tokens,
-                                             &target_token_ids,
-                                             &target_token_count,
-                                             result)) {
-        ok = false;
-    }
-    if (ok && !lrc_ctc_trellis_score_forward(&trellis,
-                                             &emissions,
-                                             target_token_ids,
-                                             target_token_count,
-                                             tokenizer.blank_id,
-                                             &align_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = align_result.frame_index;
-            result->token_index = align_result.token_index;
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "prepare CTC targets");
+        if (!lrc_pipeline_generate_targets(&tokens,
+                                           &target_token_ids,
+                                           &target_token_count,
+                                           result)) {
+            lrc_progress_cancel(&progress);
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
-        ok = false;
     }
-    if (ok && !lrc_ctc_trellis_backtrack(&trellis,
-                                         &emissions,
-                                         target_token_ids,
-                                         target_token_count,
-                                         tokenizer.blank_id,
-                                         &path,
-                                         &align_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = align_result.frame_index;
-            result->token_index = align_result.token_index;
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "score trellis");
+        if (!lrc_ctc_trellis_score_forward(&trellis,
+                                           &emissions,
+                                           target_token_ids,
+                                           target_token_count,
+                                           tokenizer.blank_id,
+                                           &align_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+                align_result.message,
+                NULL
+            );
+            if (result) {
+                result->frame_index = align_result.frame_index;
+                result->token_index = align_result.token_index;
+            }
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
-        ok = false;
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "backtrack trellis");
+        if (!lrc_ctc_trellis_backtrack(&trellis,
+                                       &emissions,
+                                       target_token_ids,
+                                       target_token_count,
+                                       tokenizer.blank_id,
+                                       &path,
+                                       &align_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+                align_result.message,
+                NULL
+            );
+            if (result) {
+                result->frame_index = align_result.frame_index;
+                result->token_index = align_result.token_index;
+            }
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
     }
 
     frame_duration_seconds = (float)(input.stride_ms/1000.0);
-    if (ok && !lrc_ctc_path_to_token_spans(&path,
-                                           &emissions,
-                                           frame_duration_seconds,
-                                           &token_spans,
-                                           &align_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
-        ok = false;
-    }
-    if (ok && !lrc_ctc_token_spans_to_word_spans(&token_spans,
-                                                 &tokens,
-                                                 &normalized,
-                                                 &word_spans,
-                                                 &align_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
-        ok = false;
-    }
-    if (ok && !lrc_ctc_word_spans_to_line_timestamps(&word_spans,
-                                                     &normalized,
-                                                     &line_timestamps,
-                                                     &align_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
-        ok = false;
-    }
-    if (ok && (line_timestamps.line_count > INT64_MAX/SIZEOF(*output_lines))) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
-            "LRC output line allocation is too large",
-            NULL
-        );
-        ok = false;
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "build token spans");
+        if (!lrc_ctc_path_to_token_spans(&path,
+                                         &emissions,
+                                         frame_duration_seconds,
+                                         &token_spans,
+                                         &align_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+                align_result.message,
+                NULL
+            );
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
     }
     if (ok) {
-        output_lines = malloc2(
-            line_timestamps.line_count*SIZEOF(*output_lines)
-        );
-        if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
-                                                       &line_timestamps,
-                                                       output_lines,
-                                                       result)) {
+        lrc_pipeline_progress_start(pipeline, &progress, "build word spans");
+        if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
+                                               &tokens,
+                                               &normalized,
+                                               &word_spans,
+                                               &align_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+                align_result.message,
+                NULL
+            );
             ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
     }
-    if (ok && !lrc_write_output_file(pipeline->config.output_lrc_path,
-                                     output_lines,
-                                     (int32)line_timestamps.line_count,
-                                     &write_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
-            write_result.message,
-            write_result.path
-        );
-        if (result) {
-            result->line_index = write_result.line_index;
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline,
+                                    &progress,
+                                    "build line timestamps");
+        if (!lrc_ctc_word_spans_to_line_timestamps(&word_spans,
+                                                   &normalized,
+                                                   &line_timestamps,
+                                                   &align_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+                align_result.message,
+                NULL
+            );
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
         }
-        ok = false;
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "build LRC lines");
+        if (line_timestamps.line_count > INT64_MAX/SIZEOF(*output_lines)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                "LRC output line allocation is too large",
+                NULL
+            );
+            ok = false;
+        } else {
+            output_lines = malloc2(
+                line_timestamps.line_count*SIZEOF(*output_lines)
+            );
+            if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
+                                                           &line_timestamps,
+                                                           output_lines,
+                                                           result)) {
+                lrc_progress_cancel(&progress);
+                ok = false;
+            } else {
+                lrc_progress_finish(&progress);
+            }
+        }
+    }
+    if (ok) {
+        lrc_pipeline_progress_start(pipeline, &progress, "write LRC file");
+        if (!lrc_write_output_file(pipeline->config.output_lrc_path,
+                                   output_lines,
+                                   (int32)line_timestamps.line_count,
+                                   &write_result)) {
+            lrc_progress_cancel(&progress);
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+                write_result.message,
+                write_result.path
+            );
+            if (result) {
+                result->line_index = write_result.line_index;
+            }
+            ok = false;
+        } else {
+            lrc_progress_finish(&progress);
+        }
     }
 
     if (!ok) {

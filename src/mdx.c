@@ -1,5 +1,6 @@
 #include "cbase.h"
 #include "mdx.h"
+#include "progress.c"
 
 #if !defined(TESTING_mdx)
 #define TESTING_mdx 0
@@ -433,13 +434,14 @@ mdx_unpack_output(
 
 
 static bool
-mdx_process_song(
+mdx_process_song_with_progress(
     MdxConfig *config,
     StftPlan *stft_plan,
     OrtContext *ort_context,
     OrtModel *ort_model,
     AudioBuffer *input,
-    AudioBuffer *output
+    AudioBuffer *output,
+    bool print_progress
 ) {
     OrtTensor input_tensor;
     OrtTensor output_tensor;
@@ -454,6 +456,7 @@ mdx_process_song(
     int64 margin_size;
     int64 total_windows;
     int64 processed_windows;
+    LrcProgress progress;
     bool result;
 
     if ((config == NULL) || (stft_plan == NULL) || (ort_context == NULL)
@@ -544,6 +547,11 @@ mdx_process_song(
 
     result = false;
     processed_windows = 0;
+    lrc_progress_init(&progress,
+                      print_progress,
+                      "process MDX chunks",
+                      total_windows);
+    lrc_progress_begin(&progress);
     ort_tensor_init_empty(&input_tensor);
     ort_tensor_init_empty(&output_tensor);
     for (int64 region_start = 0;
@@ -656,13 +664,7 @@ mdx_process_song(
             ort_tensor_destroy(ort_context, &output_tensor);
             ort_tensor_destroy(ort_context, &input_tensor);
             processed_windows += 1;
-            if ((processed_windows == total_windows)
-                || ((processed_windows % 10) == 0)) {
-                error2(
-                    "processed %lld / %lld chunks\n",
-                    processed_windows,
-                    total_windows);
-            }
+            lrc_progress_update(&progress, processed_windows);
         }
     }
 
@@ -678,11 +680,32 @@ cleanup:
           config->chunk_size*SIZEOF(*window_output_left));
     free2(window_output_right,
           config->chunk_size*SIZEOF(*window_output_right));
-    if (!result) {
+    if (result) {
+        lrc_progress_finish(&progress);
+    } else {
+        lrc_progress_cancel(&progress);
         audio_buffer_destroy(output);
     }
 
     return result;
+}
+
+static bool
+mdx_process_song(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    OrtContext *ort_context,
+    OrtModel *ort_model,
+    AudioBuffer *input,
+    AudioBuffer *output
+) {
+    return mdx_process_song_with_progress(config,
+                                          stft_plan,
+                                          ort_context,
+                                          ort_model,
+                                          input,
+                                          output,
+                                          false);
 }
 
 static bool

@@ -5,6 +5,7 @@
 #include "audio.h"
 #include "ort.h"
 #include "stft.h"
+#include "progress.h"
 
 enum MdxModelOutput {
     MDX_MODEL_OUTPUT_VOCALS,
@@ -79,6 +80,15 @@ static bool mdx_process_song(
     OrtModel *ort_model,
     AudioBuffer *input,
     AudioBuffer *output
+);
+static bool mdx_process_song_with_progress(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    OrtContext *ort_context,
+    OrtModel *ort_model,
+    AudioBuffer *input,
+    AudioBuffer *output,
+    bool print_progress
 );
 static void mdx_model_info_init_empty(MdxModelInfo *info);
 static bool mdx_model_inspect(

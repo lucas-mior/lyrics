@@ -13,6 +13,7 @@
 #include "ctc_inference.h"
 #include "ctc_align.h"
 #include "lrc.h"
+#include "progress.h"
 
 #if !defined(LRC_PIPELINE_ENABLE_GENERATE)
 #define LRC_PIPELINE_ENABLE_GENERATE 0

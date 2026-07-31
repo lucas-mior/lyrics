@@ -2,6 +2,7 @@
 #include "vocals.h"
 #include "ort.h"
 #include "stft.h"
+#include "progress.c"
 
 #if !defined(TESTING_vocals)
 #define TESTING_vocals 0
@@ -343,6 +344,7 @@ vocals_extract_audio(
     OrtContext ort_context;
     OrtModel ort_model;
     StftPlan stft_plan;
+    LrcProgress progress;
     bool ok;
 
     if ((output_audio == NULL) || (input_path == NULL) || (config == NULL)) {
@@ -363,6 +365,11 @@ vocals_extract_audio(
     ort_context_init_empty(&ort_context);
     ort_model_init_empty(&ort_model);
 
+    lrc_progress_init(&progress,
+                      config->print_info,
+                      "prepare vocals runtime",
+                      1);
+    lrc_progress_begin(&progress);
     if (!vocals_prepare_runtime(config,
                                 input_path,
                                 &mdx_config,
@@ -371,27 +378,34 @@ vocals_extract_audio(
                                 &ort_context,
                                 &ort_model,
                                 result)) {
+        lrc_progress_cancel(&progress);
         goto cleanup;
     }
+    lrc_progress_finish(&progress);
 
     if (config->print_info) {
         vocals_print_model_info(&mdx_info, &mdx_config);
     }
 
+    lrc_progress_init(&progress, config->print_info, "decode input audio", 1);
+    lrc_progress_begin(&progress);
     if (!vocals_read_input_audio(&input_audio,
                                  input_path,
                                  &mdx_config,
                                  config->ffmpeg_path,
                                  result)) {
+        lrc_progress_cancel(&progress);
         goto cleanup;
     }
+    lrc_progress_finish(&progress);
 
-    if (!mdx_process_song(&mdx_config,
-                          &stft_plan,
-                          &ort_context,
-                          &ort_model,
-                          &input_audio,
-                          output_audio)) {
+    if (!mdx_process_song_with_progress(&mdx_config,
+                                         &stft_plan,
+                                         &ort_context,
+                                         &ort_model,
+                                         &input_audio,
+                                         output_audio,
+                                         config->print_info)) {
         vocals_extract_result_set(
             result,
             LRC_VOCALS_EXTRACT_ERROR_MDX_PROCESS_FAILED,
@@ -419,6 +433,7 @@ lrc_extract_vocals(
 ) {
     AudioBuffer output_audio;
     VocalsExtractionConfig config;
+    LrcProgress progress;
     bool ok;
 
     if (result) {
@@ -439,6 +454,8 @@ lrc_extract_vocals(
         goto cleanup;
     }
 
+    lrc_progress_init(&progress, request->print_info, "write vocals file", 1);
+    lrc_progress_begin(&progress);
     if (!audio_write_file_format(&output_audio,
                                  request->output_path,
                                  request->container_format,
@@ -450,8 +467,10 @@ lrc_extract_vocals(
             "could not write output audio",
             request->output_path
         );
+        lrc_progress_cancel(&progress);
         goto cleanup;
     }
+    lrc_progress_finish(&progress);
 
     error2("wrote extracted vocals: %s\n", request->output_path);
     ok = true;
