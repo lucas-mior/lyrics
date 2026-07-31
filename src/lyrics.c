@@ -461,10 +461,36 @@ lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized) {
         free2(normalized->bytes,
               normalized->byte_cap*SIZEOF(*normalized->bytes));
     }
+    if (normalized->lines) {
+        free2(normalized->lines,
+              normalized->line_cap*SIZEOF(*normalized->lines));
+    }
 
     lrc_lyrics_normalized_init(normalized);
 
     return;
+}
+
+static bool
+lrc_lyrics_normalized_alloc_lines(
+    LrcLyricsNormalized *normalized,
+    int32 line_count
+) {
+    if (line_count <= 0) {
+        return true;
+    }
+
+    normalized->lines = malloc2(line_count*SIZEOF(*normalized->lines));
+    normalized->line_count = line_count;
+    normalized->line_cap = line_count;
+
+    for (int32 i = 0; i < line_count; i += 1) {
+        normalized->lines[i].kind = LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK;
+        normalized->lines[i].normalized_start = -1;
+        normalized->lines[i].normalized_end = -1;
+    }
+
+    return true;
 }
 
 static bool
@@ -683,11 +709,11 @@ lrc_lyrics_normalize_line(
     int32 start,
     int32 end
 ) {
+    LrcLyricsNormalizedLine *line_range;
     bool wrote_line;
-    int32 original_len;
 
+    line_range = &normalized->lines[line_index];
     wrote_line = false;
-    original_len = normalized->text_len;
     for (int32 i = start; i < end;) {
         uint32 rune;
         int32 step;
@@ -711,6 +737,9 @@ lrc_lyrics_normalize_line(
                         return false;
                     }
                 }
+                if (line_range->normalized_start < 0) {
+                    line_range->normalized_start = normalized->text_len;
+                }
                 if (!lrc_lyrics_normalized_append_char(normalized,
                                                        c,
                                                        line_index,
@@ -718,6 +747,7 @@ lrc_lyrics_normalize_line(
                                                        i + step)) {
                     return false;
                 }
+                line_range->normalized_end = normalized->text_len;
                 wrote_line = true;
             } else if (lrc_lyrics_ascii_space(c)) {
                 if (wrote_line) {
@@ -727,6 +757,7 @@ lrc_lyrics_normalize_line(
                                                             i + step)) {
                         return false;
                     }
+                    line_range->normalized_end = normalized->text_len;
                 }
             }
         } else {
@@ -738,6 +769,9 @@ lrc_lyrics_normalize_line(
                     return false;
                 }
             }
+            if (line_range->normalized_start < 0) {
+                line_range->normalized_start = normalized->text_len;
+            }
             if (!lrc_lyrics_normalized_append_bytes(normalized,
                                                     lyrics->text + i,
                                                     step,
@@ -746,6 +780,7 @@ lrc_lyrics_normalize_line(
                                                     i + step)) {
                 return false;
             }
+            line_range->normalized_end = normalized->text_len;
             wrote_line = true;
         }
 
@@ -757,10 +792,17 @@ lrc_lyrics_normalize_line(
         normalized->text_len -= 1;
         normalized->byte_count -= 1;
         normalized->text[normalized->text_len] = '\0';
+        line_range->normalized_end = normalized->text_len;
     }
 
-    if (normalized->text_len > original_len) {
+    if ((line_range->normalized_start >= 0)
+        && (line_range->normalized_end > line_range->normalized_start)) {
+        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE;
         normalized->alignable_line_count += 1;
+    } else {
+        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_PUNCTUATION_ONLY;
+        line_range->normalized_start = -1;
+        line_range->normalized_end = -1;
     }
 
     return true;
@@ -776,6 +818,10 @@ lrc_lyrics_normalize(
     }
 
     lrc_lyrics_normalized_destroy(normalized);
+    if (!lrc_lyrics_normalized_alloc_lines(normalized, lyrics->line_count)) {
+        return false;
+    }
+
     for (int32 i = 0; i < lyrics->line_count; i += 1) {
         LrcLyricsLine *line;
         int32 start;
@@ -785,9 +831,12 @@ lrc_lyrics_normalize(
         start = lrc_lyrics_line_trim_start(line);
         end = lrc_lyrics_line_trim_end(line, start);
         if (start >= end) {
+            normalized->lines[i].kind = LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK;
             continue;
         }
         if (lrc_lyrics_line_is_section_marker(lyrics, start, end)) {
+            normalized->lines[i].kind =
+                LRC_LYRICS_NORMALIZED_LINE_KIND_SECTION_MARKER;
             continue;
         }
         if (!lrc_lyrics_normalize_line(lyrics,
@@ -816,6 +865,57 @@ lrc_lyrics_normalized_line_at(
     }
 
     return normalized->bytes[byte_offset].line_index;
+}
+
+static enum LrcLyricsNormalizedLineKind
+lrc_lyrics_normalized_line_kind(
+    LrcLyricsNormalized *normalized,
+    int32 line_index
+) {
+    if (normalized == NULL) {
+        return LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK;
+    }
+    if ((line_index < 0) || (line_index >= normalized->line_count)) {
+        return LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK;
+    }
+
+    return normalized->lines[line_index].kind;
+}
+
+static bool
+lrc_lyrics_normalized_line_range(
+    LrcLyricsNormalized *normalized,
+    int32 line_index,
+    int32 *start,
+    int32 *end
+) {
+    LrcLyricsNormalizedLine *line;
+
+    if (start) {
+        *start = -1;
+    }
+    if (end) {
+        *end = -1;
+    }
+    if (normalized == NULL) {
+        return false;
+    }
+    if ((line_index < 0) || (line_index >= normalized->line_count)) {
+        return false;
+    }
+
+    line = &normalized->lines[line_index];
+    if (line->kind != LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE) {
+        return false;
+    }
+    if (start) {
+        *start = line->normalized_start;
+    }
+    if (end) {
+        *end = line->normalized_end;
+    }
+
+    return true;
 }
 
 #if TESTING_lyrics
@@ -859,6 +959,47 @@ lyrics_test_load_text(LrcLyrics *lyrics, char *text, int32 text_len) {
     test_remove_tree(temp_dir);
 
     return ok;
+}
+
+static void
+lyrics_test_assert_line_range(
+    LrcLyricsNormalized *normalized,
+    int32 line_index,
+    int32 expected_start,
+    int32 expected_end
+) {
+    int32 start;
+    int32 end;
+
+    ASSERT(lrc_lyrics_normalized_line_range(normalized,
+                                            line_index,
+                                            &start,
+                                            &end));
+    ASSERT(start == expected_start);
+    ASSERT(end == expected_end);
+
+    return;
+}
+
+static void
+lyrics_test_assert_no_line_range(
+    LrcLyricsNormalized *normalized,
+    int32 line_index,
+    enum LrcLyricsNormalizedLineKind expected_kind
+) {
+    int32 start;
+    int32 end;
+
+    ASSERT(!lrc_lyrics_normalized_line_range(normalized,
+                                             line_index,
+                                             &start,
+                                             &end));
+    ASSERT(start == -1);
+    ASSERT(end == -1);
+    ASSERT(lrc_lyrics_normalized_line_kind(normalized, line_index)
+           == expected_kind);
+
+    return;
 }
 
 static int32
@@ -1000,6 +1141,14 @@ lyrics_test_normalize_punctuation_sections_and_mapping(void) {
                      "hello world bangbang maxwells", 29));
     ASSERT(normalized.byte_count == normalized.text_len);
     ASSERT(normalized.alignable_line_count == 2);
+    ASSERT(normalized.line_count == lyrics.line_count);
+    lyrics_test_assert_line_range(&normalized, 0, 0, 11);
+    lyrics_test_assert_no_line_range(
+        &normalized,
+        1,
+        LRC_LYRICS_NORMALIZED_LINE_KIND_SECTION_MARKER
+    );
+    lyrics_test_assert_line_range(&normalized, 2, 12, 29);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, 0) == 0);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, 10) == 0);
 
@@ -1039,6 +1188,19 @@ lyrics_test_normalize_unicode_and_blank_lines(void) {
     ASSERT(strequal2(normalized.text, normalized.text_len,
                      "olá 世界 again", 17));
     ASSERT(normalized.alignable_line_count == 2);
+    ASSERT(normalized.line_count == lyrics.line_count);
+    lyrics_test_assert_line_range(&normalized, 0, 0, 11);
+    lyrics_test_assert_no_line_range(
+        &normalized,
+        1,
+        LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK
+    );
+    lyrics_test_assert_no_line_range(
+        &normalized,
+        2,
+        LRC_LYRICS_NORMALIZED_LINE_KIND_SECTION_MARKER
+    );
+    lyrics_test_assert_line_range(&normalized, 3, 12, 17);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, 0) == 0);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, 3) == 0);
 
@@ -1048,6 +1210,47 @@ lyrics_test_normalize_unicode_and_blank_lines(void) {
     ASSERT(again != NULL);
     again_offset = (int32)(again - normalized.text);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, again_offset) == 3);
+
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
+lyrics_test_normalized_ranges_blank_punctuation_repeated(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    char text[] = "Repeat\n\n!!! ???\nRepeat\n";
+
+    if (!lyrics_test_load_text(&lyrics, text, strlen32(text))) {
+        return lyrics_test_fail("load repeated range text");
+    }
+
+    lrc_lyrics_normalized_init(&normalized);
+    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+        lrc_lyrics_destroy(&lyrics);
+        return lyrics_test_fail("normalize repeated range text");
+    }
+
+    ASSERT(strequal2(normalized.text, normalized.text_len,
+                     "repeat repeat", 13));
+    ASSERT(normalized.line_count == 4);
+    ASSERT(normalized.alignable_line_count == 2);
+    lyrics_test_assert_line_range(&normalized, 0, 0, 6);
+    lyrics_test_assert_no_line_range(
+        &normalized,
+        1,
+        LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK
+    );
+    lyrics_test_assert_no_line_range(
+        &normalized,
+        2,
+        LRC_LYRICS_NORMALIZED_LINE_KIND_PUNCTUATION_ONLY
+    );
+    lyrics_test_assert_line_range(&normalized, 3, 7, 13);
+    ASSERT(lrc_lyrics_normalized_line_at(&normalized, 6) == 3);
+    ASSERT(lrc_lyrics_normalized_line_at(&normalized, 7) == 3);
 
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
@@ -1106,6 +1309,17 @@ lyrics_test_optional_maxwell_txt(void) {
             154
         ));
         ASSERT(normalized.alignable_line_count == 5);
+        ASSERT(normalized.line_count == lyrics.line_count);
+        lyrics_test_assert_line_range(&normalized, 0, 0, 39);
+        lyrics_test_assert_line_range(&normalized, 1, 40, 71);
+        lyrics_test_assert_line_range(&normalized, 2, 72, 97);
+        lyrics_test_assert_no_line_range(
+            &normalized,
+            3,
+            LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK
+        );
+        lyrics_test_assert_line_range(&normalized, 4, 98, 130);
+        lyrics_test_assert_line_range(&normalized, 5, 131, 154);
         ASSERT(lrc_lyrics_normalized_line_at(&normalized, 0) == 0);
 
         bang = memmem64(normalized.text,
@@ -1141,6 +1355,9 @@ main(void) {
         exit(1);
     }
     if (lyrics_test_normalize_unicode_and_blank_lines() != 0) {
+        exit(1);
+    }
+    if (lyrics_test_normalized_ranges_blank_punctuation_repeated() != 0) {
         exit(1);
     }
     if (lyrics_test_optional_maxwell_txt() != 0) {
