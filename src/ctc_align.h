@@ -91,6 +91,11 @@ typedef struct LrcCtcAlignedTokenInterval {
     int64 segment_end_index;
     int64 token_start_frame;
     int64 token_end_frame;
+    int64 padded_start_frame;
+    int64 padded_end_frame;
+
+    float padded_start_seconds;
+    float padded_end_seconds;
 
     bool is_star;
 } LrcCtcAlignedTokenInterval;
@@ -183,6 +188,12 @@ static void lrc_ctc_aligned_token_intervals_init(
 );
 static void lrc_ctc_aligned_token_intervals_destroy(
     LrcCtcAlignedTokenIntervals *intervals
+);
+static bool lrc_ctc_pad_token_intervals_with_blanks(
+    LrcCtcPathSegments *segments,
+    float frame_duration_seconds,
+    LrcCtcAlignedTokenIntervals *intervals,
+    LrcCtcAlignResult *result
 );
 static void lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans);
 static void lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans);
