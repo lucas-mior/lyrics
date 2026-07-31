@@ -36,6 +36,12 @@ typedef struct LrcLyricsNormalizedByte {
     int32 source_end;
 } LrcLyricsNormalizedByte;
 
+typedef struct LrcLyricsTargetByte {
+    int32 line_index;
+    int32 normalized_start;
+    int32 normalized_end;
+} LrcLyricsTargetByte;
+
 enum LrcLyricsNormalizedLineKind {
     LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK,
     LRC_LYRICS_NORMALIZED_LINE_KIND_SECTION_MARKER,
@@ -63,14 +69,20 @@ typedef struct CtcTextSegment {
 
 typedef struct LrcLyricsNormalized {
     char *text;
+    char *target_text;
     LrcLyricsNormalizedByte *bytes;
+    LrcLyricsTargetByte *target_bytes;
     LrcLyricsNormalizedLine *lines;
     CtcTextSegment *segments;
 
     int32 text_len;
     int32 text_cap;
+    int32 target_text_len;
+    int32 target_text_cap;
     int32 byte_count;
     int32 byte_cap;
+    int32 target_byte_count;
+    int32 target_byte_cap;
     int32 line_count;
     int32 line_cap;
     int32 segment_count;

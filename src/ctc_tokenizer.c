@@ -221,19 +221,84 @@ lrc_ctc_tokenizer_is_unmatched_separator(
     return true;
 }
 
+static bool
+lrc_ctc_tokenizer_uses_target_text(LrcLyricsNormalized *normalized) {
+    if (normalized == NULL) {
+        return false;
+    }
+    if ((normalized->target_text == NULL)
+        || (normalized->target_text_len <= 0)) {
+        return false;
+    }
+
+    return true;
+}
+
 static int32
-lrc_ctc_tokenizer_normalized_line_at(
+lrc_ctc_tokenizer_map_line_at(
     LrcLyricsNormalized *normalized,
-    int32 offset
+    int32 offset,
+    bool use_target_text
 ) {
     if (normalized == NULL) {
         return -1;
+    }
+    if (use_target_text) {
+        if ((offset < 0) || (offset >= normalized->target_byte_count)) {
+            return -1;
+        }
+        return normalized->target_bytes[offset].line_index;
     }
     if ((offset < 0) || (offset >= normalized->byte_count)) {
         return -1;
     }
 
     return normalized->bytes[offset].line_index;
+}
+
+static bool
+lrc_ctc_tokenizer_map_normalized_range(
+    LrcLyricsNormalized *normalized,
+    int32 offset,
+    int32 token_len,
+    bool use_target_text,
+    int32 *normalized_start,
+    int32 *normalized_end,
+    int32 *line_index
+) {
+    int32 last;
+
+    if ((normalized_start == NULL) || (normalized_end == NULL)
+        || (line_index == NULL)) {
+        return false;
+    }
+
+    *normalized_start = -1;
+    *normalized_end = -1;
+    *line_index = -1;
+
+    if (token_len <= 0) {
+        return false;
+    }
+    last = offset + token_len - 1;
+    if (use_target_text) {
+        if ((offset < 0) || (last >= normalized->target_byte_count)) {
+            return false;
+        }
+        *normalized_start = normalized->target_bytes[offset].normalized_start;
+        *normalized_end = normalized->target_bytes[last].normalized_end;
+        *line_index = normalized->target_bytes[offset].line_index;
+        return true;
+    }
+    if ((offset < 0) || (last >= normalized->byte_count)) {
+        return false;
+    }
+
+    *normalized_start = offset;
+    *normalized_end = offset + token_len;
+    *line_index = normalized->bytes[offset].line_index;
+
+    return true;
 }
 
 static bool
@@ -245,6 +310,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
 ) {
     char *text;
     int32 text_len;
+    bool use_target_text;
 
     if (result) {
         lrc_ctc_tokenize_result_init(result);
@@ -263,8 +329,14 @@ lrc_ctc_tokenizer_tokenize_normalized(
 
     lrc_ctc_tokenized_text_destroy(tokens);
 
-    text = normalized->text;
-    text_len = normalized->text_len;
+    use_target_text = lrc_ctc_tokenizer_uses_target_text(normalized);
+    if (use_target_text) {
+        text = normalized->target_text;
+        text_len = normalized->target_text_len;
+    } else {
+        text = normalized->text;
+        text_len = normalized->text_len;
+    }
     if ((text == NULL) || (text_len <= 0)) {
         lrc_ctc_tokenize_result_set(
             result,
@@ -280,19 +352,49 @@ lrc_ctc_tokenizer_tokenize_normalized(
     for (int32 i = 0; i < text_len;) {
         int32 token_id;
         int32 token_len;
+        int32 normalized_start;
+        int32 normalized_end;
         int32 line_index;
 
-        line_index = lrc_ctc_tokenizer_normalized_line_at(normalized, i);
+        line_index = lrc_ctc_tokenizer_map_line_at(normalized,
+                                                   i,
+                                                   use_target_text);
+        if (use_target_text
+            && lrc_ctc_tokenizer_is_unmatched_separator(text,
+                                                        text_len,
+                                                        i,
+                                                        &token_len)) {
+            i += token_len;
+            continue;
+        }
         if (lrc_ctc_tokenizer_best_match(tokenizer,
                                          text,
                                          text_len,
                                          i,
                                          &token_id,
                                          &token_len)) {
+            if (!lrc_ctc_tokenizer_map_normalized_range(normalized,
+                                                         i,
+                                                         token_len,
+                                                         use_target_text,
+                                                         &normalized_start,
+                                                         &normalized_end,
+                                                         &line_index)) {
+                lrc_ctc_tokenize_result_set(
+                    result,
+                    LRC_CTC_TOKENIZE_ERROR_INVALID_ARGUMENT,
+                    "CTC token mapping failed",
+                    i,
+                    line_index,
+                    token_id
+                );
+                lrc_ctc_tokenized_text_destroy(tokens);
+                return false;
+            }
             if (!lrc_ctc_tokenized_text_append(tokens,
                                                token_id,
-                                               i,
-                                               i + token_len,
+                                               normalized_start,
+                                               normalized_end,
                                                line_index)) {
                 lrc_ctc_tokenize_result_set(
                     result,
@@ -320,10 +422,28 @@ lrc_ctc_tokenizer_tokenize_normalized(
         if (tokenizer->unknown_id >= 0) {
             token_id = tokenizer->unknown_id;
             token_len = lrc_ctc_tokenizer_utf8_step(text, text_len, i);
+            if (!lrc_ctc_tokenizer_map_normalized_range(normalized,
+                                                         i,
+                                                         token_len,
+                                                         use_target_text,
+                                                         &normalized_start,
+                                                         &normalized_end,
+                                                         &line_index)) {
+                lrc_ctc_tokenize_result_set(
+                    result,
+                    LRC_CTC_TOKENIZE_ERROR_INVALID_ARGUMENT,
+                    "CTC token mapping failed",
+                    i,
+                    line_index,
+                    token_id
+                );
+                lrc_ctc_tokenized_text_destroy(tokens);
+                return false;
+            }
             if (!lrc_ctc_tokenized_text_append(tokens,
                                                token_id,
-                                               i,
-                                               i + token_len,
+                                               normalized_start,
+                                               normalized_end,
                                                line_index)) {
                 lrc_ctc_tokenize_result_set(
                     result,
@@ -1424,6 +1544,78 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
 
 
 static int32
+ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizeResult result;
+    LrcLyricsPreprocessOptions options;
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    char tokenizer_text[] = "<blank>\nca\nc\na\nt\n";
+    char lyrics_text[] = "Cat\n";
+
+    if (!ctc_tokenizer_load_from_text(&tokenizer,
+                                      tokenizer_text,
+                                      "ctc_tokenizer_word_target")) {
+        return ctc_tokenizer_test_fail("load word target vocabulary");
+    }
+    if (!ctc_tokenizer_normalize_lyrics_text(
+        &lyrics,
+        &normalized,
+        lyrics_text,
+        "ctc_tokenizer_word_target_lyrics"
+    )) {
+        lrc_ctc_tokenizer_destroy(&tokenizer);
+        return ctc_tokenizer_test_fail("normalize word target lyrics");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+    if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
+        lrc_lyrics_normalized_destroy(&normalized);
+        lrc_lyrics_destroy(&lyrics);
+        lrc_ctc_tokenizer_destroy(&tokenizer);
+        return ctc_tokenizer_test_fail("normalize word target option lyrics");
+    }
+
+    ASSERT(strequal2(normalized.text, normalized.text_len, STRLIT("cat")));
+    ASSERT(strequal2(normalized.target_text,
+                     normalized.target_text_len,
+                     STRLIT("c a t")));
+
+    lrc_ctc_tokenized_text_init(&tokens);
+    if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
+                                               &normalized,
+                                               &tokens,
+                                               &result)) {
+        lrc_ctc_tokenized_text_destroy(&tokens);
+        lrc_lyrics_normalized_destroy(&normalized);
+        lrc_lyrics_destroy(&lyrics);
+        lrc_ctc_tokenizer_destroy(&tokenizer);
+        return ctc_tokenizer_test_fail("tokenize word target lyrics");
+    }
+
+    ASSERT(result.error == LRC_CTC_TOKENIZE_ERROR_NONE);
+    ASSERT(tokens.token_count == 3);
+    ASSERT(tokens.tokens[0].token_id == 2);
+    ASSERT(tokens.tokens[0].normalized_start == 0);
+    ASSERT(tokens.tokens[0].normalized_end == 1);
+    ASSERT(tokens.tokens[1].token_id == 3);
+    ASSERT(tokens.tokens[1].normalized_start == 1);
+    ASSERT(tokens.tokens[1].normalized_end == 2);
+    ASSERT(tokens.tokens[2].token_id == 4);
+    ASSERT(tokens.tokens[2].normalized_start == 2);
+    ASSERT(tokens.tokens[2].normalized_end == 3);
+
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+
+    return 0;
+}
+
+static int32
 ctc_tokenizer_test_skips_unmatched_spaces(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizedText tokens;
@@ -1524,6 +1716,10 @@ main(void) {
         exit(1);
     }
     if (ctc_tokenizer_test_unknown_token_covers_one_utf8_rune() != 0) {
+        exit(1);
+    }
+    if (ctc_tokenizer_test_word_target_prevents_multi_character_match()
+        != 0) {
         exit(1);
     }
     if (ctc_tokenizer_test_skips_unmatched_spaces() != 0) {
