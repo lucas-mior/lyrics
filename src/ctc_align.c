@@ -1284,6 +1284,31 @@ ctc_align_load_alphabet_tokenizer(LrcCtcTokenizer *tokenizer) {
     return ok;
 }
 
+static bool
+ctc_align_load_lyrics_text(
+    LrcLyrics *lyrics,
+    char *text,
+    int32 text_len
+) {
+    LrcLyricsLoadResult result;
+    char temp_dir[PATH_MAX];
+    char path[PATH_MAX];
+    bool ok;
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_align_lyrics");
+    ctc_align_join_path(path, SIZEOF(path), temp_dir, "lyrics.txt");
+    if (!write_entire_file(path, text, text_len)) {
+        test_remove_tree(temp_dir);
+        return false;
+    }
+
+    lrc_lyrics_init(lyrics);
+    ok = lrc_lyrics_load_file(lyrics, path, &result);
+    test_remove_tree(temp_dir);
+
+    return ok;
+}
+
 static void
 ctc_align_fill_predictable_values(
     float *values,
@@ -2025,6 +2050,138 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
     return 0;
 }
 
+
+static int32
+ctc_align_test_full_synthetic_alignment_pipeline(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizeResult tokenize_result;
+    LrcCtcAlignResult align_result;
+    LrcCtcTrellis trellis;
+    LrcCtcPath path;
+    LrcCtcTokenSpans spans;
+    LrcCtcEmissions emissions;
+    int32 *target_token_ids;
+    float *values;
+    char text[] = "AB, cab!\n";
+    float frame_duration_seconds;
+    int64 token_count;
+    int64 frame_count;
+    int64 vocabulary_size;
+    int64 value_count;
+
+    lrc_lyrics_normalized_init(&normalized);
+    lrc_ctc_tokenizer_init(&tokenizer);
+    lrc_ctc_tokenized_text_init(&tokens);
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    lrc_ctc_token_spans_init(&spans);
+    if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
+        return ctc_align_test_fail("load synthetic lyrics");
+    }
+    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+        return ctc_align_test_fail("normalize synthetic lyrics");
+    }
+    ASSERT(strequal2(normalized.text, normalized.text_len, "ab cab", 6));
+
+    if (!ctc_align_load_alphabet_tokenizer(&tokenizer)) {
+        return ctc_align_test_fail("load synthetic tokenizer");
+    }
+    if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
+                                               &normalized,
+                                               &tokens,
+                                               &tokenize_result)) {
+        return ctc_align_test_fail("tokenize synthetic lyrics");
+    }
+
+    ASSERT(tokens.token_count == normalized.text_len);
+    for (int32 i = 0; i < tokens.token_count; i += 1) {
+        ASSERT(tokens.tokens[i].normalized_start == i);
+        ASSERT(tokens.tokens[i].normalized_end == i + 1);
+        ASSERT(tokens.tokens[i].line_index == 0);
+    }
+
+    token_count = tokens.token_count;
+    frame_count = token_count + 2;
+    vocabulary_size = tokenizer.token_count;
+    value_count = frame_count*vocabulary_size;
+    target_token_ids = malloc2(token_count*SIZEOF(*target_token_ids));
+    values = malloc2(value_count*SIZEOF(*values));
+    for (int64 i = 0; i < token_count; i += 1) {
+        target_token_ids[i] = tokens.tokens[i].token_id;
+    }
+    ctc_align_fill_predictable_values(values,
+                                      frame_count,
+                                      vocabulary_size,
+                                      tokenizer.blank_id,
+                                      target_token_ids,
+                                      token_count);
+    ctc_align_make_emissions(&emissions, values, frame_count, vocabulary_size);
+    if (!lrc_ctc_trellis_score_forward(&trellis,
+                                        &emissions,
+                                        target_token_ids,
+                                        token_count,
+                                        tokenizer.blank_id,
+                                        &align_result)) {
+        return ctc_align_test_fail("score synthetic full path");
+    }
+    if (!lrc_ctc_trellis_backtrack(&trellis,
+                                   &emissions,
+                                   target_token_ids,
+                                   token_count,
+                                   tokenizer.blank_id,
+                                   &path,
+                                   &align_result)) {
+        return ctc_align_test_fail("backtrack synthetic full path");
+    }
+
+    frame_duration_seconds = 0.125f;
+    if (!lrc_ctc_path_to_token_spans(&path,
+                                     &emissions,
+                                     frame_duration_seconds,
+                                     &spans,
+                                     &align_result)) {
+        return ctc_align_test_fail("span synthetic full path");
+    }
+
+    ASSERT(align_result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(spans.span_count == token_count);
+    for (int64 i = 0; i < spans.span_count; i += 1) {
+        float expected_start;
+        float expected_end;
+
+        expected_start = (float)(i + 1)*frame_duration_seconds;
+        expected_end = (float)(i + 2)*frame_duration_seconds;
+        ASSERT(spans.spans[i].token_index == i);
+        ASSERT(spans.spans[i].token_id == target_token_ids[i]);
+        ASSERT(spans.spans[i].start_frame == i + 1);
+        ASSERT(spans.spans[i].end_frame == i + 2);
+        ASSERT(ctc_align_float_close(spans.spans[i].start_seconds,
+                                     expected_start,
+                                     0.00001f));
+        ASSERT(ctc_align_float_close(spans.spans[i].end_seconds,
+                                     expected_end,
+                                     0.00001f));
+        ASSERT(ctc_align_float_close(spans.spans[i].score,
+                                     -0.05f,
+                                     0.00001f));
+    }
+
+    lrc_ctc_token_spans_destroy(&spans);
+    lrc_ctc_path_destroy(&path);
+    lrc_ctc_trellis_destroy(&trellis);
+    free2(values, value_count*SIZEOF(*values));
+    free2(target_token_ids, token_count*SIZEOF(*target_token_ids));
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
 static int32
 ctc_align_test_maxwell_fake_token_timing(void) {
     LrcLyrics lyrics;
@@ -2209,6 +2366,24 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_backtrack_rejects_invalid_trellis() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_token_spans_from_backtracked_path() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_token_spans_preserve_repeated_tokens() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_token_spans_collapse_contiguous_steps() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_token_spans_reject_bad_inputs() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_full_synthetic_alignment_pipeline() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_maxwell_fake_token_timing() != 0) {
         exit(1);
     }
 
