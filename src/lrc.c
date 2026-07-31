@@ -43,6 +43,280 @@ lrc_parse_result_set(
 }
 
 static void
+lrc_format_result_init(LrcFormatResult *result) {
+    if (result == NULL) {
+        return;
+    }
+
+    result->error = LRC_FORMAT_ERROR_NONE;
+    result->message = "ok";
+
+    result->seconds = 0.0f;
+    result->timestamp_hundredths = 0;
+
+    return;
+}
+
+static void
+lrc_format_result_set(
+    LrcFormatResult *result,
+    enum LrcFormatError error,
+    char *message,
+    float seconds,
+    int32 timestamp_hundredths
+) {
+    if (result == NULL) {
+        return;
+    }
+
+    result->error = error;
+    result->message = message;
+
+    result->seconds = seconds;
+    result->timestamp_hundredths = timestamp_hundredths;
+
+    return;
+}
+
+static int32
+lrc_decimal_digit_count(int32 value) {
+    int32 digits;
+
+    ASSERT(value >= 0);
+
+    digits = 1;
+    while (value >= 10) {
+        value /= 10;
+        digits += 1;
+    }
+
+    return digits;
+}
+
+static int32
+lrc_timestamp_formatted_len(int32 timestamp_hundredths) {
+    int32 minutes;
+    int32 minute_digits;
+
+    ASSERT(timestamp_hundredths >= 0);
+
+    minutes = timestamp_hundredths/6000;
+    minute_digits = lrc_decimal_digit_count(minutes);
+    if (minute_digits < 2) {
+        minute_digits = 2;
+    }
+
+    return minute_digits + 8;
+}
+
+static bool
+lrc_timestamp_hundredths_from_seconds(
+    float seconds,
+    int32 *timestamp_hundredths,
+    LrcFormatResult *result
+) {
+    double rounded;
+
+    if (result) {
+        lrc_format_result_init(result);
+    }
+    if (timestamp_hundredths == NULL) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              "timestamp destination is missing",
+                              seconds,
+                              -1);
+        return false;
+    }
+    if (!isfinite(seconds) || (seconds < 0.0f)) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_INVALID_TIMESTAMP,
+                              "timestamp seconds are invalid",
+                              seconds,
+                              -1);
+        return false;
+    }
+
+    rounded = (double)seconds*100.0 + 0.5;
+    if (rounded > (double)INT32_MAX) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_TOO_LARGE,
+                              "timestamp seconds are too large",
+                              seconds,
+                              -1);
+        return false;
+    }
+
+    *timestamp_hundredths = (int32)rounded;
+
+    return true;
+}
+
+static bool
+lrc_format_timestamp_hundredths(
+    int32 timestamp_hundredths,
+    char *buffer,
+    int32 buffer_len,
+    int32 *formatted_len,
+    LrcFormatResult *result
+) {
+    int32 minutes;
+    int32 seconds;
+    int32 hundredths;
+    int32 len;
+
+    if (result) {
+        lrc_format_result_init(result);
+    }
+    if ((buffer == NULL) || (buffer_len <= 0)) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              "timestamp buffer is missing",
+                              0.0f,
+                              timestamp_hundredths);
+        return false;
+    }
+    if (timestamp_hundredths < 0) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_INVALID_TIMESTAMP,
+                              "timestamp hundredths are invalid",
+                              0.0f,
+                              timestamp_hundredths);
+        return false;
+    }
+
+    len = lrc_timestamp_formatted_len(timestamp_hundredths);
+    if (buffer_len <= len) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_TOO_LARGE,
+                              "timestamp buffer is too small",
+                              0.0f,
+                              timestamp_hundredths);
+        return false;
+    }
+
+    minutes = timestamp_hundredths/6000;
+    seconds = (timestamp_hundredths/100)%60;
+    hundredths = timestamp_hundredths%100;
+    len = snprintf2(buffer,
+                    buffer_len,
+                    "[%02d:%02d.%02d]",
+                    minutes,
+                    seconds,
+                    hundredths);
+
+    if (formatted_len) {
+        *formatted_len = len;
+    }
+
+    return true;
+}
+
+static bool
+lrc_format_timestamp_seconds(
+    float seconds,
+    char *buffer,
+    int32 buffer_len,
+    int32 *formatted_len,
+    LrcFormatResult *result
+) {
+    int32 timestamp_hundredths;
+
+    if (result) {
+        lrc_format_result_init(result);
+    }
+    if (!lrc_timestamp_hundredths_from_seconds(seconds,
+                                               &timestamp_hundredths,
+                                               result)) {
+        return false;
+    }
+
+    return lrc_format_timestamp_hundredths(timestamp_hundredths,
+                                           buffer,
+                                           buffer_len,
+                                           formatted_len,
+                                           result);
+}
+
+static bool
+lrc_format_timestamped_line_hundredths(
+    StrBuilder *builder,
+    int32 timestamp_hundredths,
+    char *text,
+    int32 text_len,
+    LrcFormatResult *result
+) {
+    char timestamp[32];
+    int32 timestamp_len;
+
+    if (result) {
+        lrc_format_result_init(result);
+    }
+    if (builder == NULL) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              "line destination is missing",
+                              0.0f,
+                              timestamp_hundredths);
+        return false;
+    }
+    if ((text == NULL) && (text_len > 0)) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              "line text is missing",
+                              0.0f,
+                              timestamp_hundredths);
+        return false;
+    }
+    if (text_len < 0) {
+        lrc_format_result_set(result,
+                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              "line text length is negative",
+                              0.0f,
+                              timestamp_hundredths);
+        return false;
+    }
+    if (!lrc_format_timestamp_hundredths(timestamp_hundredths,
+                                         timestamp,
+                                         SIZEOF(timestamp),
+                                         &timestamp_len,
+                                         result)) {
+        return false;
+    }
+
+    sb_append(builder, timestamp, timestamp_len);
+    sb_append(builder, text, text_len);
+
+    return true;
+}
+
+static bool
+lrc_format_timestamped_line(
+    StrBuilder *builder,
+    float seconds,
+    char *text,
+    int32 text_len,
+    LrcFormatResult *result
+) {
+    int32 timestamp_hundredths;
+
+    if (result) {
+        lrc_format_result_init(result);
+    }
+    if (!lrc_timestamp_hundredths_from_seconds(seconds,
+                                               &timestamp_hundredths,
+                                               result)) {
+        return false;
+    }
+
+    return lrc_format_timestamped_line_hundredths(builder,
+                                                  timestamp_hundredths,
+                                                  text,
+                                                  text_len,
+                                                  result);
+}
+
+static void
 lrc_parsed_file_init(LrcParsedFile *parsed) {
     if (parsed == NULL) {
         return;
@@ -593,6 +867,220 @@ lrc_test_duplicate_timestamps_are_preserved(void) {
     return 0;
 }
 
+static void
+lrc_test_assert_timestamp(
+    int32 timestamp_hundredths,
+    char *expected,
+    int32 expected_len
+) {
+    LrcFormatResult result;
+    char buffer[32];
+    int32 len;
+
+    if (!lrc_format_timestamp_hundredths(timestamp_hundredths,
+                                         buffer,
+                                         SIZEOF(buffer),
+                                         &len,
+                                         &result)) {
+        ASSERT(false);
+    }
+
+    ASSERT(len == expected_len);
+    ASSERT(strequal2(buffer, len, expected, expected_len));
+
+    return;
+}
+
+static int32
+lrc_test_format_timestamp_hundredths(void) {
+    lrc_test_assert_timestamp(0, STRLIT("[00:00.00]"));
+    lrc_test_assert_timestamp(1, STRLIT("[00:00.01]"));
+    lrc_test_assert_timestamp(5999, STRLIT("[00:59.99]"));
+    lrc_test_assert_timestamp(6000, STRLIT("[01:00.00]"));
+    lrc_test_assert_timestamp(6234, STRLIT("[01:02.34]"));
+    lrc_test_assert_timestamp(360000, STRLIT("[60:00.00]"));
+
+    return 0;
+}
+
+static int32
+lrc_test_format_timestamp_seconds_rounding(void) {
+    LrcFormatResult result;
+    char buffer[32];
+    int32 hundredths;
+
+    if (!lrc_timestamp_hundredths_from_seconds(1.231f,
+                                               &hundredths,
+                                               &result)) {
+        return lrc_test_fail("round seconds down");
+    }
+    ASSERT(hundredths == 123);
+
+    if (!lrc_format_timestamp_seconds(1.236f,
+                                      buffer,
+                                      SIZEOF(buffer),
+                                      NULL,
+                                      &result)) {
+        return lrc_test_fail("round seconds up");
+    }
+    ASSERT(strequal(buffer, "[00:01.24]"));
+
+    if (!lrc_format_timestamp_seconds(59.996f,
+                                      buffer,
+                                      SIZEOF(buffer),
+                                      NULL,
+                                      &result)) {
+        return lrc_test_fail("round across minute boundary");
+    }
+    ASSERT(strequal(buffer, "[01:00.00]"));
+
+    if (!lrc_format_timestamp_seconds(3600.0f,
+                                      buffer,
+                                      SIZEOF(buffer),
+                                      NULL,
+                                      &result)) {
+        return lrc_test_fail("format hour length timestamp");
+    }
+    ASSERT(strequal(buffer, "[60:00.00]"));
+
+    return 0;
+}
+
+static int32
+lrc_test_format_timestamped_line_preserves_text(void) {
+    LrcFormatResult result;
+    StrBuilder builder;
+    char text[] = "Bang, bang, Café's hammer!";
+
+    sb_init(&builder);
+    if (!lrc_format_timestamped_line(&builder,
+                                      14.14f,
+                                      text,
+                                      strlen32(text),
+                                      &result)) {
+        return lrc_test_fail("format timestamped line");
+    }
+    ASSERT(strequal(builder.data, "[00:14.14]Bang, bang, Café's hammer!"));
+
+    sb_free(&builder);
+
+    return 0;
+}
+
+static int32
+lrc_test_format_reject_bad_inputs(void) {
+    LrcFormatResult result;
+    StrBuilder builder;
+    char buffer[4];
+    int32 hundredths;
+
+    sb_init(&builder);
+
+    if (lrc_timestamp_hundredths_from_seconds(-0.01f,
+                                              &hundredths,
+                                              &result)) {
+        return lrc_test_fail("accepted negative seconds");
+    }
+    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_TIMESTAMP);
+
+    if (lrc_timestamp_hundredths_from_seconds(INFINITY,
+                                              &hundredths,
+                                              &result)) {
+        return lrc_test_fail("accepted infinite seconds");
+    }
+    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_TIMESTAMP);
+
+    if (lrc_format_timestamp_hundredths(-1,
+                                        buffer,
+                                        SIZEOF(buffer),
+                                        NULL,
+                                        &result)) {
+        return lrc_test_fail("accepted negative hundredths");
+    }
+    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_TIMESTAMP);
+
+    if (lrc_format_timestamp_hundredths(0,
+                                        buffer,
+                                        SIZEOF(buffer),
+                                        NULL,
+                                        &result)) {
+        return lrc_test_fail("accepted small buffer");
+    }
+    ASSERT(result.error == LRC_FORMAT_ERROR_TOO_LARGE);
+
+    if (lrc_format_timestamped_line_hundredths(&builder,
+                                               0,
+                                               NULL,
+                                               1,
+                                               &result)) {
+        return lrc_test_fail("accepted missing line text");
+    }
+    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_ARGUMENT);
+
+    sb_free(&builder);
+
+    return 0;
+}
+
+static int32
+lrc_test_optional_maxwell_formatting(void) {
+    LrcParsedFile parsed;
+    LrcParseResult parse_result;
+    LrcFormatResult format_result;
+    StrBuilder builder;
+    char *path;
+    char *text;
+    int32 text_len;
+
+    path = getenv("LRC_TEST_MAXWELL_LRC");
+    if (path == NULL) {
+        path = "next-phase/maxwell.lrc";
+    }
+    if (!util_file_exists(path)) {
+        return 0;
+    }
+
+    text = read_entire_file(path, &text_len);
+    lrc_parsed_file_init(&parsed);
+    if (!lrc_parse_text(&parsed, text, text_len, &parse_result)) {
+        free2(text, ((int64)text_len + 1)*SIZEOF(*text));
+        return lrc_test_fail("parse maxwell lrc before formatting");
+    }
+
+    sb_init(&builder);
+    for (int32 i = 0; i < parsed.line_count; i += 1) {
+        LrcParsedLine *line;
+
+        line = parsed.lines + i;
+        if (line->kind == LRC_PARSED_LINE_KIND_TIMESTAMPED) {
+            if (!lrc_format_timestamped_line_hundredths(
+                &builder,
+                line->timestamp_hundredths,
+                line->text,
+                line->text_len,
+                &format_result
+            )) {
+                lrc_parsed_file_destroy(&parsed);
+                sb_free(&builder);
+                free2(text, ((int64)text_len + 1)*SIZEOF(*text));
+                return lrc_test_fail("format maxwell lrc line");
+            }
+        } else {
+            sb_append(&builder, line->text, line->text_len);
+        }
+        sb_append_byte(&builder, '\n');
+    }
+
+    ASSERT(builder.len == text_len);
+    ASSERT(strequal2(builder.data, builder.len, text, text_len));
+
+    lrc_parsed_file_destroy(&parsed);
+    sb_free(&builder);
+    free2(text, ((int64)text_len + 1)*SIZEOF(*text));
+
+    return 0;
+}
+
 static int32
 lrc_test_optional_maxwell_lrc(void) {
     LrcParsedFile parsed;
@@ -671,6 +1159,21 @@ main(void) {
         exit(1);
     }
     if (lrc_test_duplicate_timestamps_are_preserved() != 0) {
+        exit(1);
+    }
+    if (lrc_test_format_timestamp_hundredths() != 0) {
+        exit(1);
+    }
+    if (lrc_test_format_timestamp_seconds_rounding() != 0) {
+        exit(1);
+    }
+    if (lrc_test_format_timestamped_line_preserves_text() != 0) {
+        exit(1);
+    }
+    if (lrc_test_format_reject_bad_inputs() != 0) {
+        exit(1);
+    }
+    if (lrc_test_optional_maxwell_formatting() != 0) {
         exit(1);
     }
     if (lrc_test_optional_maxwell_lrc() != 0) {

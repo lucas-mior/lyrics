@@ -16,6 +16,13 @@ enum LrcParsedLineKind {
     LRC_PARSED_LINE_KIND_BLANK,
 };
 
+enum LrcFormatError {
+    LRC_FORMAT_ERROR_NONE,
+    LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+    LRC_FORMAT_ERROR_INVALID_TIMESTAMP,
+    LRC_FORMAT_ERROR_TOO_LARGE,
+};
+
 typedef struct LrcParsedLine {
     char *text;
 
@@ -35,6 +42,14 @@ typedef struct LrcParseResult {
     int32 byte_offset;
 } LrcParseResult;
 
+typedef struct LrcFormatResult {
+    enum LrcFormatError error;
+    char *message;
+
+    float seconds;
+    int32 timestamp_hundredths;
+} LrcFormatResult;
+
 typedef struct LrcParsedFile {
     char *text;
     LrcParsedLine *lines;
@@ -48,8 +63,42 @@ typedef struct LrcParsedFile {
 } LrcParsedFile;
 
 static void lrc_parse_result_init(LrcParseResult *result);
+static void lrc_format_result_init(LrcFormatResult *result);
 static void lrc_parsed_file_init(LrcParsedFile *parsed);
 static void lrc_parsed_file_destroy(LrcParsedFile *parsed);
+static bool lrc_timestamp_hundredths_from_seconds(
+    float seconds,
+    int32 *timestamp_hundredths,
+    LrcFormatResult *result
+);
+static bool lrc_format_timestamp_hundredths(
+    int32 timestamp_hundredths,
+    char *buffer,
+    int32 buffer_len,
+    int32 *formatted_len,
+    LrcFormatResult *result
+);
+static bool lrc_format_timestamp_seconds(
+    float seconds,
+    char *buffer,
+    int32 buffer_len,
+    int32 *formatted_len,
+    LrcFormatResult *result
+);
+static bool lrc_format_timestamped_line(
+    StrBuilder *builder,
+    float seconds,
+    char *text,
+    int32 text_len,
+    LrcFormatResult *result
+);
+static bool lrc_format_timestamped_line_hundredths(
+    StrBuilder *builder,
+    int32 timestamp_hundredths,
+    char *text,
+    int32 text_len,
+    LrcFormatResult *result
+);
 static bool lrc_parse_text(
     LrcParsedFile *parsed,
     char *text,
