@@ -50,10 +50,22 @@ typedef struct LrcLyricsNormalizedLine {
     int32 normalized_end;
 } LrcLyricsNormalizedLine;
 
+typedef struct CtcTextSegment {
+    int32 line_index;
+    int32 source_start;
+    int32 source_end;
+
+    int32 normalized_start;
+    int32 normalized_end;
+    int32 target_start;
+    int32 target_end;
+} CtcTextSegment;
+
 typedef struct LrcLyricsNormalized {
     char *text;
     LrcLyricsNormalizedByte *bytes;
     LrcLyricsNormalizedLine *lines;
+    CtcTextSegment *segments;
 
     int32 text_len;
     int32 text_cap;
@@ -61,6 +73,8 @@ typedef struct LrcLyricsNormalized {
     int32 byte_cap;
     int32 line_count;
     int32 line_cap;
+    int32 segment_count;
+    int32 segment_cap;
     int32 alignable_line_count;
 } LrcLyricsNormalized;
 
@@ -104,6 +118,13 @@ static bool lrc_lyrics_normalized_line_range(
     int32 line_index,
     int32 *start,
     int32 *end
+);
+static int32 lrc_lyrics_normalized_segment_count(
+    LrcLyricsNormalized *normalized
+);
+static CtcTextSegment *lrc_lyrics_normalized_segment(
+    LrcLyricsNormalized *normalized,
+    int32 segment_index
 );
 
 #endif /* CTC_TEXT_H */
