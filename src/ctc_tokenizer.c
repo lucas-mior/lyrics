@@ -981,6 +981,7 @@ lrc_ctc_tokenizer_load_file(
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 #include "lyrics.c"
+#include "ctc_text.c"
 
 static int32
 ctc_tokenizer_test_fail(char *name) {

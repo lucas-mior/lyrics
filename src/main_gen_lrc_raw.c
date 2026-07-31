@@ -16,6 +16,7 @@
 #include "ort.c"
 #endif
 #include "lyrics.c"
+#include "ctc_text.c"
 #include "ctc_assets.c"
 #include "ctc_tokenizer.c"
 #include "ctc_audio.c"
