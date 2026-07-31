@@ -28,7 +28,7 @@ OUTPUT=${OUTPUT:-vocals.wav}
 DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
 
 requested_cc=${CC:-}
-if [ "$target" = "test" ] || [ "$target" = "debug" ] \
+if [ "$target" = "test" ] \
    && [ -z "$requested_cc" ] \
    && command -v tcc >/dev/null 2>&1; then
     CC=tcc
@@ -190,10 +190,21 @@ pkg_config_add_optional_flags() {
     fi
 }
 
+pkg_config_add_optional_icu_flags() {
+    if pkg-config --exists icu-i18n icu-uc; then
+        trace_on
+        flags=$(pkg-config --cflags --libs icu-i18n icu-uc)
+        trace_off
+
+        CPPFLAGS="$CPPFLAGS -DLRC_UNICODE_ENABLE_ICU=1"
+        pkg_config_flags="$pkg_config_flags $flags"
+    fi
+}
+
 setup_pkg_config_flags() {
     require_command pkg-config
 
-    pkg_config_add_optional_flags icu-uc LRC_UNICODE_ENABLE_ICU
+    pkg_config_add_optional_icu_flags
     pkg_config_add_flags libonnxruntime
     pkg_config_add_flags fftw3f
 }

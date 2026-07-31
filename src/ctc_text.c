@@ -1243,7 +1243,7 @@ ctc_text_reference_collapse_spaces(
     }
 
     while ((result->text_len > 0) && (result->text[0] == ' ')) {
-        memmove(result->text, result->text + 1, result->text_len);
+        memmove(result->text, result->text + 1, (size_t)result->text_len);
         result->text_len -= 1;
         result->text[result->text_len] = '\0';
     }
@@ -1257,9 +1257,73 @@ ctc_text_reference_collapse_spaces(
 }
 
 static bool
+ctc_text_reference_normalize_uroman(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    uint32 rune;
+    int32 step;
+
+    ctc_unicode_norm_result_destroy(result);
+    for (int32 i = 0; i < text_len;) {
+        step = utf8_decode_raw(text + i, &rune, text_len - i);
+        if (step <= 0) {
+            return false;
+        }
+
+        if ((rune >= 'A') && (rune <= 'Z')) {
+            rune = (uint32)(rune - 'A' + 'a');
+        }
+
+        if (((rune >= 'a') && (rune <= 'z')) || (rune == '\'')) {
+            if (!ctc_text_reference_output_append_rune(result, rune)) {
+                return false;
+            }
+        } else if (rune == ' ') {
+            if (!ctc_text_reference_output_append_space(result)) {
+                return false;
+            }
+        } else if (!ctc_text_reference_output_append_space(result)) {
+            return false;
+        }
+
+        i += step;
+    }
+
+    while ((result->text_len > 0) && (result->text[0] == ' ')) {
+        memmove(result->text, result->text + 1, (size_t)result->text_len);
+        result->text_len -= 1;
+        result->text[result->text_len] = '\0';
+    }
+    while ((result->text_len > 0)
+           && (result->text[result->text_len - 1] == ' ')) {
+        result->text_len -= 1;
+        result->text[result->text_len] = '\0';
+    }
+
+    return true;
+}
+
+static bool
+ctc_text_reference_should_romanize(
+    LrcLyricsPreprocessOptions *options
+) {
+    if (options == NULL) {
+        return false;
+    }
+    if (options->romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
 ctc_text_reference_normalize_word(
     char *text,
     int32 text_len,
+    LrcLyricsPreprocessOptions *options,
     CtcUnicodeNormResult *result
 ) {
     CtcUnicodeNormResult stage1;
@@ -1267,6 +1331,7 @@ ctc_text_reference_normalize_word(
     CtcUnicodeNormResult stage3;
     CtcUnicodeNormResult stage4;
     CtcUnicodeNormResult stage5;
+    CtcUnicodeNormResult stage6;
     bool ok;
 
     ctc_unicode_norm_result_init(&stage1);
@@ -1274,6 +1339,7 @@ ctc_text_reference_normalize_word(
     ctc_unicode_norm_result_init(&stage3);
     ctc_unicode_norm_result_init(&stage4);
     ctc_unicode_norm_result_init(&stage5);
+    ctc_unicode_norm_result_init(&stage6);
     ctc_unicode_norm_result_destroy(result);
 
     ok = false;
@@ -1300,11 +1366,27 @@ ctc_text_reference_normalize_word(
                                            &stage5)) {
         goto done;
     }
-    ok = ctc_text_reference_collapse_spaces(stage5.text,
+    if (!ctc_text_reference_collapse_spaces(stage5.text,
                                             stage5.text_len,
-                                            result);
+                                            result)) {
+        goto done;
+    }
+    if (ctc_text_reference_should_romanize(options)) {
+        if (!ctc_unicode_norm_transliterate_latin(result->text,
+                                                  result->text_len,
+                                                  &stage6)) {
+            goto done;
+        }
+        if (!ctc_text_reference_normalize_uroman(stage6.text,
+                                                 stage6.text_len,
+                                                 result)) {
+            goto done;
+        }
+    }
+    ok = true;
 
 done:
+    ctc_unicode_norm_result_destroy(&stage6);
     ctc_unicode_norm_result_destroy(&stage5);
     ctc_unicode_norm_result_destroy(&stage4);
     ctc_unicode_norm_result_destroy(&stage3);
@@ -1547,6 +1629,7 @@ lrc_lyrics_normalize_word_segment(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized,
     LrcLyricsNormalizedLine *line_range,
+    LrcLyricsPreprocessOptions *options,
     int32 line_index,
     int32 word_start,
     int32 word_end,
@@ -1568,6 +1651,7 @@ lrc_lyrics_normalize_word_segment(
 
     if (!ctc_text_reference_normalize_word(lyrics->text + word_start,
                                            word_end - word_start,
+                                           options,
                                            &word)) {
         goto done;
     }
@@ -1691,6 +1775,7 @@ static bool
 lrc_lyrics_normalize_line_word(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized,
+    LrcLyricsPreprocessOptions *options,
     int32 line_index,
     int32 start,
     int32 end
@@ -1724,6 +1809,7 @@ lrc_lyrics_normalize_line_word(
         if (!lrc_lyrics_normalize_word_segment(lyrics,
                                                normalized,
                                                line_range,
+                                               options,
                                                line_index,
                                                word_start,
                                                word_end,
@@ -1751,6 +1837,7 @@ lrc_lyrics_normalize_char_segment(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized,
     LrcLyricsNormalizedLine *line_range,
+    LrcLyricsPreprocessOptions *options,
     int32 line_index,
     int32 char_start,
     int32 char_end,
@@ -1772,6 +1859,7 @@ lrc_lyrics_normalize_char_segment(
 
     if (!ctc_text_reference_normalize_word(lyrics->text + char_start,
                                            char_end - char_start,
+                                           options,
                                            &chunk)) {
         goto done;
     }
@@ -1826,6 +1914,7 @@ static bool
 lrc_lyrics_normalize_line_char(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized,
+    LrcLyricsPreprocessOptions *options,
     int32 line_index,
     int32 start,
     int32 end
@@ -1847,6 +1936,7 @@ lrc_lyrics_normalize_line_char(
         if (!lrc_lyrics_normalize_char_segment(lyrics,
                                                normalized,
                                                line_range,
+                                               options,
                                                line_index,
                                                i,
                                                i + step,
@@ -1924,6 +2014,7 @@ lrc_lyrics_normalize_with_options(
         case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD:
             ok = lrc_lyrics_normalize_line_word(lyrics,
                                                 normalized,
+                                                options,
                                                 i,
                                                 start,
                                                 end);
@@ -1931,6 +2022,7 @@ lrc_lyrics_normalize_with_options(
         case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR:
             ok = lrc_lyrics_normalize_line_char(lyrics,
                                                 normalized,
+                                                options,
                                                 i,
                                                 start,
                                                 end);
@@ -3169,6 +3261,110 @@ ctc_text_test_char_split_matches_reference_fixtures(void) {
     return status;
 }
 
+#if LRC_UNICODE_ENABLE_ICU
+static int32
+ctc_text_test_icu_word_romanization(void) {
+    LrcLyricsPreprocessOptions options;
+    LrcLyricsNormalized normalized;
+    CtcTextSegment *segment;
+    LrcLyrics lyrics;
+
+    if (!ctc_text_load_lyrics(&lyrics,
+                              "猫 Привет\n",
+                              "ctc_text_icu_word_romanization")) {
+        return ctc_text_test_fail("load ICU romanization lyrics");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
+
+    lrc_lyrics_normalized_init(&normalized);
+    if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
+        lrc_lyrics_destroy(&lyrics);
+        return ctc_text_test_fail("normalize ICU romanization lyrics");
+    }
+
+    ASSERT(strequal2(normalized.text,
+                     normalized.text_len,
+                     STRLIT("mao privet")));
+    ASSERT(strequal2(normalized.target_text,
+                     normalized.target_text_len,
+                     STRLIT("m a o p r i v e t")));
+    ASSERT(normalized.segment_count == 2);
+
+    segment = lrc_lyrics_normalized_segment(&normalized, 0);
+    ASSERT(segment);
+    ASSERT(segment->normalized_start == 0);
+    ASSERT(segment->normalized_end == 3);
+    ASSERT(segment->target_start == 0);
+    ASSERT(segment->target_end == 5);
+
+    segment = lrc_lyrics_normalized_segment(&normalized, 1);
+    ASSERT(segment);
+    ASSERT(segment->normalized_start == 4);
+    ASSERT(segment->normalized_end == 10);
+    ASSERT(segment->target_start == 6);
+    ASSERT(segment->target_end == 17);
+
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
+ctc_text_test_icu_char_romanization(void) {
+    LrcLyricsPreprocessOptions options;
+    LrcLyricsNormalized normalized;
+    CtcTextSegment *segment;
+    LrcLyrics lyrics;
+
+    if (!ctc_text_load_lyrics(&lyrics,
+                              "你好\n",
+                              "ctc_text_icu_char_romanization")) {
+        return ctc_text_test_fail("load ICU char romanization lyrics");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
+
+    lrc_lyrics_normalized_init(&normalized);
+    if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
+        lrc_lyrics_destroy(&lyrics);
+        return ctc_text_test_fail("normalize ICU char romanization lyrics");
+    }
+
+    ASSERT(strequal2(normalized.text,
+                     normalized.text_len,
+                     STRLIT("nihao")));
+    ASSERT(strequal2(normalized.target_text,
+                     normalized.target_text_len,
+                     STRLIT("n i h a o")));
+    ASSERT(normalized.segment_count == 2);
+
+    segment = lrc_lyrics_normalized_segment(&normalized, 0);
+    ASSERT(segment);
+    ASSERT(segment->normalized_start == 0);
+    ASSERT(segment->normalized_end == 2);
+    ASSERT(segment->target_start == 0);
+    ASSERT(segment->target_end == 3);
+
+    segment = lrc_lyrics_normalized_segment(&normalized, 1);
+    ASSERT(segment);
+    ASSERT(segment->normalized_start == 2);
+    ASSERT(segment->normalized_end == 5);
+    ASSERT(segment->target_start == 4);
+    ASSERT(segment->target_end == 9);
+
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+#endif
+
 static int32
 ctc_text_test_word_split_option_preserves_current_text(void) {
     LrcLyricsPreprocessOptions options;
@@ -3314,6 +3510,10 @@ main(void) {
     status += ctc_text_test_word_targets_match_reference_fixtures();
     status += ctc_text_test_star_target_sequences_match_reference();
     status += ctc_text_test_char_split_matches_reference_fixtures();
+#if LRC_UNICODE_ENABLE_ICU
+    status += ctc_text_test_icu_word_romanization();
+    status += ctc_text_test_icu_char_romanization();
+#endif
 
     return status;
 }

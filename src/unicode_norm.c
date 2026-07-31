@@ -5,6 +5,7 @@
 #if LRC_UNICODE_ENABLE_ICU
 #include <unicode/ucasemap.h>
 #include <unicode/unorm2.h>
+#include <unicode/utrans.h>
 #include <unicode/ustring.h>
 #endif
 
@@ -326,6 +327,8 @@ ctc_unicode_norm_nfkc_lower_icu(
     }
 
     utf16_cap = utf16_len + 1;
+    nfkc_cap = 0;
+    lower_cap = 0;
     utf16 = malloc2((int64)utf16_cap*SIZEOF(*utf16));
     nfkc = NULL;
     lower = NULL;
@@ -384,6 +387,178 @@ done:
 
     return ok;
 }
+
+static bool
+ctc_unicode_norm_open_latin_transliterator(
+    UTransliterator **transliterator
+) {
+    UParseError parse_error;
+    UErrorCode status;
+    UChar id[64];
+    int32 id_len;
+    int32 id_cap;
+
+    *transliterator = NULL;
+    id_cap = (int32)(SIZEOF(id)/SIZEOF(id[0]));
+    if (!ctc_unicode_norm_utf16_from_utf8(STRLIT("Any-Latin; Latin-ASCII"),
+                                          id,
+                                          id_cap,
+                                          &id_len)) {
+        return false;
+    }
+
+    memset64(&parse_error, 0, SIZEOF(parse_error));
+    status = U_ZERO_ERROR;
+    *transliterator = utrans_openU(id,
+                                   (int32_t)id_len,
+                                   UTRANS_FORWARD,
+                                   NULL,
+                                   0,
+                                   &parse_error,
+                                   &status);
+    if (!U_SUCCESS(status) || (*transliterator == NULL)) {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+ctc_unicode_norm_copy_utf16(
+    UChar *destination,
+    int32 destination_cap,
+    UChar *source,
+    int32 source_len
+) {
+    if (source_len < 0) {
+        return false;
+    }
+    if (source_len >= destination_cap) {
+        return false;
+    }
+
+    if (source_len > 0) {
+        memcpy64(destination, source, (int64)source_len*SIZEOF(*source));
+    }
+    destination[source_len] = 0;
+
+    return true;
+}
+
+static bool
+ctc_unicode_norm_transliterate_latin_try_cap(
+    UTransliterator *transliterator,
+    UChar *source,
+    int32 source_len,
+    int32 work_cap,
+    CtcUnicodeNormResult *result,
+    bool *needs_more
+) {
+    UErrorCode status;
+    UChar *work;
+    int32 work_len;
+    int32 limit;
+    bool ok;
+
+    *needs_more = false;
+    if (work_cap <= source_len) {
+        return false;
+    }
+
+    work = malloc2((int64)work_cap*SIZEOF(*work));
+    ok = false;
+    if (!ctc_unicode_norm_copy_utf16(work, work_cap, source, source_len)) {
+        goto done;
+    }
+
+    work_len = source_len;
+    limit = source_len;
+    status = U_ZERO_ERROR;
+    utrans_transUChars(transliterator,
+                       work,
+                       (int32_t *)&work_len,
+                       (int32_t)work_cap,
+                       0,
+                       (int32_t *)&limit,
+                       &status);
+    if (status == U_BUFFER_OVERFLOW_ERROR) {
+        *needs_more = true;
+        goto done;
+    }
+    if (!U_SUCCESS(status)) {
+        goto done;
+    }
+
+    ok = ctc_unicode_norm_utf8_from_utf16(work, work_len, result);
+
+done:
+    free2(work, (int64)work_cap*SIZEOF(*work));
+
+    return ok;
+}
+
+static bool
+ctc_unicode_norm_transliterate_latin_icu(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    UTransliterator *transliterator;
+    UChar *source;
+    int32 source_len;
+    int32 source_cap;
+    bool ok;
+
+    if (text_len < 0) {
+        return false;
+    }
+
+    if (!ctc_unicode_norm_open_latin_transliterator(&transliterator)) {
+        return false;
+    }
+    if (!ctc_unicode_norm_preflight_utf16_from_utf8(text,
+                                                    text_len,
+                                                    &source_len)) {
+        utrans_close(transliterator);
+        return false;
+    }
+
+    source_cap = source_len + 1;
+    source = malloc2((int64)source_cap*SIZEOF(*source));
+    ok = false;
+    if (!ctc_unicode_norm_utf16_from_utf8(text,
+                                          text_len,
+                                          source,
+                                          source_cap,
+                                          &source_len)) {
+        goto done;
+    }
+
+    for (int32 multiplier = 8; multiplier <= 128; multiplier *= 2) {
+        int32 work_cap;
+        bool needs_more;
+
+        work_cap = source_len*multiplier + 64;
+        if (ctc_unicode_norm_transliterate_latin_try_cap(transliterator,
+                                                         source,
+                                                         source_len,
+                                                         work_cap,
+                                                         result,
+                                                         &needs_more)) {
+            ok = true;
+            break;
+        }
+        if (!needs_more) {
+            break;
+        }
+    }
+
+done:
+    free2(source, (int64)source_cap*SIZEOF(*source));
+    utrans_close(transliterator);
+
+    return ok;
+}
 #endif
 
 static bool
@@ -404,6 +579,25 @@ ctc_unicode_norm_nfkc_lower(
 #endif
 
     return ctc_unicode_norm_copy_fallback(text, text_len, result);
+}
+
+static bool
+ctc_unicode_norm_transliterate_latin(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    if ((text == NULL) || (result == NULL)) {
+        return false;
+    }
+
+    ctc_unicode_norm_result_destroy(result);
+#if LRC_UNICODE_ENABLE_ICU
+    return ctc_unicode_norm_transliterate_latin_icu(text, text_len, result);
+#else
+    (void)text_len;
+    return false;
+#endif
 }
 
 #if TESTING_unicode_norm
@@ -459,6 +653,23 @@ unicode_norm_test_icu_nfkc_lower(void) {
 
     return 0;
 }
+
+static int32
+unicode_norm_test_icu_transliterate_latin(void) {
+    CtcUnicodeNormResult result;
+
+    ctc_unicode_norm_result_init(&result);
+    if (!ctc_unicode_norm_transliterate_latin(STRLIT("猫 Привет"), &result)) {
+        return unicode_norm_test_fail("transliterate latin");
+    }
+
+    ASSERT(result.used_icu);
+    ASSERT(strequal2(result.text, result.text_len, STRLIT("mao Privet")));
+
+    ctc_unicode_norm_result_destroy(&result);
+
+    return 0;
+}
 #endif
 
 int
@@ -470,6 +681,7 @@ main(void) {
     status += unicode_norm_test_fallback_or_icu_copy();
 #if LRC_UNICODE_ENABLE_ICU
     status += unicode_norm_test_icu_nfkc_lower();
+    status += unicode_norm_test_icu_transliterate_latin();
 #endif
 
     return status;
