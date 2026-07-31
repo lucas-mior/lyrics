@@ -28,7 +28,7 @@ OUTPUT=${OUTPUT:-vocals.wav}
 DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
 
 requested_cc=${CC:-}
-if [ "$target" = "test" ] \
+if [ "$target" = "test" ] || [ "$target" = "debug" ] \
    && [ -z "$requested_cc" ] \
    && command -v tcc >/dev/null 2>&1; then
     CC=tcc
