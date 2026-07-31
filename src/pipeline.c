@@ -1043,6 +1043,8 @@ lrc_pipeline_generate_lrc(
     return ok;
 }
 
+#if TESTING_pipeline
+
 static void
 audio_io_format_init(AudioIoFormat *format) {
     format->sample_rate = 44100;
@@ -1592,7 +1594,6 @@ lrc_extract_vocals(
     return false;
 }
 
-#if TESTING_pipeline
 
 #define CBASE_IMPLEMENT
 #include "cbase.h"

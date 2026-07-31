@@ -43,6 +43,7 @@
 #include "mdx.c"
 #include "vocals.c"
 #include "ctc_assets.c"
+#include "ctc_model.c"
 #include "pipeline.c"
 #include "cli.c"
 
