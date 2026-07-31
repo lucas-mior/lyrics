@@ -313,12 +313,12 @@ source_closure_grep() {
 
 module_needs_onnxruntime() {
     source_closure_grep "$1" \
-        'onnxruntime_c_api.h|"ort\.c"|"ort\.h"'
+        'onnxruntime_c_api.h|"ort\.c"'
 }
 
 module_needs_fftw() {
     source_closure_grep "$1" \
-        'fftw3.h|"fftw\.c"|"fftw\.h"|"stft\.c"|"stft\.h"'
+        'fftw3.h|"fftw\.c"|"stft\.c"'
 }
 
 module_needs_ffmpeg_libraries() {

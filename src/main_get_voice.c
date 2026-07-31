@@ -30,6 +30,7 @@
 
 #include "cli.h"
 #include "vocals.h"
+#include "pipeline.h"
 
 #include "fftw.c"
 #include "stft.c"
@@ -37,35 +38,36 @@
 #include "ort.c"
 #include "mdx.c"
 #include "vocals.c"
+#include "pipeline.c"
 #include "cli.c"
 
 static void
-get_voice_request_from_options(
-    LrcVocalsExtractRequest *request,
+get_voice_pipeline_config_from_options(
+    LrcPipelineConfig *config,
     CliOptions *options
 ) {
-    lrc_vocals_extract_request_init(request);
+    lrc_pipeline_config_init(config);
 
-    request->input_path = options->input_path;
-    request->output_path = options->output_path;
-    request->model_path = options->model_path;
-    request->temp_dir = options->temp_dir;
-    request->ffmpeg_path = options->ffmpeg_path;
-    request->container_format = options->format;
-    request->mdx_config.n_fft = options->n_fft;
-    request->mdx_config.hop = options->hop;
-    request->mdx_config.dim_f = options->dim_f;
-    request->mdx_config.dim_t = options->dim_t;
-    request->mdx_config.chunk_seconds = options->chunk_seconds;
-    request->mdx_config.margin_seconds = options->margin_seconds;
-    request->mdx_config.compensate = options->compensate;
-    request->mdx_config.denoise = options->denoise;
+    config->song_path = options->input_path;
+    config->vocals_path = options->output_path;
+    config->vocals_model_path = options->model_path;
+    config->temp_dir = options->temp_dir;
+    config->ffmpeg_path = options->ffmpeg_path;
+    config->vocals_container_format = options->format;
+    config->mdx_config.n_fft = options->n_fft;
+    config->mdx_config.hop = options->hop;
+    config->mdx_config.dim_f = options->dim_f;
+    config->mdx_config.dim_t = options->dim_t;
+    config->mdx_config.chunk_seconds = options->chunk_seconds;
+    config->mdx_config.margin_seconds = options->margin_seconds;
+    config->mdx_config.compensate = options->compensate;
+    config->mdx_config.denoise = options->denoise;
 
     if (options->model_output == CLI_MODEL_OUTPUT_INSTRUMENTAL) {
-        request->mdx_config.model_output = MDX_MODEL_OUTPUT_INSTRUMENTAL;
+        config->mdx_config.model_output = MDX_MODEL_OUTPUT_INSTRUMENTAL;
     }
     if (options->clip_mode == CLI_CLIP_MODE_NONE) {
-        request->mdx_config.clip_mode = MDX_CLIP_MODE_NONE;
+        config->mdx_config.clip_mode = MDX_CLIP_MODE_NONE;
     }
 
     return;
@@ -74,7 +76,8 @@ get_voice_request_from_options(
 int32
 main(int32 argc, char **argv) {
     CliOptions options;
-    LrcVocalsExtractRequest request;
+    LrcPipelineConfig config;
+    LrcPipeline pipeline;
     LrcVocalsExtractResult extraction_result;
     int32 parse_result;
     int32 result;
@@ -90,11 +93,12 @@ main(int32 argc, char **argv) {
         cli_print_usage(stderr);
     }
 
-    get_voice_request_from_options(&request, &options);
+    get_voice_pipeline_config_from_options(&config, &options);
+    lrc_pipeline_init(&pipeline, &config);
     cli_print_options(&options);
 
     result = EXIT_FAILURE;
-    if (lrc_extract_vocals(&request, &extraction_result)) {
+    if (lrc_pipeline_extract_vocals(&pipeline, &extraction_result)) {
         result = EXIT_SUCCESS;
     } else {
         error2("vocals extraction failed: %s", extraction_result.message);
@@ -104,5 +108,6 @@ main(int32 argc, char **argv) {
         error2("\n");
     }
 
+    lrc_pipeline_cleanup(&pipeline);
     exit(result);
 }
