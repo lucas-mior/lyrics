@@ -345,7 +345,7 @@ run)
     trace_on
     case "$APP" in
     get_voice)
-        "$output" -i "$INPUT" -o "$OUTPUT" -m "$MODEL"
+        "$output" -i "$INPUT" -o "$OUTPUT" --model-vocal "$MODEL"
         ;;
     gen_lrc_raw|gen_lrc)
         "$output"

@@ -33,10 +33,10 @@ full_print_usage(FILE *stream) {
         "usage: %s -i SONG -l LYRICS.txt -o OUTPUT.lrc [options]\n"
         "\n"
         "options:\n"
-        "    --vocals-model PATH         MDX-Net ONNX model\n"
+        "    --model-vocal PATH         MDX-Net ONNX model\n"
         "                                 ["
         LRC_DEFAULT_VOCALS_MODEL_PATH "]\n"
-        "    --ctc-model PATH            CTC ONNX model\n"
+        "    --model-ctc PATH            CTC ONNX model\n"
         "                                 ["
         LRC_DEFAULT_CTC_MODEL_PATH "]\n"
         "    --tokenizer PATH            CTC tokenizer tokens file\n"
@@ -130,7 +130,7 @@ full_parse_value_option(
         config->output_lrc_path = value;
         return true;
     }
-    if (strequal(option, "--vocals-model")) {
+    if (strequal(option, "--model-vocal")) {
         config->vocals_model_path = value;
         return true;
     }
@@ -138,7 +138,7 @@ full_parse_value_option(
         config->vocals_path = value;
         return true;
     }
-    if (strequal(option, "--ctc-model")) {
+    if (strequal(option, "--model-ctc")) {
         config->ctc_model_path = value;
         return true;
     }
@@ -183,7 +183,7 @@ full_parse_long_value(
         config->output_lrc_path = value;
         return true;
     }
-    if (full_long_option_value(arg, "--vocals-model", &value)) {
+    if (full_long_option_value(arg, "--model-vocal", &value)) {
         config->vocals_model_path = value;
         return true;
     }
@@ -191,7 +191,7 @@ full_parse_long_value(
         config->vocals_path = value;
         return true;
     }
-    if (full_long_option_value(arg, "--ctc-model", &value)) {
+    if (full_long_option_value(arg, "--model-ctc", &value)) {
         config->ctc_model_path = value;
         return true;
     }
@@ -222,9 +222,9 @@ full_option_needs_value(char *option) {
            || strequal(option, "--lyrics")
            || strequal(option, "-o")
            || strequal(option, "--output")
-           || strequal(option, "--vocals-model")
+           || strequal(option, "--model-vocal")
            || strequal(option, "--vocals-output")
-           || strequal(option, "--ctc-model")
+           || strequal(option, "--model-ctc")
            || strequal(option, "--tokenizer")
            || strequal(option, "--ffmpeg")
            || strequal(option, "--temp-dir")
@@ -307,11 +307,11 @@ full_parse_args(
         return false;
     }
     if (full_path_missing(config->vocals_model_path)) {
-        error2("missing required option: --vocals-model\n");
+        error2("missing required option: --model-vocal\n");
         return false;
     }
     if (full_path_missing(config->ctc_model_path)) {
-        error2("missing required option: --ctc-model\n");
+        error2("missing required option: --model-ctc\n");
         return false;
     }
     if (full_path_missing(config->tokenizer_path)) {

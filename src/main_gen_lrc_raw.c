@@ -89,7 +89,7 @@ raw_print_usage(FILE *stream) {
         "usage: %s -i VOCALS -l LYRICS.txt -o OUTPUT.lrc [options]\n"
         "\n"
         "options:\n"
-        "    --ctc-model PATH            CTC ONNX model\n"
+        "    --model-ctc PATH            CTC ONNX model\n"
         "                                 ["
         LRC_DEFAULT_CTC_MODEL_PATH "]\n"
         "    --tokenizer PATH            CTC tokenizer tokens file\n"
@@ -182,7 +182,7 @@ raw_parse_value_option(
         config->output_lrc_path = value;
         return true;
     }
-    if (strequal(option, "--ctc-model")) {
+    if (strequal(option, "--model-ctc")) {
         config->ctc_model_path = value;
         return true;
     }
@@ -227,7 +227,7 @@ raw_parse_long_value(
         config->output_lrc_path = value;
         return true;
     }
-    if (raw_long_option_value(arg, "--ctc-model", &value)) {
+    if (raw_long_option_value(arg, "--model-ctc", &value)) {
         config->ctc_model_path = value;
         return true;
     }
@@ -258,7 +258,7 @@ raw_option_needs_value(char *option) {
            || strequal(option, "--lyrics")
            || strequal(option, "-o")
            || strequal(option, "--output")
-           || strequal(option, "--ctc-model")
+           || strequal(option, "--model-ctc")
            || strequal(option, "--tokenizer")
            || strequal(option, "--ffmpeg")
            || strequal(option, "--temp-dir")
@@ -331,7 +331,7 @@ raw_parse_args(
         return false;
     }
     if (raw_path_missing(config->ctc_model_path)) {
-        error2("missing required option: --ctc-model\n");
+        error2("missing required option: --model-ctc\n");
         return false;
     }
     if (raw_path_missing(config->tokenizer_path)) {

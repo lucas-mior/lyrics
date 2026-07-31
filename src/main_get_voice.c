@@ -56,7 +56,7 @@ get_voice_pipeline_config_from_options(
 
     config->song_path = options->input_path;
     config->vocals_path = options->output_path;
-    config->vocals_model_path = options->model_path;
+    config->vocals_model_path = options->model_vocal_path;
     config->temp_dir = options->temp_dir;
     config->ffmpeg_path = options->ffmpeg_path;
     config->vocals_container_format = options->format;

@@ -16,7 +16,7 @@ enum CliClipMode {
 typedef struct CliOptions {
     char *input_path;
     char *output_path;
-    char *model_path;
+    char *model_vocal_path;
     char *ffmpeg_path;
     char *format;
     char *temp_dir;

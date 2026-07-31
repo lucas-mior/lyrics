@@ -82,6 +82,14 @@ gen_lrc
 
 ## Default model paths
 
+Canonical model-related command-line options are:
+
+```text
+--model-vocal
+--model-ctc
+--tokenizer
+```
+
 The command-line model options are optional. The compiled defaults are:
 
 ```text
