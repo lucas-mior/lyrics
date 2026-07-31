@@ -15,7 +15,7 @@ alias trace_off='{ set +x; } 2>/dev/null'
 dir=$(dirname "$(readlink -f "$0")")
 cd "$dir" || exit
 
-target=${1:-build}
+target=${1:-debug}
 target_arg=${2:-}
 
 APP=${APP:-${target_arg:-all}}
