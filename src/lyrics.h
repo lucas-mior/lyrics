@@ -43,6 +43,23 @@ typedef struct LrcLyricsLoadResult {
     int32 byte_offset;
 } LrcLyricsLoadResult;
 
+typedef struct LrcLyricsNormalizedByte {
+    int32 line_index;
+    int32 source_start;
+    int32 source_end;
+} LrcLyricsNormalizedByte;
+
+typedef struct LrcLyricsNormalized {
+    char *text;
+    LrcLyricsNormalizedByte *bytes;
+
+    int32 text_len;
+    int32 text_cap;
+    int32 byte_count;
+    int32 byte_cap;
+    int32 alignable_line_count;
+} LrcLyricsNormalized;
+
 static void lrc_lyrics_init(LrcLyrics *lyrics);
 static void lrc_lyrics_destroy(LrcLyrics *lyrics);
 static void lrc_lyrics_load_result_init(LrcLyricsLoadResult *result);
@@ -50,6 +67,16 @@ static bool lrc_lyrics_load_file(
     LrcLyrics *lyrics,
     char *path,
     LrcLyricsLoadResult *result
+);
+static void lrc_lyrics_normalized_init(LrcLyricsNormalized *normalized);
+static void lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized);
+static bool lrc_lyrics_normalize(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized
+);
+static int32 lrc_lyrics_normalized_line_at(
+    LrcLyricsNormalized *normalized,
+    int32 byte_offset
 );
 
 #endif /* LYRICS_H */
