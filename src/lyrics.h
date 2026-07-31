@@ -3,6 +3,32 @@
 
 #include "cbase.h"
 
+
+
+enum LrcLyricsPreprocessSplitSize {
+    LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT,
+    LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD,
+    LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR,
+    LRC_LYRICS_PREPROCESS_SPLIT_SIZE_SENTENCE,
+};
+
+enum LrcLyricsPreprocessStarFrequency {
+    LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE,
+    LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES,
+    LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT,
+};
+
+enum LrcLyricsPreprocessRomanization {
+    LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF,
+    LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU,
+};
+
+typedef struct LrcLyricsPreprocessOptions {
+    enum LrcLyricsPreprocessSplitSize split_size;
+    enum LrcLyricsPreprocessStarFrequency star_frequency;
+    enum LrcLyricsPreprocessRomanization romanization;
+} LrcLyricsPreprocessOptions;
+
 enum LrcLyricsLoadError {
     LRC_LYRICS_LOAD_ERROR_NONE,
     LRC_LYRICS_LOAD_ERROR_INVALID_ARGUMENT,
@@ -79,6 +105,22 @@ typedef struct LrcLyricsNormalized {
 
 static void lrc_lyrics_init(LrcLyrics *lyrics);
 static void lrc_lyrics_destroy(LrcLyrics *lyrics);
+static void
+lrc_lyrics_preprocess_options_init(
+    LrcLyricsPreprocessOptions *options
+) {
+    if (options == NULL) {
+        return;
+    }
+
+    memset64(options, 0, SIZEOF(*options));
+
+    options->split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
+    options->star_frequency = LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES;
+    options->romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
+
+    return;
+}
 static void lrc_lyrics_load_result_init(LrcLyricsLoadResult *result);
 static bool lrc_lyrics_load_file(
     LrcLyrics *lyrics,
@@ -87,6 +129,11 @@ static bool lrc_lyrics_load_file(
 );
 static void lrc_lyrics_normalized_init(LrcLyricsNormalized *normalized);
 static void lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized);
+static bool lrc_lyrics_normalize_with_options(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized,
+    LrcLyricsPreprocessOptions *options
+);
 static bool lrc_lyrics_normalize(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized

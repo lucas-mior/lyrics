@@ -162,6 +162,7 @@ lrc_pipeline_config_init(LrcPipelineConfig *config) {
     audio_io_format_init(&config->vocals_output_format);
     mdx_config_init(&config->mdx_config);
     lrc_ctc_model_config_init(&config->ctc_model_config);
+    lrc_lyrics_preprocess_options_init(&config->lyrics_preprocess_options);
     config->ctc_emission_values_kind = LRC_CTC_EMISSION_VALUES_LOGITS;
 
     return;
@@ -437,6 +438,131 @@ lrc_pipeline_generate_result_set(
     result->path = path;
 
     return;
+}
+
+static bool
+lrc_pipeline_trellis_score_forward(
+    LrcPipeline *pipeline,
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    int32 blank_token_id,
+    int32 star_token_id,
+    LrcCtcAlignResult *align_result,
+    LrcPipelineGenerateResult *result
+) {
+    bool ok;
+
+    switch (pipeline->config.lyrics_preprocess_options.star_frequency) {
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE:
+        ok = lrc_ctc_trellis_score_forward(trellis,
+                                           emissions,
+                                           target_token_ids,
+                                           target_token_count,
+                                           blank_token_id,
+                                           align_result);
+        break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES:
+        ok = lrc_ctc_trellis_score_forward_with_edge_stars(
+            trellis,
+            emissions,
+            target_token_ids,
+            target_token_count,
+            blank_token_id,
+            star_token_id,
+            align_result
+        );
+        break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT:
+    default:
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            "segment star frequency is not implemented yet",
+            NULL
+        );
+        return false;
+    }
+
+    if (!ok) {
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            align_result->message,
+            NULL
+        );
+        if (result) {
+            result->frame_index = align_result->frame_index;
+            result->token_index = align_result->token_index;
+        }
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_pipeline_trellis_backtrack(
+    LrcPipeline *pipeline,
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    int32 blank_token_id,
+    int32 star_token_id,
+    LrcCtcPath *path,
+    LrcCtcAlignResult *align_result,
+    LrcPipelineGenerateResult *result
+) {
+    bool ok;
+
+    switch (pipeline->config.lyrics_preprocess_options.star_frequency) {
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE:
+        ok = lrc_ctc_trellis_backtrack(trellis,
+                                       emissions,
+                                       target_token_ids,
+                                       target_token_count,
+                                       blank_token_id,
+                                       path,
+                                       align_result);
+        break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES:
+        ok = lrc_ctc_trellis_backtrack_with_edge_stars(trellis,
+                                                       emissions,
+                                                       target_token_ids,
+                                                       target_token_count,
+                                                       blank_token_id,
+                                                       star_token_id,
+                                                       path,
+                                                       align_result);
+        break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT:
+    default:
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            "segment star frequency is not implemented yet",
+            NULL
+        );
+        return false;
+    }
+
+    if (!ok) {
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            align_result->message,
+            NULL
+        );
+        if (result) {
+            result->frame_index = align_result->frame_index;
+            result->token_index = align_result->token_index;
+        }
+        return false;
+    }
+
+    return true;
 }
 
 static bool
@@ -805,7 +931,11 @@ lrc_pipeline_generate_lrc(
         );
         ok = false;
     }
-    if (ok && !lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (ok && !lrc_lyrics_normalize_with_options(
+        &lyrics,
+        &normalized,
+        &pipeline->config.lyrics_preprocess_options
+    )) {
         lrc_pipeline_generate_result_set(
             result,
             LRC_PIPELINE_GENERATE_ERROR_LYRICS_NORMALIZE_FAILED,
@@ -925,45 +1055,27 @@ lrc_pipeline_generate_lrc(
             star_token_id = (int32)emissions.vocabulary_size;
         }
     }
-    if (ok && !lrc_ctc_trellis_score_forward_with_edge_stars(
-        &trellis,
-        &emissions,
-        target_token_ids,
-        target_token_count,
-        tokenizer.blank_id,
-        star_token_id,
-        &align_result
-    )) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = align_result.frame_index;
-            result->token_index = align_result.token_index;
-        }
+    if (ok && !lrc_pipeline_trellis_score_forward(pipeline,
+                                                   &trellis,
+                                                   &emissions,
+                                                   target_token_ids,
+                                                   target_token_count,
+                                                   tokenizer.blank_id,
+                                                   star_token_id,
+                                                   &align_result,
+                                                   result)) {
         ok = false;
     }
-    if (ok && !lrc_ctc_trellis_backtrack_with_edge_stars(&trellis,
-                                                          &emissions,
-                                                          target_token_ids,
-                                                          target_token_count,
-                                                          tokenizer.blank_id,
-                                                          star_token_id,
-                                                          &path,
-                                                          &align_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = align_result.frame_index;
-            result->token_index = align_result.token_index;
-        }
+    if (ok && !lrc_pipeline_trellis_backtrack(pipeline,
+                                              &trellis,
+                                              &emissions,
+                                              target_token_ids,
+                                              target_token_count,
+                                              tokenizer.blank_id,
+                                              star_token_id,
+                                              &path,
+                                              &align_result,
+                                              result)) {
         ok = false;
     }
 
@@ -1172,6 +1284,19 @@ lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized) {
     lrc_pipeline_test_noop(normalized);
 
     return;
+}
+
+static bool
+lrc_lyrics_normalize_with_options(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized,
+    LrcLyricsPreprocessOptions *options
+) {
+    (void)lyrics;
+    (void)normalized;
+    (void)options;
+
+    return false;
 }
 
 static bool
@@ -1742,6 +1867,12 @@ pipeline_test_config_defaults(void) {
     ASSERT(config.ctc_model_config.inputs_to_logits_ratio == 320);
     ASSERT(config.ctc_model_config.window_seconds == 30);
     ASSERT(config.ctc_model_config.context_seconds == 2);
+    ASSERT(config.lyrics_preprocess_options.split_size
+           == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT);
+    ASSERT(config.lyrics_preprocess_options.star_frequency
+           == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
+    ASSERT(config.lyrics_preprocess_options.romanization
+           == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
     ASSERT(config.ctc_emission_values_kind
            == LRC_CTC_EMISSION_VALUES_LOGITS);
     ASSERT(pipeline.error == LRC_PIPELINE_ERROR_NONE);

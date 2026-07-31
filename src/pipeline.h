@@ -87,6 +87,7 @@ typedef struct LrcPipelineConfig {
     AudioIoFormat vocals_output_format;
     MdxConfig mdx_config;
     LrcCtcModelConfig ctc_model_config;
+    LrcLyricsPreprocessOptions lyrics_preprocess_options;
 
     enum LrcCtcEmissionValuesKind ctc_emission_values_kind;
 

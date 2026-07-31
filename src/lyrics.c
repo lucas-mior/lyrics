@@ -809,13 +809,16 @@ lrc_lyrics_normalize_line(
 }
 
 static bool
-lrc_lyrics_normalize(
+lrc_lyrics_normalize_with_options(
     LrcLyrics *lyrics,
-    LrcLyricsNormalized *normalized
+    LrcLyricsNormalized *normalized,
+    LrcLyricsPreprocessOptions *options
 ) {
     if ((lyrics == NULL) || (normalized == NULL)) {
         return false;
     }
+
+    (void)options;
 
     lrc_lyrics_normalized_destroy(normalized);
     if (!lrc_lyrics_normalized_alloc_lines(normalized, lyrics->line_count)) {
@@ -850,6 +853,18 @@ lrc_lyrics_normalize(
     }
 
     return normalized->text_len > 0;
+}
+
+static bool
+lrc_lyrics_normalize(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized
+) {
+    LrcLyricsPreprocessOptions options;
+
+    lrc_lyrics_preprocess_options_init(&options);
+
+    return lrc_lyrics_normalize_with_options(lyrics, normalized, &options);
 }
 
 static int32
@@ -1259,6 +1274,54 @@ lyrics_test_normalized_ranges_blank_punctuation_repeated(void) {
 }
 
 static int32
+lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized default_normalized;
+    LrcLyricsNormalized option_normalized;
+    LrcLyricsPreprocessOptions options;
+    char text[] = "  Hello, WORLD!!\n[Chorus]\nBang-bang   MAXWELL's\n";
+
+    if (!lyrics_test_load_text(&lyrics, text, strlen32(text))) {
+        return lyrics_test_fail("load options normalization text");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    ASSERT(options.split_size == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT);
+    ASSERT(options.star_frequency
+           == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
+    ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+
+    lrc_lyrics_normalized_init(&default_normalized);
+    lrc_lyrics_normalized_init(&option_normalized);
+    if (!lrc_lyrics_normalize(&lyrics, &default_normalized)) {
+        lrc_lyrics_destroy(&lyrics);
+        return lyrics_test_fail("normalize through default wrapper");
+    }
+    if (!lrc_lyrics_normalize_with_options(&lyrics,
+                                           &option_normalized,
+                                           &options)) {
+        lrc_lyrics_normalized_destroy(&default_normalized);
+        lrc_lyrics_destroy(&lyrics);
+        return lyrics_test_fail("normalize through explicit options");
+    }
+
+    ASSERT(strequal2(default_normalized.text,
+                     default_normalized.text_len,
+                     option_normalized.text,
+                     option_normalized.text_len));
+    ASSERT(default_normalized.byte_count == option_normalized.byte_count);
+    ASSERT(default_normalized.line_count == option_normalized.line_count);
+    ASSERT(default_normalized.alignable_line_count
+           == option_normalized.alignable_line_count);
+
+    lrc_lyrics_normalized_destroy(&option_normalized);
+    lrc_lyrics_normalized_destroy(&default_normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
 lyrics_test_optional_maxwell_txt(void) {
     LrcLyrics lyrics;
     LrcLyricsLoadResult result;
@@ -1358,6 +1421,9 @@ main(void) {
         exit(1);
     }
     if (lyrics_test_normalized_ranges_blank_punctuation_repeated() != 0) {
+        exit(1);
+    }
+    if (lyrics_test_preprocess_option_defaults_preserve_normalization() != 0) {
         exit(1);
     }
     if (lyrics_test_optional_maxwell_txt() != 0) {
