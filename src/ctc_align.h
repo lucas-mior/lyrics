@@ -111,9 +111,13 @@ typedef struct LrcCtcTokenSpan {
     int64 token_index;
     int64 start_frame;
     int64 end_frame;
+    int64 padded_start_frame;
+    int64 padded_end_frame;
 
     float start_seconds;
     float end_seconds;
+    float padded_start_seconds;
+    float padded_end_seconds;
     float score;
 
     int32 token_id;
@@ -286,6 +290,36 @@ static bool lrc_ctc_path_to_segments(
 static bool lrc_ctc_path_to_token_spans(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *spans,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_path_to_padded_token_spans(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *spans,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_path_to_padded_token_spans_with_edge_stars(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    int32 star_token_id,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *spans,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_path_to_padded_token_spans_with_segment_stars(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result

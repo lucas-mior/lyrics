@@ -591,6 +591,84 @@ lrc_pipeline_trellis_backtrack(
 }
 
 static bool
+lrc_pipeline_path_to_padded_token_spans(
+    LrcPipeline *pipeline,
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int32 star_token_id,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *token_spans,
+    LrcCtcAlignResult *align_result,
+    LrcPipelineGenerateResult *result
+) {
+    bool ok;
+
+    switch (pipeline->config.lyrics_preprocess_options.star_frequency) {
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE:
+        ok = lrc_ctc_path_to_padded_token_spans(path,
+                                                emissions,
+                                                target_token_ids,
+                                                target_token_count,
+                                                frame_duration_seconds,
+                                                token_spans,
+                                                align_result);
+        break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES:
+        ok = lrc_ctc_path_to_padded_token_spans_with_edge_stars(
+            path,
+            emissions,
+            target_token_ids,
+            target_token_count,
+            star_token_id,
+            frame_duration_seconds,
+            token_spans,
+            align_result
+        );
+        break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT:
+        ok = lrc_ctc_path_to_padded_token_spans_with_segment_stars(
+            path,
+            emissions,
+            target_token_ids,
+            target_segment_starts,
+            target_token_count,
+            star_token_id,
+            frame_duration_seconds,
+            token_spans,
+            align_result
+        );
+        break;
+    default:
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            "star frequency is invalid",
+            NULL
+        );
+        return false;
+    }
+
+    if (!ok) {
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            align_result->message,
+            NULL
+        );
+        if (result) {
+            result->frame_index = align_result->frame_index;
+            result->token_index = align_result->token_index;
+        }
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 lrc_pipeline_output_lines_from_timestamps(
     LrcLyrics *lyrics,
     LrcCtcLineTimestamps *timestamps,
@@ -1115,17 +1193,19 @@ lrc_pipeline_generate_lrc(
     }
 
     frame_duration_seconds = (float)(input.stride_ms/1000.0);
-    if (ok && !lrc_ctc_path_to_token_spans(&path,
-                                           &emissions,
-                                           frame_duration_seconds,
-                                           &token_spans,
-                                           &align_result)) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
-            align_result.message,
-            NULL
-        );
+    if (ok && !lrc_pipeline_path_to_padded_token_spans(
+        pipeline,
+        &path,
+        &emissions,
+        target_token_ids,
+        target_segment_starts,
+        target_token_count,
+        star_token_id,
+        frame_duration_seconds,
+        &token_spans,
+        &align_result,
+        result
+    )) {
         ok = false;
     }
     if (ok && !lrc_ctc_token_spans_to_word_spans(&token_spans,
@@ -1746,6 +1826,75 @@ lrc_ctc_path_to_token_spans(
 ) {
     (void)path;
     (void)emissions;
+    (void)frame_duration_seconds;
+    (void)spans;
+    (void)result;
+
+    return false;
+}
+
+static bool
+lrc_ctc_path_to_padded_token_spans(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *spans,
+    LrcCtcAlignResult *result
+) {
+    (void)path;
+    (void)emissions;
+    (void)target_token_ids;
+    (void)target_token_count;
+    (void)frame_duration_seconds;
+    (void)spans;
+    (void)result;
+
+    return false;
+}
+
+static bool
+lrc_ctc_path_to_padded_token_spans_with_edge_stars(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    int32 star_token_id,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *spans,
+    LrcCtcAlignResult *result
+) {
+    (void)path;
+    (void)emissions;
+    (void)target_token_ids;
+    (void)target_token_count;
+    (void)star_token_id;
+    (void)frame_duration_seconds;
+    (void)spans;
+    (void)result;
+
+    return false;
+}
+
+static bool
+lrc_ctc_path_to_padded_token_spans_with_segment_stars(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    bool *target_segment_starts,
+    int64 target_token_count,
+    int32 star_token_id,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *spans,
+    LrcCtcAlignResult *result
+) {
+    (void)path;
+    (void)emissions;
+    (void)target_token_ids;
+    (void)target_segment_starts;
+    (void)target_token_count;
+    (void)star_token_id;
     (void)frame_duration_seconds;
     (void)spans;
     (void)result;
