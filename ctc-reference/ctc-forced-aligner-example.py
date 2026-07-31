@@ -2,6 +2,8 @@
 
 import re
 import torch
+import sys
+import os
 
 from ctc_forced_aligner import (
     load_audio,
@@ -65,9 +67,12 @@ def normalized_chars(text):
     return "".join(char.lower() for char in text if char.isalnum())
 
 
-def generate_lrc_with_ctc():
-    audio_path = "maxwell_vocals.opus"
-    text_path = "maxwell.txt"
+def generate_lrc_with_ctc(music):
+    audio_path = music
+    base_name = os.path.splitext(music)[0]
+    
+    text_path = f"{base_name}.txt"
+    lrc_path = f"{base_name}.lrc"
     language = "eng"
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -147,7 +152,7 @@ def generate_lrc_with_ctc():
 
     print("Writing LRC file...")
 
-    with open("maxwell.lrc", "w", encoding="utf-8") as f:
+    with open(lrc_path, "w", encoding="utf-8") as f:
         word_idx = 0
 
         for line_str in original_lines:
@@ -184,4 +189,7 @@ def generate_lrc_with_ctc():
 
 
 if __name__ == "__main__":
-    generate_lrc_with_ctc()
+    if len(sys.argv) < 2:
+        print(f"usage: {sys.argv[0]} <music>")
+        exit(1)
+    generate_lrc_with_ctc(sys.argv[1])
