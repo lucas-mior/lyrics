@@ -308,6 +308,153 @@ lrc_ctc_trellis_prepare(
     return true;
 }
 
+
+static float
+lrc_ctc_emission_value(
+    LrcCtcEmissions *emissions,
+    int64 frame_index,
+    int32 token_id
+) {
+    int64 index;
+
+    ASSERT(emissions != NULL);
+    ASSERT(emissions->values != NULL);
+    ASSERT(frame_index >= 0);
+    ASSERT(frame_index < emissions->frame_count);
+    ASSERT(token_id >= 0);
+    ASSERT((int64)token_id < emissions->vocabulary_size);
+
+    index = frame_index*emissions->vocabulary_size + token_id;
+
+    return emissions->values[index];
+}
+
+static bool
+lrc_ctc_target_tokens_valid(
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    int32 blank_token_id,
+    LrcCtcAlignResult *result
+) {
+    if (target_token_ids == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC target token ids are missing",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (target_token_count <= 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            "CTC target token count must be positive",
+            -1,
+            target_token_count
+        );
+        return false;
+    }
+
+    for (int64 i = 0; i < target_token_count; i += 1) {
+        if ((target_token_ids[i] < 0)
+            || ((int64)target_token_ids[i] >= emissions->vocabulary_size)
+            || (target_token_ids[i] == blank_token_id)) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
+                "CTC target token id is invalid",
+                -1,
+                i
+            );
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static float
+lrc_ctc_best_score(float stay_score, float advance_score) {
+    if (advance_score > stay_score) {
+        return advance_score;
+    }
+
+    return stay_score;
+}
+
+static bool
+lrc_ctc_trellis_score_forward(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    int32 blank_token_id,
+    LrcCtcAlignResult *result
+) {
+    if (result) {
+        lrc_ctc_align_result_init(result);
+    }
+    if (!lrc_ctc_trellis_emissions_ready(emissions,
+                                         blank_token_id,
+                                         result)) {
+        return false;
+    }
+    if (!lrc_ctc_target_tokens_valid(emissions,
+                                     target_token_ids,
+                                     target_token_count,
+                                     blank_token_id,
+                                     result)) {
+        return false;
+    }
+    if (!lrc_ctc_trellis_prepare(trellis,
+                                 emissions,
+                                 target_token_count,
+                                 blank_token_id,
+                                 result)) {
+        return false;
+    }
+
+    for (int64 frame = 1; frame < trellis->frame_count; frame += 1) {
+        for (int64 column = 1; column < trellis->column_count; column += 1) {
+            float previous_same;
+            float previous_advance;
+            float blank_score;
+            float token_score;
+            float best_score;
+            float *cell;
+
+            cell = lrc_ctc_trellis_cell(trellis, frame - 1, column);
+            ASSERT(cell != NULL);
+            previous_same = *cell;
+
+            cell = lrc_ctc_trellis_cell(trellis, frame - 1, column - 1);
+            ASSERT(cell != NULL);
+            previous_advance = *cell;
+
+            blank_score = previous_same
+                          + lrc_ctc_emission_value(emissions,
+                                                   frame,
+                                                   blank_token_id);
+            token_score = previous_advance
+                          + lrc_ctc_emission_value(
+                              emissions,
+                              frame,
+                              target_token_ids[column - 1]
+                          );
+            best_score = lrc_ctc_best_score(blank_score, token_score);
+
+            cell = lrc_ctc_trellis_cell(trellis, frame, column);
+            ASSERT(cell != NULL);
+            *cell = best_score;
+        }
+    }
+
+    return true;
+}
+
 #if TESTING_ctc_align
 
 #define CBASE_IMPLEMENT
@@ -496,6 +643,124 @@ ctc_align_test_prepare_initializes_start_column(void) {
     return 0;
 }
 
+
+static int32
+ctc_align_test_forward_scores_simple_path(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    int32 target_token_ids[] = {1, 2};
+    float values[] = {
+        -0.10f, -5.00f, -5.00f,
+        -5.00f, -0.10f, -5.00f,
+        -5.00f, -5.00f, -0.10f,
+        -0.10f, -5.00f, -5.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 4, 3);
+    lrc_ctc_trellis_init(&trellis);
+    if (!lrc_ctc_trellis_score_forward(&trellis,
+                                        &emissions,
+                                        target_token_ids,
+                                        2,
+                                        0,
+                                        &result)) {
+        return ctc_align_test_fail("score simple forward path");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
+                                 -0.20f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 2, 2),
+                                 -0.30f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 3, 2),
+                                 -0.40f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 3, 0),
+                                 -10.20f,
+                                 0.00001f));
+
+    lrc_ctc_trellis_destroy(&trellis);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_forward_prefers_blank_stay(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    int32 target_token_ids[] = {1};
+    float values[] = {
+        -0.10f, -5.00f,
+        -5.00f, -0.20f,
+        -0.10f, -3.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 3, 2);
+    lrc_ctc_trellis_init(&trellis);
+    if (!lrc_ctc_trellis_score_forward(&trellis,
+                                        &emissions,
+                                        target_token_ids,
+                                        1,
+                                        0,
+                                        &result)) {
+        return ctc_align_test_fail("score blank stay path");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
+                                 -0.30f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 2, 1),
+                                 -0.40f,
+                                 0.00001f));
+
+    lrc_ctc_trellis_destroy(&trellis);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_forward_rejects_bad_targets(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    int32 target_token_ids[] = {1, 3};
+    float values[] = {
+        -0.10f, -0.20f,
+        -0.30f, -0.40f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 2, 2);
+    lrc_ctc_trellis_init(&trellis);
+    if (lrc_ctc_trellis_score_forward(&trellis,
+                                      &emissions,
+                                      NULL,
+                                      1,
+                                      0,
+                                      &result)) {
+        return ctc_align_test_fail("missing target ids accepted");
+    }
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+
+    if (lrc_ctc_trellis_score_forward(&trellis,
+                                      &emissions,
+                                      target_token_ids,
+                                      2,
+                                      0,
+                                      &result)) {
+        return ctc_align_test_fail("bad target id accepted");
+    }
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN);
+    ASSERT(result.token_index == 1);
+    ASSERT(trellis.scores == NULL);
+
+    return 0;
+}
+
 static int32
 ctc_align_test_prepare_rejects_invalid_emissions(void) {
     LrcCtcAlignResult result;
@@ -543,6 +808,15 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_prepare_rejects_invalid_emissions() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_forward_scores_simple_path() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_forward_prefers_blank_stay() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_forward_rejects_bad_targets() != 0) {
         exit(1);
     }
 

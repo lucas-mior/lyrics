@@ -11,6 +11,7 @@ enum LrcCtcAlignError {
     LRC_CTC_ALIGN_ERROR_INVALID_EMISSIONS,
     LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
     LRC_CTC_ALIGN_ERROR_INVALID_BLANK_TOKEN,
+    LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
     LRC_CTC_ALIGN_ERROR_TOO_LARGE,
 };
 
@@ -48,6 +49,14 @@ static bool lrc_ctc_trellis_allocate(
 static bool lrc_ctc_trellis_prepare(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
+    int64 target_token_count,
+    int32 blank_token_id,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_trellis_score_forward(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
     int64 target_token_count,
     int32 blank_token_id,
     LrcCtcAlignResult *result
