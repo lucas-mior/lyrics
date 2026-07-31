@@ -38,7 +38,7 @@ typedef struct LrcCtcTrellis {
 
     int64 frame_count;
     int64 target_token_count;
-    int64 column_count;
+    int64 state_count;
     int64 cell_count;
 } LrcCtcTrellis;
 

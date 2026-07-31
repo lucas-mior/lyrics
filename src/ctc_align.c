@@ -158,6 +158,52 @@ lrc_ctc_required_frame_count_for_tokens(
 }
 
 static bool
+lrc_ctc_align_checked_multiply(
+    int64 left,
+    int64 right,
+    int64 *out,
+    char *message,
+    LrcCtcAlignResult *result
+) {
+    if (out == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC checked multiplication output is missing",
+            left,
+            right
+        );
+        return false;
+    }
+    *out = 0;
+
+    if ((left < 0) || (right < 0)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            message,
+            left,
+            right
+        );
+        return false;
+    }
+    if ((right > 0) && (left > INT64_MAX/right)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            message,
+            left,
+            right
+        );
+        return false;
+    }
+
+    *out = left*right;
+
+    return true;
+}
+
+static bool
 lrc_ctc_align_graph_build(
     LrcCtcAlignGraph *graph,
     int32 *target_token_ids,
@@ -165,6 +211,7 @@ lrc_ctc_align_graph_build(
     LrcCtcAlignResult *result
 ) {
     int64 state_count;
+    int64 alloc_size;
 
     if (result) {
         lrc_ctc_align_result_init(result);
@@ -196,18 +243,17 @@ lrc_ctc_align_graph_build(
                                           result)) {
         return false;
     }
-    if (state_count > INT64_MAX/SIZEOF(*graph->states)) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
-            "CTC graph state allocation is too large",
-            -1,
-            state_count
-        );
+    if (!lrc_ctc_align_checked_multiply(
+        state_count,
+        SIZEOF(*graph->states),
+        &alloc_size,
+        "CTC graph state allocation is too large",
+        result
+    )) {
         return false;
     }
 
-    graph->states = malloc2(state_count*SIZEOF(*graph->states));
+    graph->states = malloc2(alloc_size);
     graph->state_count = state_count;
     graph->target_token_count = target_token_count;
 
@@ -438,6 +484,8 @@ lrc_ctc_token_spans_allocate(
     int64 span_count,
     LrcCtcAlignResult *result
 ) {
+    int64 alloc_size;
+
     if (spans == NULL) {
         lrc_ctc_align_result_set(
             result,
@@ -458,19 +506,18 @@ lrc_ctc_token_spans_allocate(
         );
         return false;
     }
-    if (span_count > INT64_MAX/SIZEOF(*spans->spans)) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
-            "CTC token span allocation is too large",
-            -1,
-            span_count
-        );
+    if (!lrc_ctc_align_checked_multiply(
+        span_count,
+        SIZEOF(*spans->spans),
+        &alloc_size,
+        "CTC token span allocation is too large",
+        result
+    )) {
         return false;
     }
 
     lrc_ctc_token_spans_destroy(spans);
-    spans->spans = malloc2(span_count*SIZEOF(*spans->spans));
+    spans->spans = malloc2(alloc_size);
     spans->span_count = span_count;
     spans->span_cap = span_count;
 
@@ -493,6 +540,8 @@ lrc_ctc_path_allocate(
     int64 step_count,
     LrcCtcAlignResult *result
 ) {
+    int64 alloc_size;
+
     if (path == NULL) {
         lrc_ctc_align_result_set(
             result,
@@ -513,19 +562,18 @@ lrc_ctc_path_allocate(
         );
         return false;
     }
-    if (step_count > INT64_MAX/SIZEOF(*path->steps)) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
-            "CTC path allocation is too large",
-            step_count,
-            -1
-        );
+    if (!lrc_ctc_align_checked_multiply(
+        step_count,
+        SIZEOF(*path->steps),
+        &alloc_size,
+        "CTC path allocation is too large",
+        result
+    )) {
         return false;
     }
 
     lrc_ctc_path_destroy(path);
-    path->steps = malloc2(step_count*SIZEOF(*path->steps));
+    path->steps = malloc2(alloc_size);
     path->step_count = step_count;
     path->step_cap = step_count;
 
@@ -544,12 +592,25 @@ static bool
 lrc_ctc_trellis_dimensions_valid(
     int64 frame_count,
     int64 target_token_count,
-    int64 *column_count,
+    int64 *state_count_out,
     int64 *cell_count,
     LrcCtcAlignResult *result
 ) {
-    int64 state_count;
+    int64 graph_state_count;
     int64 cells;
+
+    if ((state_count_out == NULL) || (cell_count == NULL)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC trellis dimension output is missing",
+            frame_count,
+            target_token_count
+        );
+        return false;
+    }
+    *state_count_out = 0;
+    *cell_count = 0;
 
     if (frame_count <= 0) {
         lrc_ctc_align_result_set(
@@ -562,25 +623,21 @@ lrc_ctc_trellis_dimensions_valid(
         return false;
     }
     if (!lrc_ctc_align_graph_state_count(target_token_count,
-                                          &state_count,
+                                          &graph_state_count,
                                           result)) {
         return false;
     }
-
-    if (frame_count > INT64_MAX/state_count) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
-            "CTC trellis cell count is too large",
-            frame_count,
-            state_count
-        );
+    if (!lrc_ctc_align_checked_multiply(
+        frame_count,
+        graph_state_count,
+        &cells,
+        "CTC trellis cell count is too large",
+        result
+    )) {
         return false;
     }
 
-    cells = frame_count*state_count;
-
-    *column_count = state_count;
+    *state_count_out = graph_state_count;
     *cell_count = cells;
 
     return true;
@@ -601,12 +658,12 @@ lrc_ctc_trellis_previous_state_cell(
     if ((frame_index < 0) || (frame_index >= trellis->frame_count)) {
         return NULL;
     }
-    if ((state_index < 0) || (state_index >= trellis->column_count)) {
+    if ((state_index < 0) || (state_index >= trellis->state_count)) {
         return NULL;
     }
 
     return trellis->previous_states
-           + frame_index*trellis->column_count
+           + frame_index*trellis->state_count
            + state_index;
 }
 
@@ -625,11 +682,11 @@ lrc_ctc_trellis_cell(
     if ((frame_index < 0) || (frame_index >= trellis->frame_count)) {
         return NULL;
     }
-    if ((state_index < 0) || (state_index >= trellis->column_count)) {
+    if ((state_index < 0) || (state_index >= trellis->state_count)) {
         return NULL;
     }
 
-    return trellis->scores + frame_index*trellis->column_count + state_index;
+    return trellis->scores + frame_index*trellis->state_count + state_index;
 }
 
 static bool
@@ -639,8 +696,10 @@ lrc_ctc_trellis_allocate(
     int64 target_token_count,
     LrcCtcAlignResult *result
 ) {
-    int64 column_count;
+    int64 state_count;
     int64 cell_count;
+    int64 scores_size;
+    int64 previous_states_size;
 
     if (result) {
         lrc_ctc_align_result_init(result);
@@ -659,30 +718,35 @@ lrc_ctc_trellis_allocate(
     lrc_ctc_trellis_destroy(trellis);
     if (!lrc_ctc_trellis_dimensions_valid(frame_count,
                                           target_token_count,
-                                          &column_count,
+                                          &state_count,
                                           &cell_count,
                                           result)) {
         return false;
     }
-    if ((cell_count > INT64_MAX/SIZEOF(*trellis->scores))
-        || (cell_count > INT64_MAX/SIZEOF(*trellis->previous_states))) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
-            "CTC trellis allocation is too large",
-            frame_count,
-            column_count
-        );
+    if (!lrc_ctc_align_checked_multiply(
+        cell_count,
+        SIZEOF(*trellis->scores),
+        &scores_size,
+        "CTC trellis score allocation is too large",
+        result
+    )) {
+        return false;
+    }
+    if (!lrc_ctc_align_checked_multiply(
+        cell_count,
+        SIZEOF(*trellis->previous_states),
+        &previous_states_size,
+        "CTC trellis backpointer allocation is too large",
+        result
+    )) {
         return false;
     }
 
-    trellis->scores = malloc2(cell_count*SIZEOF(*trellis->scores));
-    trellis->previous_states = malloc2(
-        cell_count*SIZEOF(*trellis->previous_states)
-    );
+    trellis->scores = malloc2(scores_size);
+    trellis->previous_states = malloc2(previous_states_size);
     trellis->frame_count = frame_count;
     trellis->target_token_count = target_token_count;
-    trellis->column_count = column_count;
+    trellis->state_count = state_count;
     trellis->cell_count = cell_count;
 
     for (int64 i = 0; i < trellis->cell_count; i += 1) {
@@ -1019,7 +1083,7 @@ lrc_ctc_trellis_score_forward(
     *cell = lrc_ctc_emission_value(emissions, 0, target_token_ids[0]);
 
     for (int64 frame = 1; frame < trellis->frame_count; frame += 1) {
-        for (int64 state = 1; state < trellis->column_count; state += 1) {
+        for (int64 state = 1; state < trellis->state_count; state += 1) {
             float emission;
             float best_score;
             int64 best_previous_state;
@@ -1085,6 +1149,7 @@ lrc_ctc_trellis_ready_for_backtracking(
     LrcCtcAlignResult *result
 ) {
     int64 state_count;
+    int64 expected_cell_count;
 
     if (trellis == NULL) {
         lrc_ctc_align_result_set(
@@ -1113,7 +1178,7 @@ lrc_ctc_trellis_ready_for_backtracking(
     }
     if ((trellis->frame_count != emissions->frame_count)
         || (trellis->target_token_count != target_token_count)
-        || (trellis->column_count != state_count)) {
+        || (trellis->state_count != state_count)) {
         lrc_ctc_align_result_set(
             result,
             LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
@@ -1123,14 +1188,22 @@ lrc_ctc_trellis_ready_for_backtracking(
         );
         return false;
     }
-    if (trellis->cell_count
-        != trellis->frame_count*trellis->column_count) {
+    if (!lrc_ctc_align_checked_multiply(
+        trellis->frame_count,
+        trellis->state_count,
+        &expected_cell_count,
+        "CTC trellis dimensions are too large",
+        result
+    )) {
+        return false;
+    }
+    if (trellis->cell_count != expected_cell_count) {
         lrc_ctc_align_result_set(
             result,
             LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
             "CTC trellis cell count does not match dimensions",
             trellis->frame_count,
-            trellis->column_count
+            trellis->state_count
         );
         return false;
     }
@@ -1234,8 +1307,8 @@ lrc_ctc_trellis_best_final_state(
     ASSERT(trellis->scores != NULL);
     ASSERT(final_state != NULL);
 
-    final_blank_state = trellis->column_count - 1;
-    final_token_state = trellis->column_count - 2;
+    final_blank_state = trellis->state_count - 1;
+    final_token_state = trellis->state_count - 2;
 
     blank_cell = lrc_ctc_trellis_cell(trellis,
                                       trellis->frame_count - 1,
@@ -1646,6 +1719,8 @@ lrc_ctc_word_spans_allocate(
     int64 span_count,
     LrcCtcAlignResult *result
 ) {
+    int64 alloc_size;
+
     if (spans == NULL) {
         lrc_ctc_align_result_set(
             result,
@@ -1666,19 +1741,18 @@ lrc_ctc_word_spans_allocate(
         );
         return false;
     }
-    if (span_count > INT64_MAX/SIZEOF(*spans->spans)) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
-            "CTC word span allocation is too large",
-            -1,
-            span_count
-        );
+    if (!lrc_ctc_align_checked_multiply(
+        span_count,
+        SIZEOF(*spans->spans),
+        &alloc_size,
+        "CTC word span allocation is too large",
+        result
+    )) {
         return false;
     }
 
     lrc_ctc_word_spans_destroy(spans);
-    spans->spans = malloc2(span_count*SIZEOF(*spans->spans));
+    spans->spans = malloc2(alloc_size);
     spans->span_count = span_count;
     spans->span_cap = span_count;
 
@@ -2176,6 +2250,8 @@ lrc_ctc_line_timestamps_allocate(
     int64 line_count,
     LrcCtcAlignResult *result
 ) {
+    int64 alloc_size;
+
     if (timestamps == NULL) {
         lrc_ctc_align_result_set(
             result,
@@ -2196,19 +2272,18 @@ lrc_ctc_line_timestamps_allocate(
         );
         return false;
     }
-    if (line_count > INT64_MAX/SIZEOF(*timestamps->lines)) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
-            "CTC line timestamp allocation is too large",
-            -1,
-            line_count
-        );
+    if (!lrc_ctc_align_checked_multiply(
+        line_count,
+        SIZEOF(*timestamps->lines),
+        &alloc_size,
+        "CTC line timestamp allocation is too large",
+        result
+    )) {
         return false;
     }
 
     lrc_ctc_line_timestamps_destroy(timestamps);
-    timestamps->lines = malloc2(line_count*SIZEOF(*timestamps->lines));
+    timestamps->lines = malloc2(alloc_size);
     timestamps->line_count = line_count;
     timestamps->line_cap = line_count;
     timestamps->timestamped_line_count = 0;
@@ -3173,7 +3248,7 @@ ctc_align_test_empty_initializers(void) {
     ASSERT(trellis.scores == NULL);
     ASSERT(trellis.frame_count == 0);
     ASSERT(trellis.target_token_count == 0);
-    ASSERT(trellis.column_count == 0);
+    ASSERT(trellis.state_count == 0);
     ASSERT(trellis.cell_count == 0);
 
     ASSERT(path.steps == NULL);
@@ -3387,7 +3462,7 @@ ctc_align_test_allocate_initializes_to_negative_infinity(void) {
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
     ASSERT(trellis.frame_count == 3);
     ASSERT(trellis.target_token_count == 2);
-    ASSERT(trellis.column_count == 5);
+    ASSERT(trellis.state_count == 5);
     ASSERT(trellis.cell_count == 15);
     for (int64 i = 0; i < trellis.cell_count; i += 1) {
         ASSERT(ctc_align_is_negative_infinity(trellis.scores[i]));
@@ -3441,7 +3516,7 @@ ctc_align_test_rejects_invalid_dimensions(void) {
 }
 
 static int32
-ctc_align_test_prepare_initializes_start_column(void) {
+ctc_align_test_prepare_initializes_start_state(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis;
     LrcCtcEmissions emissions;
@@ -3458,13 +3533,13 @@ ctc_align_test_prepare_initializes_start_column(void) {
                                  2,
                                  0,
                                  &result)) {
-        return ctc_align_test_fail("prepare trellis");
+        return ctc_align_test_fail("prepare state trellis");
     }
 
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
     ASSERT(trellis.frame_count == 3);
     ASSERT(trellis.target_token_count == 2);
-    ASSERT(trellis.column_count == 5);
+    ASSERT(trellis.state_count == 5);
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 0, 0),
                                  -0.10f,
                                  0.00001f));
@@ -3514,7 +3589,7 @@ ctc_align_test_forward_scores_simple_path(void) {
     }
 
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
-    ASSERT(trellis.column_count == 5);
+    ASSERT(trellis.state_count == 5);
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
                                  -0.20f,
                                  0.00001f));
@@ -3559,7 +3634,7 @@ ctc_align_test_forward_prefers_blank_stay(void) {
     }
 
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
-    ASSERT(trellis.column_count == 3);
+    ASSERT(trellis.state_count == 3);
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
                                  -0.30f,
                                  0.00001f));
@@ -3574,7 +3649,7 @@ ctc_align_test_forward_prefers_blank_stay(void) {
 }
 
 static int32
-ctc_align_test_trellis_uses_graph_state_columns(void) {
+ctc_align_test_trellis_uses_graph_states(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis;
 
@@ -3582,21 +3657,21 @@ ctc_align_test_trellis_uses_graph_state_columns(void) {
     if (!lrc_ctc_trellis_allocate(&trellis, 2, 1, &result)) {
         return ctc_align_test_fail("allocate one-token state trellis");
     }
-    ASSERT(trellis.column_count == 3);
+    ASSERT(trellis.state_count == 3);
     ASSERT(trellis.cell_count == 6);
     lrc_ctc_trellis_destroy(&trellis);
 
     if (!lrc_ctc_trellis_allocate(&trellis, 2, 2, &result)) {
         return ctc_align_test_fail("allocate two-token state trellis");
     }
-    ASSERT(trellis.column_count == 5);
+    ASSERT(trellis.state_count == 5);
     ASSERT(trellis.cell_count == 10);
     lrc_ctc_trellis_destroy(&trellis);
 
     if (!lrc_ctc_trellis_allocate(&trellis, 2, 3, &result)) {
         return ctc_align_test_fail("allocate three-token state trellis");
     }
-    ASSERT(trellis.column_count == 7);
+    ASSERT(trellis.state_count == 7);
     ASSERT(trellis.cell_count == 14);
     lrc_ctc_trellis_destroy(&trellis);
 
@@ -6063,13 +6138,13 @@ main(void) {
     if (ctc_align_test_rejects_invalid_dimensions() != 0) {
         exit(1);
     }
-    if (ctc_align_test_prepare_initializes_start_column() != 0) {
+    if (ctc_align_test_prepare_initializes_start_state() != 0) {
         exit(1);
     }
     if (ctc_align_test_prepare_rejects_invalid_emissions() != 0) {
         exit(1);
     }
-    if (ctc_align_test_trellis_uses_graph_state_columns() != 0) {
+    if (ctc_align_test_trellis_uses_graph_states() != 0) {
         exit(1);
     }
     if (ctc_align_test_forward_scores_ctc_skip_transition() != 0) {
