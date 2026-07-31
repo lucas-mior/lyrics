@@ -2,6 +2,17 @@
 #define CTC_TOKENIZER_H
 
 #include "cbase.h"
+#include "lyrics.h"
+
+
+
+enum LrcCtcTokenizeError {
+    LRC_CTC_TOKENIZE_ERROR_NONE,
+    LRC_CTC_TOKENIZE_ERROR_INVALID_ARGUMENT,
+    LRC_CTC_TOKENIZE_ERROR_EMPTY_INPUT,
+    LRC_CTC_TOKENIZE_ERROR_TOO_MANY_TOKENS,
+    LRC_CTC_TOKENIZE_ERROR_UNSUPPORTED_TOKEN,
+};
 
 enum LrcCtcTokenizerError {
     LRC_CTC_TOKENIZER_ERROR_NONE,
@@ -17,6 +28,31 @@ enum LrcCtcTokenizerError {
     LRC_CTC_TOKENIZER_ERROR_MISSING_BLANK,
     LRC_CTC_TOKENIZER_ERROR_TOO_MANY_TOKENS,
 };
+
+
+
+typedef struct LrcCtcTokenizeResult {
+    enum LrcCtcTokenizeError error;
+    char *message;
+
+    int32 byte_offset;
+    int32 line_index;
+    int32 token_id;
+} LrcCtcTokenizeResult;
+
+typedef struct LrcCtcTextToken {
+    int32 token_id;
+    int32 normalized_start;
+    int32 normalized_end;
+    int32 line_index;
+} LrcCtcTextToken;
+
+typedef struct LrcCtcTokenizedText {
+    LrcCtcTextToken *tokens;
+
+    int32 token_count;
+    int32 token_cap;
+} LrcCtcTokenizedText;
 
 typedef struct LrcCtcTokenizerResult {
     enum LrcCtcTokenizerError error;
@@ -49,6 +85,16 @@ typedef struct LrcCtcTokenizer {
     int32 unknown_id;
 } LrcCtcTokenizer;
 
+
+static void lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result);
+static void lrc_ctc_tokenized_text_init(LrcCtcTokenizedText *text);
+static void lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text);
+static bool lrc_ctc_tokenizer_tokenize_normalized(
+    LrcCtcTokenizer *tokenizer,
+    LrcLyricsNormalized *normalized,
+    LrcCtcTokenizedText *tokens,
+    LrcCtcTokenizeResult *result
+);
 static void lrc_ctc_tokenizer_init(LrcCtcTokenizer *tokenizer);
 static void lrc_ctc_tokenizer_destroy(LrcCtcTokenizer *tokenizer);
 static void lrc_ctc_tokenizer_result_init(LrcCtcTokenizerResult *result);
