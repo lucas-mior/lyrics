@@ -822,6 +822,304 @@ ctc_text_test_assert_segment(
     return;
 }
 
+
+
+enum CtcTextReferenceCase {
+    CTC_TEXT_REFERENCE_CASE_OTHER,
+    CTC_TEXT_REFERENCE_CASE_PLAIN_ENGLISH,
+    CTC_TEXT_REFERENCE_CASE_APOSTROPHES,
+    CTC_TEXT_REFERENCE_CASE_PUNCTUATION_DIGITS,
+    CTC_TEXT_REFERENCE_CASE_ACCENTS,
+    CTC_TEXT_REFERENCE_CASE_BRACKETS_BLANK_LINES,
+    CTC_TEXT_REFERENCE_CASE_PORTUGUESE_SOLTASBRUXA,
+    CTC_TEXT_REFERENCE_CASE_GERMAN_ICH_WILL,
+};
+
+typedef struct CtcTextReferenceFixtureTotals {
+    bool saw_format;
+    bool saw_plain_english;
+    bool saw_apostrophes;
+    bool saw_punctuation_digits;
+    bool saw_accents;
+    bool saw_brackets_blank_lines;
+    bool saw_portuguese_soltasbruxa;
+    bool saw_german_ich_will;
+
+    int32 fixture_count;
+} CtcTextReferenceFixtureTotals;
+
+typedef struct CtcTextReferenceFixtureCurrent {
+    bool in_fixture;
+    bool saw_language;
+    bool saw_split_size;
+    bool saw_effective_split_size;
+    bool saw_romanize;
+    bool saw_input;
+
+    enum CtcTextReferenceCase case_id;
+
+    int32 text_split_count;
+    int32 normalized_count;
+    int32 tokens_count;
+    int32 edges_tokens_count;
+    int32 edges_text_count;
+    int32 segment_tokens_count;
+    int32 segment_text_count;
+} CtcTextReferenceFixtureCurrent;
+
+static bool
+ctc_text_reference_field_equal(
+    char *field,
+    int32 field_len,
+    char *expected
+) {
+    return strequal2(field, field_len, expected, strlen32(expected));
+}
+
+static int32
+ctc_text_reference_line_tab(
+    char *line,
+    int32 line_len
+) {
+    for (int32 i = 0; i < line_len; i += 1) {
+        if (line[i] == '\t') {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static void
+ctc_text_reference_totals_mark_case(
+    CtcTextReferenceFixtureTotals *totals,
+    CtcTextReferenceFixtureCurrent *current,
+    char *value,
+    int32 value_len
+) {
+    if (ctc_text_reference_field_equal(value, value_len, "plain_english")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_PLAIN_ENGLISH;
+        totals->saw_plain_english = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
+                                              "apostrophes")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_APOSTROPHES;
+        totals->saw_apostrophes = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
+                                              "punctuation_digits")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_PUNCTUATION_DIGITS;
+        totals->saw_punctuation_digits = true;
+    } else if (ctc_text_reference_field_equal(value, value_len, "accents")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_ACCENTS;
+        totals->saw_accents = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
+                                              "brackets_blank_lines")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_BRACKETS_BLANK_LINES;
+        totals->saw_brackets_blank_lines = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
+                                              "portuguese_soltasbruxa")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_PORTUGUESE_SOLTASBRUXA;
+        totals->saw_portuguese_soltasbruxa = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
+                                              "german_ich_will")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_GERMAN_ICH_WILL;
+        totals->saw_german_ich_will = true;
+    } else {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_OTHER;
+    }
+
+    return;
+}
+
+static void
+ctc_text_reference_validate_current(
+    CtcTextReferenceFixtureCurrent *current
+) {
+    ASSERT(current->in_fixture);
+    ASSERT(current->saw_language);
+    ASSERT(current->saw_split_size);
+    ASSERT(current->saw_effective_split_size);
+    ASSERT(current->saw_romanize);
+    ASSERT(current->saw_input);
+    ASSERT(current->text_split_count > 0);
+    ASSERT(current->normalized_count == current->text_split_count);
+    ASSERT(current->tokens_count == current->normalized_count);
+    ASSERT(current->edges_tokens_count == current->tokens_count + 2);
+    ASSERT(current->edges_text_count == current->text_split_count + 2);
+    ASSERT(current->segment_tokens_count == current->tokens_count*2);
+    ASSERT(current->segment_text_count == current->text_split_count*2);
+
+    return;
+}
+
+static void
+ctc_text_reference_parse_field(
+    CtcTextReferenceFixtureTotals *totals,
+    CtcTextReferenceFixtureCurrent *current,
+    char *field,
+    int32 field_len,
+    char *value,
+    int32 value_len
+) {
+    if (ctc_text_reference_field_equal(field, field_len, "format")) {
+        ASSERT(!current->in_fixture);
+        ASSERT(ctc_text_reference_field_equal(value, value_len, "1"));
+        totals->saw_format = true;
+    } else if (ctc_text_reference_field_equal(field, field_len, "fixture")) {
+        ASSERT(!current->in_fixture);
+        memset64(current, 0, SIZEOF(*current));
+        current->in_fixture = true;
+        totals->fixture_count += 1;
+        ctc_text_reference_totals_mark_case(totals,
+                                            current,
+                                            value,
+                                            value_len);
+    } else if (ctc_text_reference_field_equal(field, field_len, "language")) {
+        ASSERT(current->in_fixture);
+        ASSERT(value_len == 3);
+        current->saw_language = true;
+    } else if (ctc_text_reference_field_equal(field, field_len, "split_size")) {
+        ASSERT(current->in_fixture);
+        ASSERT(ctc_text_reference_field_equal(value, value_len, "word"));
+        current->saw_split_size = true;
+    } else if (ctc_text_reference_field_equal(field,
+                                              field_len,
+                                              "effective_split_size")) {
+        ASSERT(current->in_fixture);
+        ASSERT(ctc_text_reference_field_equal(value, value_len, "word"));
+        current->saw_effective_split_size = true;
+    } else if (ctc_text_reference_field_equal(field, field_len, "romanize")) {
+        ASSERT(current->in_fixture);
+        ASSERT(ctc_text_reference_field_equal(value, value_len, "false"));
+        current->saw_romanize = true;
+    } else if (ctc_text_reference_field_equal(field, field_len, "input")) {
+        ASSERT(current->in_fixture);
+        ASSERT(value_len > 0);
+        current->saw_input = true;
+    } else if (ctc_text_reference_field_equal(field, field_len, "text_split")) {
+        ASSERT(current->in_fixture);
+        current->text_split_count += 1;
+    } else if (ctc_text_reference_field_equal(field, field_len, "normalized")) {
+        ASSERT(current->in_fixture);
+        if (current->case_id == CTC_TEXT_REFERENCE_CASE_PLAIN_ENGLISH) {
+            if (current->normalized_count == 0) {
+                ASSERT(ctc_text_reference_field_equal(value,
+                                                      value_len,
+                                                      "68656c6c6f"));
+            } else if (current->normalized_count == 1) {
+                ASSERT(ctc_text_reference_field_equal(value,
+                                                      value_len,
+                                                      "776f726c64"));
+            }
+        }
+        current->normalized_count += 1;
+    } else if (ctc_text_reference_field_equal(field, field_len, "tokens")) {
+        ASSERT(current->in_fixture);
+        if (current->case_id == CTC_TEXT_REFERENCE_CASE_PLAIN_ENGLISH) {
+            if (current->tokens_count == 0) {
+                ASSERT(ctc_text_reference_field_equal(value,
+                                                      value_len,
+                                                      "682065206c206c206f"));
+            } else if (current->tokens_count == 1) {
+                ASSERT(ctc_text_reference_field_equal(value,
+                                                      value_len,
+                                                      "77206f2072206c2064"));
+            }
+        }
+        current->tokens_count += 1;
+    } else if (ctc_text_reference_field_equal(field,
+                                              field_len,
+                                              "edges_tokens")) {
+        ASSERT(current->in_fixture);
+        current->edges_tokens_count += 1;
+    } else if (ctc_text_reference_field_equal(field, field_len, "edges_text")) {
+        ASSERT(current->in_fixture);
+        current->edges_text_count += 1;
+    } else if (ctc_text_reference_field_equal(field,
+                                              field_len,
+                                              "segment_tokens")) {
+        ASSERT(current->in_fixture);
+        current->segment_tokens_count += 1;
+    } else if (ctc_text_reference_field_equal(field,
+                                              field_len,
+                                              "segment_text")) {
+        ASSERT(current->in_fixture);
+        current->segment_text_count += 1;
+    } else {
+        ASSERT(false);
+    }
+
+    return;
+}
+
+static int32
+ctc_text_test_reference_fixtures_load(void) {
+    CtcTextReferenceFixtureTotals totals = {0};
+    CtcTextReferenceFixtureCurrent current = {0};
+    char *text;
+    int32 text_len;
+    int32 line_start;
+
+    text = read_entire_file("testdata/ctc_text_reference_fixtures.txt",
+                            &text_len);
+
+    line_start = 0;
+    for (int32 i = 0; i <= text_len; i += 1) {
+        if ((i == text_len) || (text[i] == '\n')) {
+            char *line;
+            int32 line_len;
+            int32 tab;
+
+            line = text + line_start;
+            line_len = i - line_start;
+            if ((line_len > 0) && (line[line_len - 1] == '\r')) {
+                line_len -= 1;
+            }
+            line_start = i + 1;
+
+            if (line_len <= 0) {
+                continue;
+            }
+            if (line[0] == '#') {
+                continue;
+            }
+            if (ctc_text_reference_field_equal(line, line_len, "end")) {
+                ctc_text_reference_validate_current(&current);
+                memset64(&current, 0, SIZEOF(current));
+                continue;
+            }
+
+            tab = ctc_text_reference_line_tab(line, line_len);
+            ASSERT(tab > 0);
+            ctc_text_reference_parse_field(&totals,
+                                           &current,
+                                           line,
+                                           tab,
+                                           line + tab + 1,
+                                           line_len - tab - 1);
+        }
+    }
+
+    ASSERT(!current.in_fixture);
+    ASSERT(totals.saw_format);
+    ASSERT(totals.fixture_count == 7);
+    ASSERT(totals.saw_plain_english);
+    ASSERT(totals.saw_apostrophes);
+    ASSERT(totals.saw_punctuation_digits);
+    ASSERT(totals.saw_accents);
+    ASSERT(totals.saw_brackets_blank_lines);
+    ASSERT(totals.saw_portuguese_soltasbruxa);
+    ASSERT(totals.saw_german_ich_will);
+
+    free2(text, text_len + 1);
+
+    return 0;
+}
+
 static int32
 ctc_text_test_default_options(void) {
     LrcLyricsPreprocessOptions options;
@@ -917,6 +1215,7 @@ main(void) {
     status += ctc_text_test_default_options();
     status += ctc_text_test_word_segments_preserve_line_mapping();
     status += ctc_text_test_current_normalization_mapping();
+    status += ctc_text_test_reference_fixtures_load();
 
     return status;
 }
