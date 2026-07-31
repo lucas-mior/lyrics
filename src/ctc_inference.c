@@ -254,6 +254,194 @@ lrc_ctc_emissions_copy_shape(
 }
 
 static bool
+lrc_ctc_emissions_ready(
+    LrcCtcEmissions *emissions,
+    LrcCtcInferenceResult *result
+) {
+    if (emissions == NULL) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC emissions are missing",
+            -1
+        );
+        return false;
+    }
+    if ((emissions->values == NULL) || (emissions->value_count <= 0)
+        || (emissions->frame_count <= 0)
+        || (emissions->vocabulary_size <= 0)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC emissions are not prepared",
+            -1
+        );
+        return false;
+    }
+    if (emissions->frame_count
+        > INT64_MAX/emissions->vocabulary_size) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            "CTC emissions dimensions are too large",
+            -1
+        );
+        return false;
+    }
+    if (emissions->value_count
+        != emissions->frame_count*emissions->vocabulary_size) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC emissions value count does not match dimensions",
+            -1
+        );
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_emissions_log_softmax_row(
+    float *row,
+    int64 vocabulary_size,
+    int64 row_offset,
+    LrcCtcInferenceResult *result
+) {
+    double sum;
+    double log_denom;
+    float max_value;
+
+    if ((row == NULL) || (vocabulary_size <= 0)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC log-softmax row arguments are invalid",
+            row_offset
+        );
+        return false;
+    }
+
+    max_value = row[0];
+    for (int64 i = 1; i < vocabulary_size; i += 1) {
+        if (row[i] > max_value) {
+            max_value = row[i];
+        }
+    }
+
+    sum = 0.0;
+    for (int64 i = 0; i < vocabulary_size; i += 1) {
+        sum += exp((double)row[i] - (double)max_value);
+    }
+    if (!isfinite(sum) || (sum <= 0.0)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY,
+            "CTC log-softmax row has invalid normalizer",
+            row_offset
+        );
+        return false;
+    }
+
+    log_denom = (double)max_value + log(sum);
+    for (int64 i = 0; i < vocabulary_size; i += 1) {
+        row[i] = (float)((double)row[i] - log_denom);
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_emissions_log_probabilities_from_probabilities_row(
+    float *row,
+    int64 vocabulary_size,
+    int64 row_offset,
+    LrcCtcInferenceResult *result
+) {
+    if ((row == NULL) || (vocabulary_size <= 0)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC probability row arguments are invalid",
+            row_offset
+        );
+        return false;
+    }
+
+    for (int64 i = 0; i < vocabulary_size; i += 1) {
+        if (!isfinite((double)row[i]) || (row[i] <= 0.0f)) {
+            lrc_ctc_inference_result_set(
+                result,
+                LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY,
+                "CTC probabilities must be finite and positive",
+                row_offset + i
+            );
+            return false;
+        }
+    }
+
+    for (int64 i = 0; i < vocabulary_size; i += 1) {
+        row[i] = logf(row[i]);
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_emissions_convert_to_log_probabilities(
+    LrcCtcEmissions *emissions,
+    enum LrcCtcEmissionValuesKind values_kind,
+    LrcCtcInferenceResult *result
+) {
+    if (result) {
+        lrc_ctc_inference_result_init(result);
+    }
+    if (!lrc_ctc_emissions_ready(emissions, result)) {
+        return false;
+    }
+
+    switch (values_kind) {
+    case LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES:
+        return true;
+    case LRC_CTC_EMISSION_VALUES_LOGITS:
+        for (int64 frame = 0; frame < emissions->frame_count; frame += 1) {
+            int64 offset = frame*emissions->vocabulary_size;
+
+            if (!lrc_ctc_emissions_log_softmax_row(
+                    emissions->values + offset,
+                    emissions->vocabulary_size,
+                    offset,
+                    result)) {
+                return false;
+            }
+        }
+        return true;
+    case LRC_CTC_EMISSION_VALUES_PROBABILITIES:
+        for (int64 frame = 0; frame < emissions->frame_count; frame += 1) {
+            int64 offset = frame*emissions->vocabulary_size;
+
+            if (!lrc_ctc_emissions_log_probabilities_from_probabilities_row(
+                    emissions->values + offset,
+                    emissions->vocabulary_size,
+                    offset,
+                    result)) {
+                return false;
+            }
+        }
+        return true;
+    default:
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC emission value kind is invalid",
+            -1
+        );
+        return false;
+    }
+}
+
+static bool
 lrc_ctc_inference_input_ready(
     LrcCtcModelInput *input,
     LrcCtcInferenceResult *result
@@ -667,6 +855,15 @@ ctc_inference_test_fail(char *name) {
     return 1;
 }
 
+static bool
+ctc_inference_float_close(float a, float b, float max_error) {
+    float diff;
+
+    diff = fabsf(a - b);
+
+    return diff <= max_error;
+}
+
 static void
 ctc_inference_make_input(LrcCtcModelInput *input) {
     static float samples[] = {0.0f, 0.1f, -0.1f, 0.2f};
@@ -885,6 +1082,203 @@ ctc_inference_test_rejects_bad_shapes(void) {
 }
 
 static int32
+ctc_inference_test_log_probability_bypass(void) {
+    LrcCtcInferenceResult result;
+    LrcCtcEmissions emissions;
+    int64 shape[2];
+    float values[] = {
+        -0.10f, -2.30f,
+        -1.20f, -0.40f,
+    };
+
+    shape[0] = 2;
+    shape[1] = 2;
+
+    lrc_ctc_emissions_init(&emissions);
+    if (!lrc_ctc_emissions_copy_shape(&emissions,
+                                      values,
+                                      LENGTH(values),
+                                      shape,
+                                      2,
+                                      &result)) {
+        return ctc_inference_test_fail("copy log-probability emissions");
+    }
+    if (!lrc_ctc_emissions_convert_to_log_probabilities(
+            &emissions,
+            LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES,
+            &result)) {
+        return ctc_inference_test_fail("bypass log probabilities");
+    }
+
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    for (int32 i = 0; i < LENGTH(values); i += 1) {
+        ASSERT(emissions.values[i] == values[i]);
+    }
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_logits_to_log_probabilities(void) {
+    LrcCtcInferenceResult result;
+    LrcCtcEmissions emissions;
+    int64 shape[2];
+    double row1_norm;
+    double row2_norm;
+    double row1_sum;
+    double row2_sum;
+    float values[] = {
+        0.0f, 0.0f,
+        1000.0f, 999.0f,
+    };
+
+    shape[0] = 2;
+    shape[1] = 2;
+    row1_norm = log(2.0);
+    row2_norm = log(1.0 + exp(-1.0));
+
+    lrc_ctc_emissions_init(&emissions);
+    if (!lrc_ctc_emissions_copy_shape(&emissions,
+                                      values,
+                                      LENGTH(values),
+                                      shape,
+                                      2,
+                                      &result)) {
+        return ctc_inference_test_fail("copy logits emissions");
+    }
+    if (!lrc_ctc_emissions_convert_to_log_probabilities(
+            &emissions,
+            LRC_CTC_EMISSION_VALUES_LOGITS,
+            &result)) {
+        return ctc_inference_test_fail("convert logits to log probabilities");
+    }
+
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(ctc_inference_float_close(emissions.values[0],
+                                     (float)-row1_norm,
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[1],
+                                     (float)-row1_norm,
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[2],
+                                     (float)-row2_norm,
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[3],
+                                     (float)(-1.0 - row2_norm),
+                                     0.00001f));
+
+    row1_sum = exp((double)emissions.values[0])
+               + exp((double)emissions.values[1]);
+    row2_sum = exp((double)emissions.values[2])
+               + exp((double)emissions.values[3]);
+    ASSERT(fabs(row1_sum - 1.0) < 0.000001);
+    ASSERT(fabs(row2_sum - 1.0) < 0.000001);
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_probabilities_to_log_probabilities(void) {
+    LrcCtcInferenceResult result;
+    LrcCtcEmissions emissions;
+    int64 shape[2];
+    float values[] = {
+        0.25f, 0.75f,
+        0.90f, 0.10f,
+    };
+
+    shape[0] = 2;
+    shape[1] = 2;
+
+    lrc_ctc_emissions_init(&emissions);
+    if (!lrc_ctc_emissions_copy_shape(&emissions,
+                                      values,
+                                      LENGTH(values),
+                                      shape,
+                                      2,
+                                      &result)) {
+        return ctc_inference_test_fail("copy probability emissions");
+    }
+    if (!lrc_ctc_emissions_convert_to_log_probabilities(
+            &emissions,
+            LRC_CTC_EMISSION_VALUES_PROBABILITIES,
+            &result)) {
+        return ctc_inference_test_fail("convert probabilities");
+    }
+
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(ctc_inference_float_close(emissions.values[0],
+                                     logf(values[0]),
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[1],
+                                     logf(values[1]),
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[2],
+                                     logf(values[2]),
+                                     0.00001f));
+    ASSERT(ctc_inference_float_close(emissions.values[3],
+                                     logf(values[3]),
+                                     0.00001f));
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_rejects_invalid_probability_conversion(void) {
+    LrcCtcInferenceResult result;
+    LrcCtcEmissions emissions;
+    int64 shape[2];
+    float values[] = {1.0f, 0.0f};
+
+    shape[0] = 1;
+    shape[1] = 2;
+    lrc_ctc_emissions_init(&emissions);
+    if (!lrc_ctc_emissions_copy_shape(&emissions,
+                                      values,
+                                      LENGTH(values),
+                                      shape,
+                                      2,
+                                      &result)) {
+        return ctc_inference_test_fail("copy invalid probabilities");
+    }
+    if (lrc_ctc_emissions_convert_to_log_probabilities(
+            &emissions,
+            LRC_CTC_EMISSION_VALUES_PROBABILITIES,
+            &result)) {
+        return ctc_inference_test_fail("zero probability accepted");
+    }
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY);
+    ASSERT(result.output_index == 1);
+
+    values[1] = 1.0f;
+    if (!lrc_ctc_emissions_copy_shape(&emissions,
+                                      values,
+                                      LENGTH(values),
+                                      shape,
+                                      2,
+                                      &result)) {
+        return ctc_inference_test_fail("copy valid probabilities");
+    }
+    if (lrc_ctc_emissions_convert_to_log_probabilities(
+            &emissions,
+            (enum LrcCtcEmissionValuesKind)777,
+            &result)) {
+        return ctc_inference_test_fail("invalid value kind accepted");
+    }
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT);
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
 ctc_inference_test_optional_onnx_backend(void) {
 #if LRC_CTC_INFERENCE_ENABLE_ORT
     LrcCtcInferenceBackend backend;
@@ -945,6 +1339,18 @@ main(void) {
         exit(1);
     }
     if (ctc_inference_test_rejects_bad_shapes() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_log_probability_bypass() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_logits_to_log_probabilities() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_probabilities_to_log_probabilities() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_rejects_invalid_probability_conversion() != 0) {
         exit(1);
     }
     if (ctc_inference_test_optional_onnx_backend() != 0) {

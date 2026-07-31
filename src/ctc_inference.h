@@ -18,9 +18,16 @@ enum LrcCtcInferenceError {
     LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
     LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
     LRC_CTC_INFERENCE_ERROR_NON_FINITE_OUTPUT,
+    LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY,
     LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
     LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
     LRC_CTC_INFERENCE_ERROR_MODEL_LOAD_FAILED,
+};
+
+enum LrcCtcEmissionValuesKind {
+    LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES,
+    LRC_CTC_EMISSION_VALUES_LOGITS,
+    LRC_CTC_EMISSION_VALUES_PROBABILITIES,
 };
 
 typedef struct LrcCtcInferenceResult {
@@ -79,6 +86,11 @@ static bool lrc_ctc_emissions_copy_shape(
     int64 value_count,
     int64 *shape,
     int32 shape_len,
+    LrcCtcInferenceResult *result
+);
+static bool lrc_ctc_emissions_convert_to_log_probabilities(
+    LrcCtcEmissions *emissions,
+    enum LrcCtcEmissionValuesKind values_kind,
     LrcCtcInferenceResult *result
 );
 static bool lrc_ctc_inference_run(
