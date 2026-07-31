@@ -115,8 +115,6 @@ test)
     fi
     ;;
 check)
-    CC=gcc
-    CFLAGS="$CFLAGS $GNUSOURCE -DDEBUGGING=1 -fanalyzer"
     ;;
 *)
     ;;
@@ -139,7 +137,7 @@ commands:
     run      build and run one selected app
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
-    check    build with GCC static analyzer
+    check    build with GCC and Clang static analyzers
     clean    remove generated build outputs
     help     show this message
 
@@ -277,6 +275,25 @@ module_test_flags() {
     awk '/\/\/ flags:/ { $1=$2=""; print $0 }' "$1"
 }
 
+run_check() {
+    if [ -n "$target_arg" ]; then
+        CC=gcc CFLAGS="-fanalyzer" "$0" build "$target_arg"
+    else
+        CC=gcc CFLAGS="-fanalyzer" "$0" build
+    fi
+
+    analyzer_flags="--analyze -Xanalyzer -analyzer-output=text"
+    analyzer_flags="$analyzer_flags -Xanalyzer -analyzer-werror"
+    analyzer_flags="$analyzer_flags -Xanalyzer -analyzer-opt-analyze-headers"
+    analyzer_flags="$analyzer_flags -Wno-unused-command-line-argument"
+
+    if [ -n "$target_arg" ]; then
+        CC=clang CFLAGS="$analyzer_flags" "$0" build "$target_arg"
+    else
+        CC=clang CFLAGS="$analyzer_flags" "$0" build
+    fi
+}
+
 run_tests() {
     setup_pkg_config_flags
 
@@ -343,7 +360,7 @@ debug)
     build_program
     ;;
 check)
-    build_program
+    run_check
     ;;
 clean)
     rm -rf bin

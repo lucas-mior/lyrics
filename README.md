@@ -69,6 +69,7 @@ functionality is not implemented yet.
 ./build.sh build [app]    # build all executables, or one selected app
 ./build.sh run [app]      # build and run one selected app
 ./build.sh test [module]  # build and run embedded module tests
+./build.sh check [app]    # run GCC and Clang static analyzers
 ./build.sh clean          # remove generated build outputs
 ```
 
