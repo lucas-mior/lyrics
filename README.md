@@ -36,8 +36,6 @@ audio-separator Paranoid.flac \
 - A C11 compiler
 - `pkg-config`
 - FFmpeg at runtime for audio decoding/encoding
-- Python 3, only to regenerate the tiny ONNX model
-- `curl` and `tar`, only for the setup helper
 
 ## Build and run
 
@@ -71,8 +69,6 @@ functionality is not implemented yet.
 ./build.sh build [app]    # build all executables, or one selected app
 ./build.sh run [app]      # build and run one selected app
 ./build.sh test [module]  # build and run embedded module tests
-./build.sh model          # regenerate models/identity.onnx
-./build.sh setup          # download ONNX Runtime and regenerate the model
 ./build.sh clean          # remove generated build outputs
 ```
 
@@ -87,28 +83,12 @@ gen_lrc
 
 `./build.sh` without arguments is the same as `./build.sh build`.
 
-## Use an existing ONNX Runtime installation
+## ONNX Runtime pkg-config
 
-Install an ONNX Runtime package that provides a pkg-config file, or point
-`PKG_CONFIG_PATH` at a directory containing `onnxruntime.pc`:
+Install an ONNX Runtime package that provides `onnxruntime.pc`, or point
+`PKG_CONFIG_PATH` at the directory containing it:
 
 ```sh
 ./build.sh clean
 PKG_CONFIG_PATH=/opt/onnxruntime/lib/pkgconfig ./build.sh build get_voice
 ```
-
-If your installation uses a different pkg-config package name, set
-`ONNXRUNTIME_PKG_CONFIG_NAME`:
-
-```sh
-ONNXRUNTIME_PKG_CONFIG_NAME=libonnxruntime ./build.sh build get_voice
-```
-
-## Regenerate the model
-
-```sh
-./build.sh model
-```
-
-The generator writes the ONNX protobuf directly, so it does not require the
-`onnx` Python package.
