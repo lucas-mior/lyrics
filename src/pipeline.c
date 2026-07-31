@@ -1873,6 +1873,9 @@ pipeline_test_config_defaults(void) {
            == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
     ASSERT(config.lyrics_preprocess_options.romanization
            == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+    ASSERT(strequal2(config.lyrics_preprocess_options.language,
+                     config.lyrics_preprocess_options.language_len,
+                     STRLIT("eng")));
     ASSERT(config.ctc_emission_values_kind
            == LRC_CTC_EMISSION_VALUES_LOGITS);
     ASSERT(pipeline.error == LRC_PIPELINE_ERROR_NONE);

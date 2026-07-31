@@ -77,7 +77,6 @@ lrc_lyrics_normalized_alloc_lines(
     return true;
 }
 
-
 static bool
 lrc_lyrics_normalized_reserve_segments(
     LrcLyricsNormalized *normalized,
@@ -548,8 +547,6 @@ lrc_lyrics_ascii_lower(char c) {
 
     return c;
 }
-
-
 
 static bool
 ctc_text_is_unicode_space(uint32 rune) {
@@ -1658,6 +1655,39 @@ lrc_lyrics_next_word_end(
 }
 
 static bool
+lrc_lyrics_preprocess_language_is(
+    LrcLyricsPreprocessOptions *options,
+    char *language
+) {
+    if ((options == NULL) || (language == NULL)) {
+        return false;
+    }
+
+    return strequal2(options->language,
+                     options->language_len,
+                     language,
+                     strlen32(language));
+}
+
+static enum LrcLyricsPreprocessSplitSize
+lrc_lyrics_preprocess_effective_split_size(
+    LrcLyricsPreprocessOptions *options
+) {
+    if (options == NULL) {
+        return LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
+    }
+    if (options->split_size == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT) {
+        return options->split_size;
+    }
+    if (lrc_lyrics_preprocess_language_is(options, "jpn")
+        || lrc_lyrics_preprocess_language_is(options, "chi")) {
+        return LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR;
+    }
+
+    return options->split_size;
+}
+
+static bool
 lrc_lyrics_normalize_line_word(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized,
@@ -1717,12 +1747,136 @@ lrc_lyrics_normalize_line_word(
 }
 
 static bool
+lrc_lyrics_normalize_char_segment(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized,
+    LrcLyricsNormalizedLine *line_range,
+    int32 line_index,
+    int32 char_start,
+    int32 char_end,
+    bool *wrote_line
+) {
+    CtcUnicodeNormResult chunk;
+    int32 normalized_start;
+    int32 normalized_end;
+    int32 target_start;
+    int32 target_end;
+    bool ok;
+
+    ctc_unicode_norm_result_init(&chunk);
+    normalized_start = normalized->text_len;
+    normalized_end = normalized_start;
+    target_start = normalized->target_text_len;
+    target_end = target_start;
+    ok = false;
+
+    if (!ctc_text_reference_normalize_word(lyrics->text + char_start,
+                                           char_end - char_start,
+                                           &chunk)) {
+        goto done;
+    }
+
+    if (chunk.text_len > 0) {
+        if (line_range->normalized_start < 0) {
+            line_range->normalized_start = normalized->text_len;
+        }
+
+        normalized_start = normalized->text_len;
+        if (!lrc_lyrics_normalized_append_bytes(normalized,
+                                                chunk.text,
+                                                chunk.text_len,
+                                                line_index,
+                                                char_start,
+                                                char_end)) {
+            goto done;
+        }
+        normalized_end = normalized->text_len;
+
+        if (!lrc_lyrics_normalized_append_target_from_normalized(
+            normalized,
+            line_index,
+            normalized_start,
+            normalized_end,
+            &target_start,
+            &target_end
+        )) {
+            goto done;
+        }
+
+        line_range->normalized_end = normalized_end;
+        *wrote_line = true;
+    }
+
+    ok = lrc_lyrics_normalized_append_segment(normalized,
+                                              line_index,
+                                              char_start,
+                                              char_end,
+                                              normalized_start,
+                                              normalized_end,
+                                              target_start,
+                                              target_end);
+
+done:
+    ctc_unicode_norm_result_destroy(&chunk);
+
+    return ok;
+}
+
+static bool
+lrc_lyrics_normalize_line_char(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized,
+    int32 line_index,
+    int32 start,
+    int32 end
+) {
+    LrcLyricsNormalizedLine *line_range;
+    bool wrote_line;
+
+    line_range = &normalized->lines[line_index];
+    wrote_line = false;
+
+    for (int32 i = start; i < end;) {
+        uint32 rune;
+        int32 step;
+
+        step = utf8_decode_raw(lyrics->text + i, &rune, end - i);
+        if (step <= 0) {
+            return false;
+        }
+        if (!lrc_lyrics_normalize_char_segment(lyrics,
+                                               normalized,
+                                               line_range,
+                                               line_index,
+                                               i,
+                                               i + step,
+                                               &wrote_line)) {
+            return false;
+        }
+        i += step;
+    }
+
+    if ((line_range->normalized_start >= 0)
+        && (line_range->normalized_end > line_range->normalized_start)) {
+        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE;
+        normalized->alignable_line_count += 1;
+    } else {
+        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_PUNCTUATION_ONLY;
+        line_range->normalized_start = -1;
+        line_range->normalized_end = -1;
+    }
+
+    return true;
+}
+
+static bool
 lrc_lyrics_normalize_with_options(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized,
     LrcLyricsPreprocessOptions *options
 ) {
     LrcLyricsPreprocessOptions local_options;
+    enum LrcLyricsPreprocessSplitSize split_size;
 
     if ((lyrics == NULL) || (normalized == NULL)) {
         return false;
@@ -1732,6 +1886,8 @@ lrc_lyrics_normalize_with_options(
         lrc_lyrics_preprocess_options_init(&local_options);
         options = &local_options;
     }
+
+    split_size = lrc_lyrics_preprocess_effective_split_size(options);
 
     lrc_lyrics_normalized_destroy(normalized);
     if (!lrc_lyrics_normalized_alloc_lines(normalized, lyrics->line_count)) {
@@ -1757,7 +1913,7 @@ lrc_lyrics_normalize_with_options(
             continue;
         }
 
-        switch (options->split_size) {
+        switch (split_size) {
         case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT:
             ok = lrc_lyrics_normalize_line(lyrics,
                                            normalized,
@@ -1773,6 +1929,12 @@ lrc_lyrics_normalize_with_options(
                                                 end);
             break;
         case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR:
+            ok = lrc_lyrics_normalize_line_char(lyrics,
+                                                normalized,
+                                                i,
+                                                start,
+                                                end);
+            break;
         case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_SENTENCE:
         default:
             ok = false;
@@ -1947,7 +2109,6 @@ ctc_text_load_lyrics(
     return ok;
 }
 
-
 static void
 ctc_text_test_assert_segment(
     LrcLyrics *lyrics,
@@ -1996,6 +2157,9 @@ enum CtcTextReferenceCase {
     CTC_TEXT_REFERENCE_CASE_PUNCTUATION_DIGITS,
     CTC_TEXT_REFERENCE_CASE_ACCENTS,
     CTC_TEXT_REFERENCE_CASE_BRACKETS_BLANK_LINES,
+    CTC_TEXT_REFERENCE_CASE_ENGLISH_CHAR,
+    CTC_TEXT_REFERENCE_CASE_JAPANESE_FORCE_CHAR,
+    CTC_TEXT_REFERENCE_CASE_CHINESE_FORCE_CHAR,
     CTC_TEXT_REFERENCE_CASE_PORTUGUESE_SOLTASBRUXA,
     CTC_TEXT_REFERENCE_CASE_GERMAN_ICH_WILL,
 };
@@ -2007,6 +2171,9 @@ typedef struct CtcTextReferenceFixtureTotals {
     bool saw_punctuation_digits;
     bool saw_accents;
     bool saw_brackets_blank_lines;
+    bool saw_english_char;
+    bool saw_japanese_force_char;
+    bool saw_chinese_force_char;
     bool saw_portuguese_soltasbruxa;
     bool saw_german_ich_will;
 
@@ -2085,6 +2252,21 @@ ctc_text_reference_totals_mark_case(
         totals->saw_brackets_blank_lines = true;
     } else if (ctc_text_reference_field_equal(value,
                                               value_len,
+                                              "english_char")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_ENGLISH_CHAR;
+        totals->saw_english_char = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
+                                              "japanese_force_char")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_JAPANESE_FORCE_CHAR;
+        totals->saw_japanese_force_char = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
+                                              "chinese_force_char")) {
+        current->case_id = CTC_TEXT_REFERENCE_CASE_CHINESE_FORCE_CHAR;
+        totals->saw_chinese_force_char = true;
+    } else if (ctc_text_reference_field_equal(value,
+                                              value_len,
                                               "portuguese_soltasbruxa")) {
         current->case_id = CTC_TEXT_REFERENCE_CASE_PORTUGUESE_SOLTASBRUXA;
         totals->saw_portuguese_soltasbruxa = true;
@@ -2149,13 +2331,15 @@ ctc_text_reference_parse_field(
         current->saw_language = true;
     } else if (ctc_text_reference_field_equal(field, field_len, "split_size")) {
         ASSERT(current->in_fixture);
-        ASSERT(ctc_text_reference_field_equal(value, value_len, "word"));
+        ASSERT(ctc_text_reference_field_equal(value, value_len, "word")
+               || ctc_text_reference_field_equal(value, value_len, "char"));
         current->saw_split_size = true;
     } else if (ctc_text_reference_field_equal(field,
                                               field_len,
                                               "effective_split_size")) {
         ASSERT(current->in_fixture);
-        ASSERT(ctc_text_reference_field_equal(value, value_len, "word"));
+        ASSERT(ctc_text_reference_field_equal(value, value_len, "word")
+               || ctc_text_reference_field_equal(value, value_len, "char"));
         current->saw_effective_split_size = true;
     } else if (ctc_text_reference_field_equal(field, field_len, "romanize")) {
         ASSERT(current->in_fixture);
@@ -2271,12 +2455,15 @@ ctc_text_test_reference_fixtures_load(void) {
 
     ASSERT(!current.in_fixture);
     ASSERT(totals.saw_format);
-    ASSERT(totals.fixture_count == 7);
+    ASSERT(totals.fixture_count == 10);
     ASSERT(totals.saw_plain_english);
     ASSERT(totals.saw_apostrophes);
     ASSERT(totals.saw_punctuation_digits);
     ASSERT(totals.saw_accents);
     ASSERT(totals.saw_brackets_blank_lines);
+    ASSERT(totals.saw_english_char);
+    ASSERT(totals.saw_japanese_force_char);
+    ASSERT(totals.saw_chinese_force_char);
     ASSERT(totals.saw_portuguese_soltasbruxa);
     ASSERT(totals.saw_german_ich_will);
 
@@ -2728,6 +2915,112 @@ ctc_text_test_word_target_text_is_character_spaced(void) {
     return 0;
 }
 
+static void
+ctc_text_test_options_language(
+    LrcLyricsPreprocessOptions *options,
+    char *language
+) {
+    int32 language_len;
+
+    language_len = strlen32(language);
+    ASSERT(language_len == 3);
+
+    memcpy64(options->language, language, language_len);
+    options->language[language_len] = '\0';
+    options->language_len = language_len;
+
+    return;
+}
+
+static int32
+ctc_text_test_char_fixture_case(
+    char *fixture_name,
+    char *language,
+    enum LrcLyricsPreprocessSplitSize split_size
+) {
+    CtcTextReferenceWordFixture fixture;
+    LrcLyricsPreprocessOptions options;
+    LrcLyricsNormalized normalized;
+    LrcLyrics lyrics;
+
+    if (!ctc_text_reference_load_word_fixture(fixture_name, &fixture)) {
+        return ctc_text_test_fail("load char fixture");
+    }
+    if (!ctc_text_load_lyrics(&lyrics, fixture.input, fixture_name)) {
+        return ctc_text_test_fail("load char fixture lyrics");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = split_size;
+    ctc_text_test_options_language(&options, language);
+
+    lrc_lyrics_normalized_init(&normalized);
+    if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
+        lrc_lyrics_destroy(&lyrics);
+        return ctc_text_test_fail("normalize char fixture lyrics");
+    }
+
+    ASSERT(normalized.segment_count == fixture.text_split_count);
+    ASSERT(normalized.segment_count == fixture.normalized_count);
+    ASSERT(normalized.segment_count == fixture.tokens_count);
+    for (int32 i = 0; i < fixture.text_split_count; i += 1) {
+        CtcTextSegment *segment;
+        int32 source_len;
+        int32 normalized_len;
+        int32 target_len;
+
+        segment = lrc_lyrics_normalized_segment(&normalized, i);
+        ASSERT(segment);
+
+        source_len = segment->source_end - segment->source_start;
+        normalized_len = segment->normalized_end - segment->normalized_start;
+        target_len = segment->target_end - segment->target_start;
+
+        ASSERT(strequal2(lyrics.text + segment->source_start,
+                         source_len,
+                         fixture.text_split[i],
+                         fixture.text_split_lens[i]));
+        ASSERT(strequal2(normalized.text + segment->normalized_start,
+                         normalized_len,
+                         fixture.normalized[i],
+                         fixture.normalized_lens[i]));
+        ASSERT(strequal2(normalized.target_text + segment->target_start,
+                         target_len,
+                         fixture.tokens[i],
+                         fixture.tokens_lens[i]));
+    }
+
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
+ctc_text_test_char_split_matches_reference_fixtures(void) {
+    int32 status;
+
+    status = 0;
+
+    status += ctc_text_test_char_fixture_case(
+        "english_char",
+        "eng",
+        LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR
+    );
+    status += ctc_text_test_char_fixture_case(
+        "japanese_force_char",
+        "jpn",
+        LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD
+    );
+    status += ctc_text_test_char_fixture_case(
+        "chinese_force_char",
+        "chi",
+        LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD
+    );
+
+    return status;
+}
+
 static int32
 ctc_text_test_word_split_option_preserves_current_text(void) {
     LrcLyricsPreprocessOptions options;
@@ -2781,10 +3074,10 @@ ctc_text_test_default_options(void) {
         options.star_frequency == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES
     );
     ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+    ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
 
     return 0;
 }
-
 
 static int32
 ctc_text_test_word_segments_preserve_line_mapping(void) {
@@ -2871,6 +3164,7 @@ main(void) {
     status += ctc_text_test_word_normalization_matches_reference_fixtures();
     status += ctc_text_test_word_target_text_is_character_spaced();
     status += ctc_text_test_word_targets_match_reference_fixtures();
+    status += ctc_text_test_char_split_matches_reference_fixtures();
 
     return status;
 }

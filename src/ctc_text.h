@@ -28,6 +28,9 @@ typedef struct LrcLyricsPreprocessOptions {
     enum LrcLyricsPreprocessSplitSize split_size;
     enum LrcLyricsPreprocessStarFrequency star_frequency;
     enum LrcLyricsPreprocessRomanization romanization;
+
+    char language[4];
+    int32 language_len;
 } LrcLyricsPreprocessOptions;
 
 typedef struct LrcLyricsNormalizedByte {
@@ -103,6 +106,10 @@ lrc_lyrics_preprocess_options_init(
     options->split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
     options->star_frequency = LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES;
     options->romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
+
+    memcpy64(options->language, STRLIT("eng"));
+    options->language[3] = '\0';
+    options->language_len = 3;
 
     return;
 }

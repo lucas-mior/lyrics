@@ -209,6 +209,156 @@ segment_text	48656c6c6f
 segment_text	3c737461723e
 segment_text	616761696e
 end
+fixture	english_char
+language	eng
+split_size	char
+effective_split_size	char
+romanize	false
+input	48692c20796f21
+text_split	48
+text_split	69
+text_split	2c
+text_split	20
+text_split	79
+text_split	6f
+text_split	21
+normalized	68
+normalized	69
+normalized	
+normalized	
+normalized	79
+normalized	6f
+normalized	
+tokens	68
+tokens	69
+tokens	
+tokens	
+tokens	79
+tokens	6f
+tokens	
+edges_tokens	3c737461723e
+edges_tokens	68
+edges_tokens	69
+edges_tokens	
+edges_tokens	
+edges_tokens	79
+edges_tokens	6f
+edges_tokens	
+edges_tokens	3c737461723e
+edges_text	3c737461723e
+edges_text	48
+edges_text	69
+edges_text	2c
+edges_text	20
+edges_text	79
+edges_text	6f
+edges_text	21
+edges_text	3c737461723e
+segment_tokens	3c737461723e
+segment_tokens	68
+segment_tokens	3c737461723e
+segment_tokens	69
+segment_tokens	3c737461723e
+segment_tokens	
+segment_tokens	3c737461723e
+segment_tokens	
+segment_tokens	3c737461723e
+segment_tokens	79
+segment_tokens	3c737461723e
+segment_tokens	6f
+segment_tokens	3c737461723e
+segment_tokens	
+segment_text	3c737461723e
+segment_text	48
+segment_text	3c737461723e
+segment_text	69
+segment_text	3c737461723e
+segment_text	2c
+segment_text	3c737461723e
+segment_text	20
+segment_text	3c737461723e
+segment_text	79
+segment_text	3c737461723e
+segment_text	6f
+segment_text	3c737461723e
+segment_text	21
+end
+fixture	japanese_force_char
+language	jpn
+split_size	word
+effective_split_size	char
+romanize	false
+input	e6ad8ce38186e78cab
+text_split	e6ad8c
+text_split	e38186
+text_split	e78cab
+normalized	e6ad8c
+normalized	e38186
+normalized	e78cab
+tokens	e6ad8c
+tokens	e38186
+tokens	e78cab
+edges_tokens	3c737461723e
+edges_tokens	e6ad8c
+edges_tokens	e38186
+edges_tokens	e78cab
+edges_tokens	3c737461723e
+edges_text	3c737461723e
+edges_text	e6ad8c
+edges_text	e38186
+edges_text	e78cab
+edges_text	3c737461723e
+segment_tokens	3c737461723e
+segment_tokens	e6ad8c
+segment_tokens	3c737461723e
+segment_tokens	e38186
+segment_tokens	3c737461723e
+segment_tokens	e78cab
+segment_text	3c737461723e
+segment_text	e6ad8c
+segment_text	3c737461723e
+segment_text	e38186
+segment_text	3c737461723e
+segment_text	e78cab
+end
+fixture	chinese_force_char
+language	chi
+split_size	word
+effective_split_size	char
+romanize	false
+input	e4bda0e5a5bdefbc81
+text_split	e4bda0
+text_split	e5a5bd
+text_split	efbc81
+normalized	e4bda0
+normalized	e5a5bd
+normalized	
+tokens	e4bda0
+tokens	e5a5bd
+tokens	
+edges_tokens	3c737461723e
+edges_tokens	e4bda0
+edges_tokens	e5a5bd
+edges_tokens	
+edges_tokens	3c737461723e
+edges_text	3c737461723e
+edges_text	e4bda0
+edges_text	e5a5bd
+edges_text	efbc81
+edges_text	3c737461723e
+segment_tokens	3c737461723e
+segment_tokens	e4bda0
+segment_tokens	3c737461723e
+segment_tokens	e5a5bd
+segment_tokens	3c737461723e
+segment_tokens	
+segment_text	3c737461723e
+segment_text	e4bda0
+segment_text	3c737461723e
+segment_text	e5a5bd
+segment_text	3c737461723e
+segment_text	efbc81
+end
 fixture	portuguese_soltasbruxa
 language	por
 split_size	word

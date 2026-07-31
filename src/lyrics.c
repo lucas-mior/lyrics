@@ -796,6 +796,7 @@ lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
     ASSERT(options.star_frequency
            == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
     ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+    ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
 
     lrc_lyrics_normalized_init(&default_normalized);
     lrc_lyrics_normalized_init(&option_normalized);
