@@ -69,6 +69,86 @@ lrc_ctc_trellis_destroy(LrcCtcTrellis *trellis) {
     return;
 }
 
+
+static void
+lrc_ctc_path_init(LrcCtcPath *path) {
+    if (path == NULL) {
+        return;
+    }
+
+    memset64(path, 0, SIZEOF(*path));
+
+    return;
+}
+
+static void
+lrc_ctc_path_destroy(LrcCtcPath *path) {
+    if (path == NULL) {
+        return;
+    }
+
+    if (path->steps) {
+        free2(path->steps, path->step_cap*SIZEOF(*path->steps));
+    }
+
+    lrc_ctc_path_init(path);
+
+    return;
+}
+
+static bool
+lrc_ctc_path_allocate(
+    LrcCtcPath *path,
+    int64 step_count,
+    LrcCtcAlignResult *result
+) {
+    if (path == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC path destination is missing",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (step_count <= 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            "CTC path step count must be positive",
+            step_count,
+            -1
+        );
+        return false;
+    }
+    if (step_count > INT64_MAX/SIZEOF(*path->steps)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            "CTC path allocation is too large",
+            step_count,
+            -1
+        );
+        return false;
+    }
+
+    lrc_ctc_path_destroy(path);
+    path->steps = malloc2(step_count*SIZEOF(*path->steps));
+    path->step_count = step_count;
+    path->step_cap = step_count;
+
+    for (int64 i = 0; i < path->step_count; i += 1) {
+        path->steps[i].frame_index = -1;
+        path->steps[i].column_index = -1;
+        path->steps[i].token_index = -1;
+        path->steps[i].token_id = -1;
+        path->steps[i].is_blank = true;
+    }
+
+    return true;
+}
+
 static bool
 lrc_ctc_trellis_dimensions_valid(
     int64 frame_count,
@@ -455,6 +535,307 @@ lrc_ctc_trellis_score_forward(
     return true;
 }
 
+
+static bool
+lrc_ctc_trellis_ready_for_backtracking(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int64 target_token_count,
+    LrcCtcAlignResult *result
+) {
+    if (trellis == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC trellis is missing",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (trellis->scores == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+            "CTC trellis has not been scored",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if ((trellis->frame_count != emissions->frame_count)
+        || (trellis->target_token_count != target_token_count)
+        || (trellis->column_count != target_token_count + 1)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+            "CTC trellis dimensions do not match inputs",
+            trellis->frame_count,
+            trellis->target_token_count
+        );
+        return false;
+    }
+    if (trellis->cell_count
+        != trellis->frame_count*trellis->column_count) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+            "CTC trellis cell count does not match dimensions",
+            trellis->frame_count,
+            trellis->column_count
+        );
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_score_close(float a, float b) {
+    float diff;
+
+    if (!isfinite(a) || !isfinite(b)) {
+        return false;
+    }
+
+    diff = fabsf(a - b);
+
+    return diff <= 0.0001f;
+}
+
+static bool
+lrc_ctc_score_can_backtrack(float current, float previous, float emission) {
+    if (!isfinite(current)) {
+        return false;
+    }
+    if (!isfinite(previous)) {
+        return false;
+    }
+    if (!isfinite(emission)) {
+        return false;
+    }
+
+    return lrc_ctc_score_close(current, previous + emission);
+}
+
+static void
+lrc_ctc_path_set_blank_step(
+    LrcCtcPath *path,
+    int64 frame_index,
+    int64 column_index,
+    int32 blank_token_id
+) {
+    ASSERT(path != NULL);
+    ASSERT(path->steps != NULL);
+    ASSERT(frame_index >= 0);
+    ASSERT(frame_index < path->step_count);
+
+    path->steps[frame_index].frame_index = frame_index;
+    path->steps[frame_index].column_index = column_index;
+    path->steps[frame_index].token_index = -1;
+    path->steps[frame_index].token_id = blank_token_id;
+    path->steps[frame_index].is_blank = true;
+
+    return;
+}
+
+static void
+lrc_ctc_path_set_token_step(
+    LrcCtcPath *path,
+    int64 frame_index,
+    int64 column_index,
+    int32 token_id
+) {
+    ASSERT(path != NULL);
+    ASSERT(path->steps != NULL);
+    ASSERT(frame_index >= 0);
+    ASSERT(frame_index < path->step_count);
+    ASSERT(column_index > 0);
+
+    path->steps[frame_index].frame_index = frame_index;
+    path->steps[frame_index].column_index = column_index;
+    path->steps[frame_index].token_index = column_index - 1;
+    path->steps[frame_index].token_id = token_id;
+    path->steps[frame_index].is_blank = false;
+
+    return;
+}
+
+static bool
+lrc_ctc_trellis_backtrack_step(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int32 blank_token_id,
+    LrcCtcPath *path,
+    int64 frame,
+    int64 *column,
+    LrcCtcAlignResult *result
+) {
+    float *cell;
+    float current_score;
+    float previous_same;
+    float previous_advance;
+    float blank_score;
+    float token_score;
+    bool can_stay;
+    bool can_advance;
+
+    ASSERT(column != NULL);
+    ASSERT(*column >= 0);
+    ASSERT(*column < trellis->column_count);
+    ASSERT(frame > 0);
+
+    if (*column == 0) {
+        lrc_ctc_path_set_blank_step(path, frame, *column, blank_token_id);
+        return true;
+    }
+
+    cell = lrc_ctc_trellis_cell(trellis, frame, *column);
+    ASSERT(cell != NULL);
+    current_score = *cell;
+    if (!isfinite(current_score)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT,
+            "CTC trellis final path is impossible",
+            frame,
+            *column - 1
+        );
+        return false;
+    }
+
+    cell = lrc_ctc_trellis_cell(trellis, frame - 1, *column);
+    ASSERT(cell != NULL);
+    previous_same = *cell;
+
+    cell = lrc_ctc_trellis_cell(trellis, frame - 1, *column - 1);
+    ASSERT(cell != NULL);
+    previous_advance = *cell;
+
+    blank_score = lrc_ctc_emission_value(emissions, frame, blank_token_id);
+    token_score = lrc_ctc_emission_value(
+        emissions,
+        frame,
+        target_token_ids[*column - 1]
+    );
+    can_stay = lrc_ctc_score_can_backtrack(current_score,
+                                           previous_same,
+                                           blank_score);
+    can_advance = lrc_ctc_score_can_backtrack(current_score,
+                                              previous_advance,
+                                              token_score);
+
+    if (can_advance && (!can_stay
+                        || (previous_advance + token_score
+                            >= previous_same + blank_score))) {
+        lrc_ctc_path_set_token_step(path,
+                                    frame,
+                                    *column,
+                                    target_token_ids[*column - 1]);
+        *column -= 1;
+        return true;
+    }
+    if (can_stay) {
+        lrc_ctc_path_set_blank_step(path, frame, *column, blank_token_id);
+        return true;
+    }
+
+    lrc_ctc_align_result_set(
+        result,
+        LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+        "CTC trellis cannot be backtracked from this cell",
+        frame,
+        *column - 1
+    );
+    return false;
+}
+
+static bool
+lrc_ctc_trellis_backtrack(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    int32 *target_token_ids,
+    int64 target_token_count,
+    int32 blank_token_id,
+    LrcCtcPath *path,
+    LrcCtcAlignResult *result
+) {
+    float *final_cell;
+    int64 column;
+
+    if (result) {
+        lrc_ctc_align_result_init(result);
+    }
+    if (!lrc_ctc_trellis_emissions_ready(emissions,
+                                         blank_token_id,
+                                         result)) {
+        return false;
+    }
+    if (!lrc_ctc_target_tokens_valid(emissions,
+                                     target_token_ids,
+                                     target_token_count,
+                                     blank_token_id,
+                                     result)) {
+        return false;
+    }
+    if (!lrc_ctc_trellis_ready_for_backtracking(trellis,
+                                                emissions,
+                                                target_token_count,
+                                                result)) {
+        return false;
+    }
+    if (!lrc_ctc_path_allocate(path, trellis->frame_count, result)) {
+        return false;
+    }
+
+    column = trellis->target_token_count;
+    final_cell = lrc_ctc_trellis_cell(trellis,
+                                      trellis->frame_count - 1,
+                                      column);
+    ASSERT(final_cell != NULL);
+    if (!isfinite(*final_cell)) {
+        lrc_ctc_path_destroy(path);
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT,
+            "CTC target tokens cannot fit in the available frames",
+            trellis->frame_count - 1,
+            trellis->target_token_count - 1
+        );
+        return false;
+    }
+
+    for (int64 frame = trellis->frame_count - 1; frame > 0; frame -= 1) {
+        if (!lrc_ctc_trellis_backtrack_step(trellis,
+                                            emissions,
+                                            target_token_ids,
+                                            blank_token_id,
+                                            path,
+                                            frame,
+                                            &column,
+                                            result)) {
+            lrc_ctc_path_destroy(path);
+            return false;
+        }
+    }
+    if (column != 0) {
+        lrc_ctc_path_destroy(path);
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT,
+            "CTC backtracking did not consume all target tokens",
+            0,
+            column - 1
+        );
+        return false;
+    }
+
+    lrc_ctc_path_set_blank_step(path, 0, 0, blank_token_id);
+
+    return true;
+}
+
 #if TESTING_ctc_align
 
 #define CBASE_IMPLEMENT
@@ -511,9 +892,11 @@ static int32
 ctc_align_test_empty_initializers(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis;
+    LrcCtcPath path;
 
     lrc_ctc_align_result_init(&result);
     lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
 
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
@@ -525,6 +908,10 @@ ctc_align_test_empty_initializers(void) {
     ASSERT(trellis.target_token_count == 0);
     ASSERT(trellis.column_count == 0);
     ASSERT(trellis.cell_count == 0);
+
+    ASSERT(path.steps == NULL);
+    ASSERT(path.step_count == 0);
+    ASSERT(path.step_cap == 0);
 
     return 0;
 }
@@ -761,6 +1148,191 @@ ctc_align_test_forward_rejects_bad_targets(void) {
     return 0;
 }
 
+
+static int32
+ctc_align_test_backtracks_simple_path(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    LrcCtcPath path;
+    int32 target_token_ids[] = {1, 2};
+    float values[] = {
+        -0.10f, -5.00f, -5.00f,
+        -5.00f, -0.10f, -5.00f,
+        -5.00f, -5.00f, -0.10f,
+        -0.10f, -5.00f, -5.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 4, 3);
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    if (!lrc_ctc_trellis_score_forward(&trellis,
+                                        &emissions,
+                                        target_token_ids,
+                                        2,
+                                        0,
+                                        &result)) {
+        return ctc_align_test_fail("score simple backtrack path");
+    }
+    if (!lrc_ctc_trellis_backtrack(&trellis,
+                                   &emissions,
+                                   target_token_ids,
+                                   2,
+                                   0,
+                                   &path,
+                                   &result)) {
+        return ctc_align_test_fail("backtrack simple path");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(path.step_count == 4);
+    ASSERT(path.steps[0].frame_index == 0);
+    ASSERT(path.steps[0].is_blank);
+    ASSERT(path.steps[0].token_id == 0);
+    ASSERT(path.steps[1].frame_index == 1);
+    ASSERT(!path.steps[1].is_blank);
+    ASSERT(path.steps[1].token_index == 0);
+    ASSERT(path.steps[1].token_id == 1);
+    ASSERT(path.steps[2].frame_index == 2);
+    ASSERT(!path.steps[2].is_blank);
+    ASSERT(path.steps[2].token_index == 1);
+    ASSERT(path.steps[2].token_id == 2);
+    ASSERT(path.steps[3].frame_index == 3);
+    ASSERT(path.steps[3].is_blank);
+    ASSERT(path.steps[3].token_id == 0);
+
+    lrc_ctc_path_destroy(&path);
+    lrc_ctc_trellis_destroy(&trellis);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_backtracks_repeated_tokens(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    LrcCtcPath path;
+    int32 target_token_ids[] = {1, 1};
+    float values[] = {
+        -0.10f, -5.00f,
+        -5.00f, -0.10f,
+        -5.00f, -0.10f,
+        -0.10f, -5.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 4, 2);
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    if (!lrc_ctc_trellis_score_forward(&trellis,
+                                        &emissions,
+                                        target_token_ids,
+                                        2,
+                                        0,
+                                        &result)) {
+        return ctc_align_test_fail("score repeated-token path");
+    }
+    if (!lrc_ctc_trellis_backtrack(&trellis,
+                                   &emissions,
+                                   target_token_ids,
+                                   2,
+                                   0,
+                                   &path,
+                                   &result)) {
+        return ctc_align_test_fail("backtrack repeated-token path");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(path.step_count == 4);
+    ASSERT(path.steps[1].frame_index == 1);
+    ASSERT(!path.steps[1].is_blank);
+    ASSERT(path.steps[1].token_index == 0);
+    ASSERT(path.steps[1].token_id == 1);
+    ASSERT(path.steps[2].frame_index == 2);
+    ASSERT(!path.steps[2].is_blank);
+    ASSERT(path.steps[2].token_index == 1);
+    ASSERT(path.steps[2].token_id == 1);
+
+    lrc_ctc_path_destroy(&path);
+    lrc_ctc_trellis_destroy(&trellis);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_backtrack_rejects_impossible_alignment(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    LrcCtcPath path;
+    int32 target_token_ids[] = {1, 2};
+    float values[] = {
+        -0.10f, -5.00f, -5.00f,
+        -5.00f, -0.10f, -5.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 2, 3);
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    if (!lrc_ctc_trellis_score_forward(&trellis,
+                                        &emissions,
+                                        target_token_ids,
+                                        2,
+                                        0,
+                                        &result)) {
+        return ctc_align_test_fail("score impossible path");
+    }
+    if (lrc_ctc_trellis_backtrack(&trellis,
+                                  &emissions,
+                                  target_token_ids,
+                                  2,
+                                  0,
+                                  &path,
+                                  &result)) {
+        return ctc_align_test_fail("impossible path accepted");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT);
+    ASSERT(path.steps == NULL);
+    ASSERT(path.step_count == 0);
+    ASSERT(path.step_cap == 0);
+
+    lrc_ctc_trellis_destroy(&trellis);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_backtrack_rejects_invalid_trellis(void) {
+    LrcCtcAlignResult result;
+    LrcCtcTrellis trellis;
+    LrcCtcEmissions emissions;
+    LrcCtcPath path;
+    int32 target_token_ids[] = {1};
+    float values[] = {
+        -0.10f, -5.00f,
+        -5.00f, -0.10f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 2, 2);
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    if (lrc_ctc_trellis_backtrack(&trellis,
+                                  &emissions,
+                                  target_token_ids,
+                                  1,
+                                  0,
+                                  &path,
+                                  &result)) {
+        return ctc_align_test_fail("unscored trellis accepted");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS);
+    ASSERT(path.steps == NULL);
+
+    return 0;
+}
+
 static int32
 ctc_align_test_prepare_rejects_invalid_emissions(void) {
     LrcCtcAlignResult result;
@@ -817,6 +1389,18 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_forward_rejects_bad_targets() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_backtracks_simple_path() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_backtracks_repeated_tokens() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_backtrack_rejects_impossible_alignment() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_backtrack_rejects_invalid_trellis() != 0) {
         exit(1);
     }
 
