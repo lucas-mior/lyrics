@@ -199,6 +199,28 @@ lrc_ctc_tokenizer_best_match(
     return true;
 }
 
+
+static bool
+lrc_ctc_tokenizer_is_unmatched_separator(
+    char *text,
+    int32 text_len,
+    int32 offset,
+    int32 *skip_len
+) {
+    if ((text == NULL) || (offset < 0) || (offset >= text_len)) {
+        return false;
+    }
+    if (text[offset] != ' ') {
+        return false;
+    }
+
+    if (skip_len) {
+        *skip_len = 1;
+    }
+
+    return true;
+}
+
 static int32
 lrc_ctc_tokenizer_normalized_line_at(
     LrcLyricsNormalized *normalized,
@@ -283,6 +305,14 @@ lrc_ctc_tokenizer_tokenize_normalized(
                 lrc_ctc_tokenized_text_destroy(tokens);
                 return false;
             }
+            i += token_len;
+            continue;
+        }
+
+        if (lrc_ctc_tokenizer_is_unmatched_separator(text,
+                                                     text_len,
+                                                     i,
+                                                     &token_len)) {
             i += token_len;
             continue;
         }
@@ -1391,6 +1421,62 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
     return 0;
 }
 
+
+static int32
+ctc_tokenizer_test_skips_unmatched_spaces(void) {
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizeResult result;
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    char tokenizer_text[] = "<blank>\n<unk>\na\nb\nc\n";
+    char lyrics_text[] = "ab c\n";
+
+    if (!ctc_tokenizer_load_from_text(&tokenizer,
+                                      tokenizer_text,
+                                      "ctc_tokenizer_skip_spaces")) {
+        return ctc_tokenizer_test_fail("load no-space vocabulary");
+    }
+    if (!ctc_tokenizer_normalize_lyrics_text(&lyrics,
+                                             &normalized,
+                                             lyrics_text,
+                                             "ctc_tokenizer_skip_lyrics")) {
+        lrc_ctc_tokenizer_destroy(&tokenizer);
+        return ctc_tokenizer_test_fail("normalize no-space lyrics");
+    }
+
+    lrc_ctc_tokenized_text_init(&tokens);
+    if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
+                                               &normalized,
+                                               &tokens,
+                                               &result)) {
+        lrc_ctc_tokenized_text_destroy(&tokens);
+        lrc_lyrics_normalized_destroy(&normalized);
+        lrc_lyrics_destroy(&lyrics);
+        lrc_ctc_tokenizer_destroy(&tokenizer);
+        return ctc_tokenizer_test_fail("tokenize no-space lyrics");
+    }
+
+    ASSERT(result.error == LRC_CTC_TOKENIZE_ERROR_NONE);
+    ASSERT(tokens.token_count == 3);
+    ASSERT(tokens.tokens[0].token_id == 2);
+    ASSERT(tokens.tokens[0].normalized_start == 0);
+    ASSERT(tokens.tokens[0].normalized_end == 1);
+    ASSERT(tokens.tokens[1].token_id == 3);
+    ASSERT(tokens.tokens[1].normalized_start == 1);
+    ASSERT(tokens.tokens[1].normalized_end == 2);
+    ASSERT(tokens.tokens[2].token_id == 4);
+    ASSERT(tokens.tokens[2].normalized_start == 3);
+    ASSERT(tokens.tokens[2].normalized_end == 4);
+
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+
+    return 0;
+}
+
 static int32
 ctc_tokenizer_test_missing_path(void) {
     LrcCtcTokenizer tokenizer;
@@ -1437,6 +1523,9 @@ main(void) {
         exit(1);
     }
     if (ctc_tokenizer_test_unknown_token_covers_one_utf8_rune() != 0) {
+        exit(1);
+    }
+    if (ctc_tokenizer_test_skips_unmatched_spaces() != 0) {
         exit(1);
     }
 

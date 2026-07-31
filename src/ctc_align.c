@@ -1497,11 +1497,13 @@ lrc_ctc_word_count(
     LrcCtcAlignResult *result
 ) {
     bool in_word;
+    int32 previous_end;
 
     ASSERT(word_count != NULL);
 
     *word_count = 0;
     in_word = false;
+    previous_end = -1;
     for (int64 i = 0; i < token_spans->span_count; i += 1) {
         LrcCtcTokenSpan *span;
         LrcCtcTextToken *token;
@@ -1514,10 +1516,18 @@ lrc_ctc_word_count(
         if (!lrc_ctc_token_span_matches_token(span, token, i, result)) {
             return false;
         }
+        if ((previous_end >= 0)
+            && (previous_end < token->normalized_start)
+            && lrc_ctc_normalized_range_has_space(normalized,
+                                                  previous_end,
+                                                  token->normalized_start)) {
+            in_word = false;
+        }
         if (lrc_ctc_normalized_range_is_space(normalized,
                                               token->normalized_start,
                                               token->normalized_end)) {
             in_word = false;
+            previous_end = token->normalized_end;
             continue;
         }
         if (lrc_ctc_normalized_range_has_space(normalized,
@@ -1536,6 +1546,7 @@ lrc_ctc_word_count(
             *word_count += 1;
             in_word = true;
         }
+        previous_end = token->normalized_end;
     }
 
     return true;
@@ -1619,6 +1630,7 @@ lrc_ctc_token_spans_to_word_spans(
     int64 word_count;
     int64 word_index;
     int64 score_count;
+    int32 previous_end;
     float score_sum;
 
     if (result) {
@@ -1648,18 +1660,29 @@ lrc_ctc_token_spans_to_word_spans(
     word_index = -1;
     score_count = 0;
     score_sum = 0.0f;
+    previous_end = -1;
     for (int64 i = 0; i < token_spans->span_count; i += 1) {
         LrcCtcTokenSpan *token_span;
         LrcCtcTextToken *token;
 
         token_span = token_spans->spans + i;
         token = tokens->tokens + i;
+        if ((previous_end >= 0)
+            && (previous_end < token->normalized_start)
+            && lrc_ctc_normalized_range_has_space(normalized,
+                                                  previous_end,
+                                                  token->normalized_start)) {
+            word = NULL;
+            score_count = 0;
+            score_sum = 0.0f;
+        }
         if (lrc_ctc_normalized_range_is_space(normalized,
                                               token->normalized_start,
                                               token->normalized_end)) {
             word = NULL;
             score_count = 0;
             score_sum = 0.0f;
+            previous_end = token->normalized_end;
             continue;
         }
 
@@ -1674,6 +1697,7 @@ lrc_ctc_token_spans_to_word_spans(
                                     i,
                                     token_span,
                                     token);
+            previous_end = token->normalized_end;
             continue;
         }
 
@@ -1688,6 +1712,7 @@ lrc_ctc_token_spans_to_word_spans(
             lrc_ctc_word_spans_destroy(word_spans);
             return false;
         }
+        previous_end = token->normalized_end;
     }
     ASSERT(word_index + 1 == word_spans->span_count);
 
@@ -2186,7 +2211,10 @@ ctc_align_join_path(
 }
 
 static bool
-ctc_align_load_alphabet_tokenizer(LrcCtcTokenizer *tokenizer) {
+ctc_align_load_alphabet_tokenizer_with_options(
+    LrcCtcTokenizer *tokenizer,
+    bool include_space
+) {
     LrcCtcTokenizerResult result;
     StrBuilder builder;
     char temp_dir[PATH_MAX];
@@ -2194,7 +2222,10 @@ ctc_align_load_alphabet_tokenizer(LrcCtcTokenizer *tokenizer) {
     bool ok;
 
     sb_init(&builder);
-    SB_APPEND(&builder, "<blank>\n<space>\n");
+    SB_APPEND(&builder, "<blank>\n");
+    if (include_space) {
+        SB_APPEND(&builder, "<space>\n");
+    }
     for (char ch = 'a'; ch <= 'z'; ch += 1) {
         sb_append(&builder, &ch, 1);
         SB_APPEND(&builder, "\n");
@@ -2214,6 +2245,16 @@ ctc_align_load_alphabet_tokenizer(LrcCtcTokenizer *tokenizer) {
     sb_free(&builder);
 
     return ok;
+}
+
+static bool
+ctc_align_load_alphabet_tokenizer(LrcCtcTokenizer *tokenizer) {
+    return ctc_align_load_alphabet_tokenizer_with_options(tokenizer, true);
+}
+
+static bool
+ctc_align_load_no_space_alphabet_tokenizer(LrcCtcTokenizer *tokenizer) {
+    return ctc_align_load_alphabet_tokenizer_with_options(tokenizer, false);
 }
 
 static bool
@@ -3433,6 +3474,83 @@ ctc_align_test_word_spans_group_generated_words(void) {
                                  0.00001f));
     ASSERT(ctc_align_float_close(word_spans.spans[0].score,
                                  -0.105f,
+                                 0.00001f));
+
+    lrc_ctc_word_spans_destroy(&word_spans);
+    lrc_ctc_token_spans_destroy(&token_spans);
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+
+static int32
+ctc_align_test_word_spans_use_skipped_space_gaps(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenSpans token_spans;
+    LrcCtcWordSpans word_spans;
+    LrcCtcTokenizeResult tokenize_result;
+    LrcCtcAlignResult result;
+    char text[] = "Hi Bob\n";
+
+    lrc_lyrics_normalized_init(&normalized);
+    lrc_ctc_tokenizer_init(&tokenizer);
+    lrc_ctc_tokenized_text_init(&tokens);
+    lrc_ctc_token_spans_init(&token_spans);
+    lrc_ctc_word_spans_init(&word_spans);
+    if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
+        return ctc_align_test_fail("load skipped-space lyrics");
+    }
+    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+        return ctc_align_test_fail("normalize skipped-space lyrics");
+    }
+    if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
+        return ctc_align_test_fail("load no-space word tokenizer");
+    }
+    if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
+                                               &normalized,
+                                               &tokens,
+                                               &tokenize_result)) {
+        return ctc_align_test_fail("tokenize skipped-space lyrics");
+    }
+    if (!ctc_align_make_token_spans_from_tokens(&tokens,
+                                                0.0f,
+                                                0.10f,
+                                                &token_spans)) {
+        return ctc_align_test_fail("make skipped-space token spans");
+    }
+    if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
+                                           &tokens,
+                                           &normalized,
+                                           &word_spans,
+                                           &result)) {
+        return ctc_align_test_fail("convert skipped-space word spans");
+    }
+
+    ASSERT(strequal2(normalized.text, normalized.text_len, "hi bob", 6));
+    ASSERT(tokens.token_count == 5);
+    ASSERT(tokens.tokens[0].normalized_start == 0);
+    ASSERT(tokens.tokens[1].normalized_start == 1);
+    ASSERT(tokens.tokens[2].normalized_start == 3);
+    ASSERT(word_spans.span_count == 2);
+    ctc_align_assert_word_text(&normalized,
+                               word_spans.spans + 0,
+                               STRLIT("hi"));
+    ctc_align_assert_word_text(&normalized,
+                               word_spans.spans + 1,
+                               STRLIT("bob"));
+    ASSERT(word_spans.spans[0].token_start_index == 0);
+    ASSERT(word_spans.spans[0].token_end_index == 2);
+    ASSERT(word_spans.spans[1].token_start_index == 2);
+    ASSERT(word_spans.spans[1].token_end_index == 5);
+    ASSERT(ctc_align_float_close(word_spans.spans[1].start_seconds,
+                                 0.2f,
                                  0.00001f));
 
     lrc_ctc_word_spans_destroy(&word_spans);
@@ -4915,6 +5033,9 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_word_spans_group_generated_words() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_word_spans_use_skipped_space_gaps() != 0) {
         exit(1);
     }
     if (ctc_align_test_word_spans_handle_removed_punctuation() != 0) {
