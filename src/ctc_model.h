@@ -44,6 +44,24 @@ typedef struct LrcCtcModelIoInfo {
     bool is_float32;
 } LrcCtcModelIoInfo;
 
+typedef struct LrcCtcModelChunk {
+    int64 source_start_frame;
+    int64 source_frame_count;
+    int64 padded_start_frame;
+    int64 padded_frame_count;
+    int64 left_context_frames;
+    int64 right_context_frames;
+    int64 valid_output_start_frame;
+    int64 valid_output_frame_count;
+
+    int64 raw_emission_start;
+    int64 raw_emission_count;
+    int64 trim_left_emissions;
+    int64 trim_right_emissions;
+    int64 kept_emission_start;
+    int64 kept_emission_count;
+} LrcCtcModelChunk;
+
 typedef struct LrcCtcModelInput {
     float *samples;
 
@@ -57,6 +75,13 @@ typedef struct LrcCtcModelInput {
     int64 shape[LRC_CTC_MODEL_INPUT_RANK];
     int64 window_frame_count;
     int64 context_frame_count;
+    int64 original_emission_count;
+    int64 extension_emission_count;
+    int64 kept_emission_count;
+    int64 raw_chunk_emission_count;
+    int64 chunk_count;
+
+    LrcCtcModelChunk *chunks;
 
     int32 shape_len;
     int32 sample_rate;
@@ -70,6 +95,16 @@ static void lrc_ctc_model_config_init(LrcCtcModelConfig *config);
 static void lrc_ctc_model_input_result_init(LrcCtcModelInputResult *result);
 static void lrc_ctc_model_input_init(LrcCtcModelInput *input);
 static void lrc_ctc_model_input_destroy(LrcCtcModelInput *input);
+static bool lrc_ctc_model_samples_to_emission_frames(
+    int64 sample_count,
+    int32 inputs_to_logits_ratio,
+    int64 *frame_count
+);
+static bool lrc_ctc_model_samples_to_emission_frames_floor(
+    int64 sample_count,
+    int32 inputs_to_logits_ratio,
+    int64 *frame_count
+);
 static bool lrc_ctc_model_input_prepare(
     LrcCtcModelInput *input,
     LrcCtcAudio *audio,

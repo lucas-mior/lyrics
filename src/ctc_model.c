@@ -74,6 +74,9 @@ lrc_ctc_model_input_destroy(LrcCtcModelInput *input) {
     if (input->samples) {
         free2(input->samples, input->sample_count*SIZEOF(*input->samples));
     }
+    if (input->chunks) {
+        free2(input->chunks, input->chunk_count*SIZEOF(*input->chunks));
+    }
 
     lrc_ctc_model_input_init(input);
 
@@ -264,11 +267,60 @@ lrc_ctc_model_ceil_to_multiple(
 }
 
 static bool
+lrc_ctc_model_samples_to_emission_frames_floor(
+    int64 sample_count,
+    int32 inputs_to_logits_ratio,
+    int64 *frame_count
+) {
+    if (frame_count == NULL) {
+        return false;
+    }
+    *frame_count = 0;
+    if ((sample_count < 0) || (inputs_to_logits_ratio <= 0)) {
+        return false;
+    }
+
+    *frame_count = sample_count/(int64)inputs_to_logits_ratio;
+
+    return true;
+}
+
+static bool
+lrc_ctc_model_samples_to_emission_frames(
+    int64 sample_count,
+    int32 inputs_to_logits_ratio,
+    int64 *frame_count
+) {
+    int64 ratio;
+
+    if (frame_count == NULL) {
+        return false;
+    }
+    *frame_count = 0;
+    if ((sample_count < 0) || (inputs_to_logits_ratio <= 0)) {
+        return false;
+    }
+    if (sample_count == 0) {
+        return true;
+    }
+
+    ratio = (int64)inputs_to_logits_ratio;
+    if (sample_count > INT64_MAX - (ratio - 1)) {
+        return false;
+    }
+
+    *frame_count = (sample_count + ratio - 1)/ratio;
+
+    return true;
+}
+
+static bool
 lrc_ctc_model_input_shape_short(
     LrcCtcAudio *audio,
     LrcCtcModelInput *input
 ) {
     input->row_count = 1;
+    input->chunk_count = 1;
     input->row_sample_count = audio->sample_count;
     input->sample_count = audio->sample_count;
     input->extension_sample_count = 0;
@@ -306,6 +358,7 @@ lrc_ctc_model_input_shape_chunked(
     }
 
     input->row_count = padded_audio_samples/window_samples;
+    input->chunk_count = input->row_count;
     input->row_sample_count = window_samples + context_total;
     if (input->row_count <= 0) {
         return false;
@@ -327,7 +380,7 @@ lrc_ctc_model_input_allocate(
     LrcCtcModelInput *input,
     LrcCtcModelInputResult *result
 ) {
-    if (input->sample_count <= 0) {
+    if ((input->sample_count <= 0) || (input->chunk_count <= 0)) {
         return false;
     }
     if (input->sample_count > INT64_MAX/SIZEOF(*input->samples)) {
@@ -339,8 +392,19 @@ lrc_ctc_model_input_allocate(
         );
         return false;
     }
+    if (input->chunk_count > INT64_MAX/SIZEOF(*input->chunks)) {
+        lrc_ctc_model_input_result_set(
+            result,
+            LRC_CTC_MODEL_INPUT_ERROR_TOO_MANY_SAMPLES,
+            "CTC model input chunk metadata is too large",
+            -1
+        );
+        return false;
+    }
 
     input->samples = malloc2(input->sample_count*SIZEOF(*input->samples));
+    input->chunks = malloc2(input->chunk_count*SIZEOF(*input->chunks));
+    memset64(input->chunks, 0, input->chunk_count*SIZEOF(*input->chunks));
 
     return true;
 }
@@ -388,6 +452,188 @@ lrc_ctc_model_input_copy_chunked(
     }
 
     return;
+}
+
+static int64
+lrc_ctc_model_min64(int64 a, int64 b) {
+    if (a < b) {
+        return a;
+    }
+
+    return b;
+}
+
+static int64
+lrc_ctc_model_max64(int64 a, int64 b) {
+    if (a > b) {
+        return a;
+    }
+
+    return b;
+}
+
+static bool
+lrc_ctc_model_input_prepare_emission_counts(
+    LrcCtcModelInput *input
+) {
+    int64 extension_emissions;
+
+    if ((input == NULL) || (input->inputs_to_logits_ratio <= 0)) {
+        return false;
+    }
+    if (!lrc_ctc_model_samples_to_emission_frames(
+            input->original_sample_count,
+            input->inputs_to_logits_ratio,
+            &input->original_emission_count)) {
+        return false;
+    }
+    if (!lrc_ctc_model_samples_to_emission_frames_floor(
+            input->extension_sample_count,
+            input->inputs_to_logits_ratio,
+            &extension_emissions)) {
+        return false;
+    }
+
+    input->extension_emission_count = extension_emissions;
+    if (input->chunked) {
+        if ((input->row_sample_count%(int64)input->inputs_to_logits_ratio)
+            != 0) {
+            return false;
+        }
+        input->raw_chunk_emission_count = input->row_sample_count
+                                          /input->inputs_to_logits_ratio;
+        if (input->row_count > INT64_MAX/input->window_frame_count) {
+            return false;
+        }
+        input->kept_emission_count = input->row_count
+                                     *input->window_frame_count;
+    } else {
+        input->raw_chunk_emission_count = input->original_emission_count;
+        input->kept_emission_count = input->original_emission_count;
+    }
+    if (input->kept_emission_count < input->original_emission_count) {
+        return false;
+    }
+    if ((input->kept_emission_count - input->original_emission_count)
+        != input->extension_emission_count) {
+        return false;
+    }
+
+    return true;
+}
+
+static void
+lrc_ctc_model_input_prepare_short_chunk(
+    LrcCtcModelInput *input
+) {
+    LrcCtcModelChunk *chunk;
+
+    chunk = &input->chunks[0];
+    chunk->source_start_frame = 0;
+    chunk->source_frame_count = input->original_sample_count;
+    chunk->padded_start_frame = 0;
+    chunk->padded_frame_count = input->row_sample_count;
+    chunk->left_context_frames = 0;
+    chunk->right_context_frames = 0;
+    chunk->valid_output_start_frame = 0;
+    chunk->valid_output_frame_count = input->original_sample_count;
+
+    chunk->raw_emission_start = 0;
+    chunk->raw_emission_count = input->raw_chunk_emission_count;
+    chunk->trim_left_emissions = 0;
+    chunk->trim_right_emissions = 0;
+    chunk->kept_emission_start = 0;
+    chunk->kept_emission_count = input->original_emission_count;
+
+    return;
+}
+
+static bool
+lrc_ctc_model_input_prepare_chunk_metadata(
+    LrcCtcModelInput *input
+) {
+    int64 center_start;
+    int64 center_end;
+    int64 source_start;
+    int64 source_end;
+    int64 expected_valid_start;
+    int64 total_kept_emissions;
+
+    if ((input == NULL) || (input->chunks == NULL)) {
+        return false;
+    }
+    if (!lrc_ctc_model_input_prepare_emission_counts(input)) {
+        return false;
+    }
+    if (!input->chunked) {
+        lrc_ctc_model_input_prepare_short_chunk(input);
+        return true;
+    }
+
+    expected_valid_start = 0;
+    total_kept_emissions = 0;
+    for (int64 i = 0; i < input->chunk_count; i += 1) {
+        LrcCtcModelChunk *chunk;
+        int64 output_end;
+
+        chunk = &input->chunks[i];
+        center_start = i*input->window_sample_count;
+        center_end = center_start + input->window_sample_count;
+        source_start = lrc_ctc_model_max64(0,
+                                           center_start
+                                           - input->context_sample_count);
+        source_end = lrc_ctc_model_min64(input->original_sample_count,
+                                         center_end
+                                         + input->context_sample_count);
+        output_end = lrc_ctc_model_min64(center_end,
+                                         input->original_sample_count);
+
+        chunk->source_start_frame = source_start;
+        chunk->source_frame_count = source_end - source_start;
+        chunk->padded_start_frame = i*input->row_sample_count;
+        chunk->padded_frame_count = input->row_sample_count;
+        chunk->left_context_frames = center_start - source_start;
+        chunk->right_context_frames = source_end - output_end;
+        chunk->valid_output_start_frame = center_start;
+        chunk->valid_output_frame_count = output_end - center_start;
+
+        chunk->raw_emission_start = i*input->raw_chunk_emission_count;
+        chunk->raw_emission_count = input->raw_chunk_emission_count;
+        chunk->trim_left_emissions = input->context_frame_count;
+        chunk->trim_right_emissions = input->context_frame_count;
+        chunk->kept_emission_start = chunk->raw_emission_start
+                                     + chunk->trim_left_emissions;
+        chunk->kept_emission_count = input->window_frame_count;
+
+        if ((chunk->source_frame_count < 0)
+            || (chunk->left_context_frames < 0)
+            || (chunk->right_context_frames < 0)
+            || (chunk->valid_output_frame_count < 0)) {
+            return false;
+        }
+        if (chunk->valid_output_start_frame != expected_valid_start) {
+            return false;
+        }
+        if ((chunk->trim_left_emissions + chunk->trim_right_emissions)
+            > chunk->raw_emission_count) {
+            return false;
+        }
+        if (chunk->kept_emission_count
+            != chunk->raw_emission_count - chunk->trim_left_emissions
+                                      - chunk->trim_right_emissions) {
+            return false;
+        }
+        expected_valid_start += chunk->valid_output_frame_count;
+        total_kept_emissions += chunk->kept_emission_count;
+    }
+    if (expected_valid_start != input->original_sample_count) {
+        return false;
+    }
+    if (total_kept_emissions != input->kept_emission_count) {
+        return false;
+    }
+
+    return true;
 }
 
 static bool
@@ -466,6 +712,17 @@ lrc_ctc_model_input_prepare(
         lrc_ctc_model_input_copy_chunked(input, audio);
     } else {
         lrc_ctc_model_input_copy_short(input, audio);
+    }
+
+    if (!lrc_ctc_model_input_prepare_chunk_metadata(input)) {
+        lrc_ctc_model_input_result_set(
+            result,
+            LRC_CTC_MODEL_INPUT_ERROR_TOO_MANY_SAMPLES,
+            "CTC model input chunk metadata could not be prepared",
+            -1
+        );
+        lrc_ctc_model_input_destroy(input);
+        return false;
     }
 
     input->shape_len = LRC_CTC_MODEL_INPUT_RANK;
@@ -673,6 +930,26 @@ ctc_model_test_prepares_short_input(void) {
     ASSERT(input.window_sample_count == 480000);
     ASSERT(input.window_frame_count == 1500);
     ASSERT(input.context_frame_count == 100);
+    ASSERT(input.chunk_count == 1);
+    ASSERT(input.original_emission_count == 1);
+    ASSERT(input.extension_emission_count == 0);
+    ASSERT(input.raw_chunk_emission_count == 1);
+    ASSERT(input.kept_emission_count == 1);
+    ASSERT(input.chunks != NULL);
+    ASSERT(input.chunks[0].source_start_frame == 0);
+    ASSERT(input.chunks[0].source_frame_count == LENGTH(samples));
+    ASSERT(input.chunks[0].padded_start_frame == 0);
+    ASSERT(input.chunks[0].padded_frame_count == LENGTH(samples));
+    ASSERT(input.chunks[0].left_context_frames == 0);
+    ASSERT(input.chunks[0].right_context_frames == 0);
+    ASSERT(input.chunks[0].valid_output_start_frame == 0);
+    ASSERT(input.chunks[0].valid_output_frame_count == LENGTH(samples));
+    ASSERT(input.chunks[0].raw_emission_start == 0);
+    ASSERT(input.chunks[0].raw_emission_count == 1);
+    ASSERT(input.chunks[0].trim_left_emissions == 0);
+    ASSERT(input.chunks[0].trim_right_emissions == 0);
+    ASSERT(input.chunks[0].kept_emission_start == 0);
+    ASSERT(input.chunks[0].kept_emission_count == 1);
     ASSERT(ctc_model_double_close(input.stride_ms, 20.0, 0.00001));
 
     for (int64 i = 0; i < LENGTH(samples); i += 1) {
@@ -720,6 +997,42 @@ ctc_model_test_prepares_chunked_input(void) {
     ASSERT(input.shape[1] == 32);
     ASSERT(input.window_frame_count == 8);
     ASSERT(input.context_frame_count == 4);
+    ASSERT(input.chunk_count == 2);
+    ASSERT(input.original_emission_count == 10);
+    ASSERT(input.extension_emission_count == 6);
+    ASSERT(input.raw_chunk_emission_count == 16);
+    ASSERT(input.kept_emission_count == 16);
+    ASSERT(input.chunks != NULL);
+
+    ASSERT(input.chunks[0].source_start_frame == 0);
+    ASSERT(input.chunks[0].source_frame_count == 20);
+    ASSERT(input.chunks[0].padded_start_frame == 0);
+    ASSERT(input.chunks[0].padded_frame_count == 32);
+    ASSERT(input.chunks[0].left_context_frames == 0);
+    ASSERT(input.chunks[0].right_context_frames == 4);
+    ASSERT(input.chunks[0].valid_output_start_frame == 0);
+    ASSERT(input.chunks[0].valid_output_frame_count == 16);
+    ASSERT(input.chunks[0].raw_emission_start == 0);
+    ASSERT(input.chunks[0].raw_emission_count == 16);
+    ASSERT(input.chunks[0].trim_left_emissions == 4);
+    ASSERT(input.chunks[0].trim_right_emissions == 4);
+    ASSERT(input.chunks[0].kept_emission_start == 4);
+    ASSERT(input.chunks[0].kept_emission_count == 8);
+
+    ASSERT(input.chunks[1].source_start_frame == 8);
+    ASSERT(input.chunks[1].source_frame_count == 12);
+    ASSERT(input.chunks[1].padded_start_frame == 32);
+    ASSERT(input.chunks[1].padded_frame_count == 32);
+    ASSERT(input.chunks[1].left_context_frames == 8);
+    ASSERT(input.chunks[1].right_context_frames == 0);
+    ASSERT(input.chunks[1].valid_output_start_frame == 16);
+    ASSERT(input.chunks[1].valid_output_frame_count == 4);
+    ASSERT(input.chunks[1].raw_emission_start == 16);
+    ASSERT(input.chunks[1].raw_emission_count == 16);
+    ASSERT(input.chunks[1].trim_left_emissions == 4);
+    ASSERT(input.chunks[1].trim_right_emissions == 4);
+    ASSERT(input.chunks[1].kept_emission_start == 20);
+    ASSERT(input.chunks[1].kept_emission_count == 8);
     ASSERT(ctc_model_double_close(input.stride_ms, 250.0, 0.00001));
 
     for (int32 i = 0; i < 8; i += 1) {
@@ -739,6 +1052,160 @@ ctc_model_test_prepares_chunked_input(void) {
     for (int32 i = 44; i < 64; i += 1) {
         ASSERT(input.samples[i] == 0.0f);
     }
+
+    lrc_ctc_model_input_destroy(&input);
+
+    return 0;
+}
+
+static int32
+ctc_model_test_emission_frame_conversion(void) {
+    int64 frames;
+
+    if (!lrc_ctc_model_samples_to_emission_frames(0, 2, &frames)) {
+        return ctc_model_test_fail("ceil zero emissions");
+    }
+    ASSERT(frames == 0);
+
+    if (!lrc_ctc_model_samples_to_emission_frames(20, 2, &frames)) {
+        return ctc_model_test_fail("exact emission frames");
+    }
+    ASSERT(frames == 10);
+
+    if (!lrc_ctc_model_samples_to_emission_frames(21, 2, &frames)) {
+        return ctc_model_test_fail("partial emission frames");
+    }
+    ASSERT(frames == 11);
+
+    if (!lrc_ctc_model_samples_to_emission_frames_floor(21, 2, &frames)) {
+        return ctc_model_test_fail("floor emission frames");
+    }
+    ASSERT(frames == 10);
+
+    if (lrc_ctc_model_samples_to_emission_frames(-1, 2, &frames)) {
+        return ctc_model_test_fail("negative emission frames accepted");
+    }
+    if (lrc_ctc_model_samples_to_emission_frames(1, 0, &frames)) {
+        return ctc_model_test_fail("zero ratio accepted");
+    }
+
+    return 0;
+}
+
+static int32
+ctc_model_test_chunk_metadata_three_chunks(void) {
+    LrcCtcModelConfig config;
+    LrcCtcModelInput input;
+    LrcCtcModelInputResult result;
+    LrcCtcAudio audio;
+    int64 valid_total;
+    float samples[40];
+
+    for (int32 i = 0; i < LENGTH(samples); i += 1) {
+        samples[i] = (float)(i + 1);
+    }
+
+    lrc_ctc_model_config_init(&config);
+    config.sample_rate = 8;
+    config.inputs_to_logits_ratio = 2;
+    config.window_seconds = 2;
+    config.context_seconds = 1;
+    lrc_ctc_model_input_init(&input);
+    ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
+
+    if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
+        return ctc_model_test_fail("prepare three-chunk metadata");
+    }
+
+    ASSERT(input.chunked);
+    ASSERT(input.chunk_count == 3);
+    ASSERT(input.row_count == 3);
+    ASSERT(input.extension_sample_count == 8);
+    ASSERT(input.original_emission_count == 20);
+    ASSERT(input.extension_emission_count == 4);
+    ASSERT(input.raw_chunk_emission_count == 16);
+    ASSERT(input.kept_emission_count == 24);
+
+    ASSERT(input.chunks[0].source_start_frame == 0);
+    ASSERT(input.chunks[0].source_frame_count == 24);
+    ASSERT(input.chunks[0].left_context_frames == 0);
+    ASSERT(input.chunks[0].right_context_frames == 8);
+    ASSERT(input.chunks[0].valid_output_start_frame == 0);
+    ASSERT(input.chunks[0].valid_output_frame_count == 16);
+    ASSERT(input.chunks[0].raw_emission_start == 0);
+    ASSERT(input.chunks[0].kept_emission_start == 4);
+    ASSERT(input.chunks[0].kept_emission_count == 8);
+
+    ASSERT(input.chunks[1].source_start_frame == 8);
+    ASSERT(input.chunks[1].source_frame_count == 32);
+    ASSERT(input.chunks[1].left_context_frames == 8);
+    ASSERT(input.chunks[1].right_context_frames == 8);
+    ASSERT(input.chunks[1].valid_output_start_frame == 16);
+    ASSERT(input.chunks[1].valid_output_frame_count == 16);
+    ASSERT(input.chunks[1].raw_emission_start == 16);
+    ASSERT(input.chunks[1].kept_emission_start == 20);
+    ASSERT(input.chunks[1].kept_emission_count == 8);
+
+    ASSERT(input.chunks[2].source_start_frame == 24);
+    ASSERT(input.chunks[2].source_frame_count == 16);
+    ASSERT(input.chunks[2].left_context_frames == 8);
+    ASSERT(input.chunks[2].right_context_frames == 0);
+    ASSERT(input.chunks[2].valid_output_start_frame == 32);
+    ASSERT(input.chunks[2].valid_output_frame_count == 8);
+    ASSERT(input.chunks[2].raw_emission_start == 32);
+    ASSERT(input.chunks[2].kept_emission_start == 36);
+    ASSERT(input.chunks[2].kept_emission_count == 8);
+
+    valid_total = 0;
+    for (int64 i = 0; i < input.chunk_count; i += 1) {
+        ASSERT(input.chunks[i].padded_start_frame == i*32);
+        ASSERT(input.chunks[i].padded_frame_count == 32);
+        ASSERT(input.chunks[i].raw_emission_count == 16);
+        ASSERT(input.chunks[i].trim_left_emissions == 4);
+        ASSERT(input.chunks[i].trim_right_emissions == 4);
+        valid_total += input.chunks[i].valid_output_frame_count;
+    }
+    ASSERT(valid_total == input.original_sample_count);
+
+    lrc_ctc_model_input_destroy(&input);
+
+    return 0;
+}
+
+static int32
+ctc_model_test_chunk_metadata_partial_stride(void) {
+    LrcCtcModelConfig config;
+    LrcCtcModelInput input;
+    LrcCtcModelInputResult result;
+    LrcCtcAudio audio;
+    float samples[21];
+
+    for (int32 i = 0; i < LENGTH(samples); i += 1) {
+        samples[i] = (float)(i + 1);
+    }
+
+    lrc_ctc_model_config_init(&config);
+    config.sample_rate = 8;
+    config.inputs_to_logits_ratio = 2;
+    config.window_seconds = 2;
+    config.context_seconds = 1;
+    lrc_ctc_model_input_init(&input);
+    ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
+
+    if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
+        return ctc_model_test_fail("prepare partial-stride metadata");
+    }
+
+    ASSERT(input.chunked);
+    ASSERT(input.chunk_count == 2);
+    ASSERT(input.extension_sample_count == 11);
+    ASSERT(input.original_emission_count == 11);
+    ASSERT(input.extension_emission_count == 5);
+    ASSERT(input.kept_emission_count == 16);
+    ASSERT(input.chunks[1].valid_output_start_frame == 16);
+    ASSERT(input.chunks[1].valid_output_frame_count == 5);
+    ASSERT(input.chunks[1].right_context_frames == 0);
+    ASSERT(input.chunks[1].kept_emission_count == 8);
 
     lrc_ctc_model_input_destroy(&input);
 
@@ -919,6 +1386,15 @@ main(void) {
         exit(1);
     }
     if (ctc_model_test_prepares_chunked_input() != 0) {
+        exit(1);
+    }
+    if (ctc_model_test_emission_frame_conversion() != 0) {
+        exit(1);
+    }
+    if (ctc_model_test_chunk_metadata_three_chunks() != 0) {
+        exit(1);
+    }
+    if (ctc_model_test_chunk_metadata_partial_stride() != 0) {
         exit(1);
     }
     if (ctc_model_test_rejects_unaligned_window_or_context() != 0) {
