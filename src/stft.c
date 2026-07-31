@@ -81,14 +81,19 @@ stft_forward_channel(
     float *output_imag,
     int32 frame_count
 ) {
+    int32 n_fft;
+    int32 hop;
+    int32 complex_count;
     int32 center;
 
     if ((plan == NULL) || (input == NULL) || (output_real == NULL)
         || (output_imag == NULL)) {
         return false;
     }
-    if ((plan->n_fft <= 0) || (plan->hop <= 0)
-        || (plan->complex_count <= 0)) {
+    n_fft = plan->n_fft;
+    hop = plan->hop;
+    complex_count = plan->complex_count;
+    if ((n_fft <= 0) || (hop <= 0) || (complex_count <= 0)) {
         return false;
     }
     if ((input_len < 0)
@@ -97,12 +102,12 @@ stft_forward_channel(
         return false;
     }
 
-    center = plan->n_fft/2;
+    center = n_fft/2;
     for (int32 frame_index = 0; frame_index < frame_count; frame_index += 1) {
         int64 start;
 
-        start = (int64)frame_index*(int64)plan->hop - (int64)center;
-        for (int32 i = 0; i < plan->n_fft; i += 1) {
+        start = (int64)frame_index*(int64)hop - (int64)center;
+        for (int32 i = 0; i < n_fft; i += 1) {
             int64 input_index;
 
             input_index = start + (int64)i;
@@ -120,7 +125,7 @@ stft_forward_channel(
             return false;
         }
 
-        for (int32 bin = 0; bin < plan->complex_count; bin += 1) {
+        for (int32 bin = 0; bin < complex_count; bin += 1) {
             output_real[bin*frame_count + frame_index] = plan->real[bin];
             output_imag[bin*frame_count + frame_index] = plan->imag[bin];
         }
