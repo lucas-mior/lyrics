@@ -298,6 +298,21 @@ source_closure() {
     source_closure_add "$1"
 }
 
+source_closure_contains_file() {
+    source_file="$1"
+    pattern="$2"
+
+    for dependency in $(source_closure "$source_file"); do
+        case "$dependency" in
+        $pattern)
+            return 0
+            ;;
+        esac
+    done
+
+    return 1
+}
+
 source_closure_grep() {
     source_file="$1"
     pattern="$2"
@@ -312,13 +327,13 @@ source_closure_grep() {
 }
 
 module_needs_onnxruntime() {
-    source_closure_grep "$1" \
-        'onnxruntime_c_api.h|"ort\.c"'
+    source_closure_contains_file "$1" '*/ort.c' \
+        || source_closure_grep "$1" 'onnxruntime_c_api.h|"ort\.c"'
 }
 
 module_needs_fftw() {
-    source_closure_grep "$1" \
-        'fftw3.h|"fftw\.c"|"stft\.c"'
+    source_closure_contains_file "$1" '*/fftw.c' \
+        || source_closure_contains_file "$1" '*/stft.c'
 }
 
 module_needs_ffmpeg_libraries() {
@@ -439,17 +454,28 @@ app_program() {
     esac
 }
 
+app_cppflags() {
+    case "$1" in
+    gen_lrc_raw|gen_lrc)
+        printf '%s\n' "-DLRC_CTC_INFERENCE_ENABLE_ORT=1"
+        ;;
+    *)
+        printf '%s\n' ""
+        ;;
+    esac
+}
 build_app() {
     app="$1"
     source=$(app_source "$app")
     output=$(app_program "$app")
     dep_cflags=$(dependency_cflags_for_module "$source")
     dep_ldlibs=$(dependency_ldlibs_for_module "$source")
+    app_cppflags=$(app_cppflags "$app")
 
     mkdir -p "$(dirname "$output")"
 
     trace_on
-    $CC $CPPFLAGS $CFLAGS $dep_cflags "$source" \
+    $CC $CPPFLAGS $app_cppflags $CFLAGS $dep_cflags "$source" \
         $LDFLAGS $dep_ldlibs $DEFAULT_LDLIBS \
         -o "$output"
     trace_off
