@@ -1,6 +1,7 @@
 #include "ctc_inference.h"
 
 #include "cbase.h"
+#include "progress.c"
 
 #if !defined(TESTING_ctc_inference)
 #define TESTING_ctc_inference 0
@@ -425,6 +426,7 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     float *values,
     int64 value_count,
     int64 *shape,
+    bool print_progress,
     LrcCtcInferenceResult *result
 ) {
     int64 row_count;
@@ -434,6 +436,7 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     int64 expected_raw_count;
     int64 output_value_count;
     int64 output_frame;
+    LrcProgress progress;
 
     if (!lrc_ctc_emissions_shape_valid(shape,
                                        3,
@@ -488,6 +491,11 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     emissions->values = malloc2(
         output_value_count*SIZEOF(*emissions->values)
     );
+    lrc_progress_init(&progress,
+                      print_progress,
+                      "trim CTC emissions",
+                      input->chunk_count);
+    lrc_progress_begin(&progress);
     output_frame = 0;
     for (int64 i = 0; i < input->chunk_count; i += 1) {
         LrcCtcModelChunk *chunk;
@@ -512,6 +520,7 @@ lrc_ctc_emissions_copy_rank3_trimmed(
                      vocabulary_size*SIZEOF(*values));
             output_frame += 1;
         }
+        lrc_progress_update(&progress, i + 1);
     }
     if (output_frame != input->original_emission_count) {
         lrc_ctc_inference_result_set(
@@ -520,6 +529,7 @@ lrc_ctc_emissions_copy_rank3_trimmed(
             "CTC rank-3 output trimming produced too few frames",
             output_frame
         );
+        lrc_progress_cancel(&progress);
         free2(emissions->values,
               output_value_count*SIZEOF(*emissions->values));
         emissions->values = NULL;
@@ -537,9 +547,11 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     if (!lrc_ctc_emissions_values_valid(emissions->values,
                                         emissions->value_count,
                                         result)) {
+        lrc_progress_cancel(&progress);
         lrc_ctc_emissions_destroy(emissions);
         return false;
     }
+    lrc_progress_finish(&progress);
 
     return true;
 }
@@ -552,6 +564,7 @@ lrc_ctc_emissions_copy_model_output(
     int64 value_count,
     int64 *shape,
     int32 shape_len,
+    bool print_progress,
     LrcCtcInferenceResult *result
 ) {
     if (result) {
@@ -582,6 +595,7 @@ lrc_ctc_emissions_copy_model_output(
                                                     values,
                                                     value_count,
                                                     shape,
+                                                    print_progress,
                                                     result);
     }
 
@@ -791,6 +805,7 @@ lrc_ctc_emissions_build_trimmed_from_model_output(
     int64 *shape,
     int32 shape_len,
     enum LrcCtcEmissionValuesKind values_kind,
+    bool print_progress,
     LrcCtcInferenceResult *result
 ) {
     if (!lrc_ctc_emissions_copy_model_output(emissions,
@@ -799,6 +814,7 @@ lrc_ctc_emissions_build_trimmed_from_model_output(
                                              value_count,
                                              shape,
                                              shape_len,
+                                             print_progress,
                                              result)) {
         return false;
     }
@@ -868,6 +884,7 @@ lrc_ctc_inference_run(
                         input,
                         emissions,
                         backend->values_kind,
+                        backend->print_progress,
                         result);
 }
 
@@ -958,6 +975,7 @@ lrc_ctc_fake_inference_run(
     LrcCtcModelInput *input,
     LrcCtcEmissions *emissions,
     enum LrcCtcEmissionValuesKind values_kind,
+    bool print_progress,
     LrcCtcInferenceResult *result
 ) {
     LrcCtcFakeInference *fake;
@@ -981,6 +999,7 @@ lrc_ctc_fake_inference_run(
         fake->shape,
         fake->shape_len,
         values_kind,
+        print_progress,
         result
     );
 }
@@ -997,6 +1016,7 @@ lrc_ctc_fake_inference_backend(
     backend->backend = fake;
     backend->run = lrc_ctc_fake_inference_run;
     backend->values_kind = LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES;
+    backend->print_progress = false;
 
     return;
 }
@@ -1124,6 +1144,7 @@ lrc_ctc_onnx_inference_run(
     LrcCtcModelInput *input,
     LrcCtcEmissions *emissions,
     enum LrcCtcEmissionValuesKind values_kind,
+    bool print_progress,
     LrcCtcInferenceResult *result
 ) {
 #if LRC_CTC_INFERENCE_ENABLE_ORT
@@ -1132,6 +1153,7 @@ lrc_ctc_onnx_inference_run(
     LrcCtcModelIoInfo input_info;
     OrtTensor input_tensor;
     OrtTensor output_tensor;
+    LrcProgress progress;
     bool ok;
 
     onnx = backend;
@@ -1174,11 +1196,17 @@ lrc_ctc_onnx_inference_run(
         return false;
     }
 
+    lrc_progress_init(&progress,
+                      print_progress,
+                      "run CTC model",
+                      input->chunk_count);
+    lrc_progress_begin(&progress);
     ok = ort_model_run_f32(&onnx->context,
                            &onnx->model,
                            &input_tensor,
                            &output_tensor);
     if (ok) {
+        lrc_progress_finish(&progress);
         ok = lrc_ctc_emissions_build_trimmed_from_model_output(
             emissions,
             input,
@@ -1187,9 +1215,11 @@ lrc_ctc_onnx_inference_run(
             output_tensor.shape,
             output_tensor.shape_len,
             values_kind,
+            print_progress,
             result
         );
     } else {
+        lrc_progress_cancel(&progress);
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
@@ -1207,6 +1237,7 @@ lrc_ctc_onnx_inference_run(
     (void)input;
     (void)emissions;
     (void)values_kind;
+    (void)print_progress;
     lrc_ctc_inference_result_set(
         result,
         LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
@@ -1229,6 +1260,7 @@ lrc_ctc_onnx_inference_backend(
     backend->backend = onnx;
     backend->run = lrc_ctc_onnx_inference_run;
     backend->values_kind = LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES;
+    backend->print_progress = false;
 
     return;
 }
@@ -1306,6 +1338,131 @@ ctc_inference_make_rank3_trim_input(
     }
 
     return;
+}
+
+
+static void
+ctc_inference_make_custom_rank3_trim_input(
+    LrcCtcModelInput *input,
+    LrcCtcModelChunk *chunks,
+    int64 chunk_count,
+    int64 raw_chunk_emission_count,
+    int64 trim_left,
+    int64 trim_right,
+    int64 original_emission_count
+) {
+    static float samples[] = {0.0f};
+    int64 kept_count;
+
+    lrc_ctc_model_input_init(input);
+    memset64(chunks, 0, chunk_count*SIZEOF(*chunks));
+    kept_count = raw_chunk_emission_count - trim_left - trim_right;
+
+    input->samples = samples;
+    input->sample_count = 1;
+    input->shape_len = LRC_CTC_MODEL_INPUT_RANK;
+    input->shape[0] = chunk_count;
+    input->shape[1] = raw_chunk_emission_count;
+
+    input->chunk_count = chunk_count;
+    input->chunks = chunks;
+    input->raw_chunk_emission_count = raw_chunk_emission_count;
+    input->kept_emission_count = kept_count*chunk_count;
+    input->original_emission_count = original_emission_count;
+
+    for (int64 i = 0; i < chunk_count; i += 1) {
+        LrcCtcModelChunk *chunk;
+
+        chunk = &chunks[i];
+        chunk->raw_emission_start = i*raw_chunk_emission_count;
+        chunk->raw_emission_count = raw_chunk_emission_count;
+        chunk->trim_left_emissions = trim_left;
+        chunk->trim_right_emissions = trim_right;
+        chunk->kept_emission_start = chunk->raw_emission_start + trim_left;
+        chunk->kept_emission_count = kept_count;
+    }
+
+    return;
+}
+
+typedef struct CtcInferenceStderrCapture {
+    FILE *file;
+
+    int32 saved_stderr;
+    int32 fd;
+} CtcInferenceStderrCapture;
+
+static bool
+ctc_inference_stderr_capture_begin(
+    CtcInferenceStderrCapture *capture
+) {
+    if (capture == NULL) {
+        return false;
+    }
+
+    capture->file = tmpfile();
+    capture->saved_stderr = -1;
+    capture->fd = -1;
+    if (capture->file == NULL) {
+        return false;
+    }
+
+    fflush(stderr);
+    capture->fd = fileno(capture->file);
+    capture->saved_stderr = dup(STDERR_FILENO);
+    if ((capture->fd < 0) || (capture->saved_stderr < 0)) {
+        if (capture->saved_stderr >= 0) {
+            XCLOSE(&capture->saved_stderr);
+        }
+        fclose(capture->file);
+        capture->file = NULL;
+        capture->fd = -1;
+        return false;
+    }
+    xdup2(capture->fd, STDERR_FILENO);
+
+    return true;
+}
+
+static int64
+ctc_inference_stderr_capture_end(
+    CtcInferenceStderrCapture *capture,
+    char *buffer,
+    int32 buffer_len
+) {
+    int64 len;
+
+    if ((capture == NULL) || (capture->file == NULL)) {
+        return -1;
+    }
+
+    fflush(stderr);
+    len = (int64)lseek(capture->fd, 0, SEEK_END);
+    if ((buffer != NULL) && (buffer_len > 0)) {
+        int64 read_limit;
+        int64 read_len;
+
+        buffer[0] = '\0';
+        read_limit = buffer_len - 1;
+        if (read_limit > 0) {
+            lseek(capture->fd, 0, SEEK_SET);
+            read_len = (int64)read(capture->fd,
+                                   buffer,
+                                   (size_t)read_limit);
+            if (read_len < 0) {
+                read_len = 0;
+            }
+            buffer[read_len] = '\0';
+        }
+    }
+
+    xdup2(capture->saved_stderr, STDERR_FILENO);
+    XCLOSE(&capture->saved_stderr);
+    fclose(capture->file);
+    capture->file = NULL;
+    capture->fd = -1;
+
+    return len;
 }
 
 static int32
@@ -1607,6 +1764,235 @@ ctc_inference_test_rank3_probability_trim_before_convert(void) {
                                      logf(0.10f),
                                      0.00001f));
 
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+
+static int32
+ctc_inference_test_rank3_python_slicing_vectors(void) {
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunks[3];
+    int64 shape[3];
+    float values[18];
+    float expected[] = {
+        2.0f,
+        3.0f,
+        4.0f,
+        102.0f,
+        103.0f,
+        104.0f,
+        202.0f,
+        203.0f,
+    };
+
+    for (int64 chunk = 0; chunk < 3; chunk += 1) {
+        for (int64 frame = 0; frame < 6; frame += 1) {
+            values[chunk*6 + frame] = (float)(chunk*100 + frame);
+        }
+    }
+    shape[0] = 3;
+    shape[1] = 6;
+    shape[2] = 1;
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    ctc_inference_make_custom_rank3_trim_input(&input,
+                                               chunks,
+                                               3,
+                                               6,
+                                               2,
+                                               1,
+                                               LENGTH(expected));
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set Python slicing vector");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+
+    if (!lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
+        return ctc_inference_test_fail("run Python slicing vector");
+    }
+
+    ASSERT(emissions.frame_count == LENGTH(expected));
+    ASSERT(emissions.vocabulary_size == 1);
+    for (int32 i = 0; i < LENGTH(expected); i += 1) {
+        ASSERT(emissions.values[i] == expected[i]);
+    }
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_rank3_repeated_boundary_frames(void) {
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunks[2];
+    int64 shape[3];
+    float values[] = {
+        88.0f,
+        89.0f,
+        0.0f,
+        1.0f,
+        2.0f,
+        3.0f,
+        0.0f,
+        1.0f,
+        2.0f,
+        3.0f,
+        90.0f,
+        91.0f,
+    };
+    float expected[] = {
+        0.0f,
+        1.0f,
+        2.0f,
+        3.0f,
+    };
+
+    shape[0] = 2;
+    shape[1] = 6;
+    shape[2] = 1;
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    ctc_inference_make_custom_rank3_trim_input(&input,
+                                               chunks,
+                                               2,
+                                               6,
+                                               2,
+                                               2,
+                                               LENGTH(expected));
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set repeated-boundary emissions");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+
+    if (!lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
+        return ctc_inference_test_fail("run repeated-boundary emissions");
+    }
+
+    ASSERT(emissions.frame_count == LENGTH(expected));
+    for (int32 i = 0; i < LENGTH(expected); i += 1) {
+        ASSERT(emissions.values[i] == expected[i]);
+    }
+
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_progress_disabled_is_silent(void) {
+    CtcInferenceStderrCapture capture;
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunks[2];
+    int64 shape[3];
+    int64 stderr_len;
+    bool ok;
+    float values[12];
+
+    for (int32 i = 0; i < LENGTH(values); i += 1) {
+        values[i] = (float)i;
+    }
+    shape[0] = 2;
+    shape[1] = 3;
+    shape[2] = 2;
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    ctc_inference_make_rank3_trim_input(&input, chunks, 2);
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set silent progress emissions");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+    backend.print_progress = false;
+
+    if (!ctc_inference_stderr_capture_begin(&capture)) {
+        return ctc_inference_test_fail("start stderr capture");
+    }
+    ok = lrc_ctc_inference_run(&backend, &input, &emissions, &result);
+    stderr_len = ctc_inference_stderr_capture_end(&capture, NULL, 0);
+    if (!ok) {
+        return ctc_inference_test_fail("run silent progress backend");
+    }
+
+    ASSERT(stderr_len == 0);
+    lrc_ctc_emissions_destroy(&emissions);
+
+    return 0;
+}
+
+static int32
+ctc_inference_test_progress_counts_chunks(void) {
+    CtcInferenceStderrCapture capture;
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult result;
+    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions;
+    LrcCtcModelInput input;
+    LrcCtcModelChunk chunks[2];
+    char output[512];
+    int64 shape[3];
+    bool ok;
+    float values[12];
+
+    for (int32 i = 0; i < LENGTH(values); i += 1) {
+        values[i] = (float)i;
+    }
+    shape[0] = 2;
+    shape[1] = 3;
+    shape[2] = 2;
+
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    ctc_inference_make_rank3_trim_input(&input, chunks, 2);
+    if (!lrc_ctc_fake_inference_set_shape(&fake,
+                                          values,
+                                          LENGTH(values),
+                                          shape,
+                                          3)) {
+        return ctc_inference_test_fail("set chunk progress emissions");
+    }
+    lrc_ctc_fake_inference_backend(&fake, &backend);
+    backend.print_progress = true;
+
+    if (!ctc_inference_stderr_capture_begin(&capture)) {
+        return ctc_inference_test_fail("start chunk progress capture");
+    }
+    ok = lrc_ctc_inference_run(&backend, &input, &emissions, &result);
+    ctc_inference_stderr_capture_end(&capture, output, LENGTH(output));
+    if (!ok) {
+        return ctc_inference_test_fail("run chunk progress backend");
+    }
+
+    ASSERT(strstr(output, "2/2") != NULL);
+    ASSERT(strstr(output, "4/4") == NULL);
     lrc_ctc_emissions_destroy(&emissions);
 
     return 0;
@@ -1986,6 +2372,18 @@ main(void) {
         exit(1);
     }
     if (ctc_inference_test_rank3_probability_trim_before_convert() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_rank3_python_slicing_vectors() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_rank3_repeated_boundary_frames() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_progress_disabled_is_silent() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_progress_counts_chunks() != 0) {
         exit(1);
     }
     if (ctc_inference_test_rank3_rejects_mismatched_chunks() != 0) {

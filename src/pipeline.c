@@ -889,6 +889,7 @@ lrc_pipeline_generate_lrc(
     if (ok) {
         lrc_ctc_onnx_inference_backend(&onnx, &backend);
         backend.values_kind = pipeline->config.ctc_emission_values_kind;
+        backend.print_progress = pipeline->config.print_info;
         if (!lrc_ctc_inference_run(&backend,
                                    &input,
                                    &emissions,

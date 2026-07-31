@@ -6785,6 +6785,258 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     return 0;
 }
 
+
+static void
+ctc_align_set_rank3_row_preference(
+    float *values,
+    int64 row_index,
+    int64 vocabulary_size,
+    int32 token_id
+) {
+    for (int64 i = 0; i < vocabulary_size; i += 1) {
+        values[row_index*vocabulary_size + i] = -10.0f;
+    }
+    values[row_index*vocabulary_size + token_id] = 10.0f;
+
+    return;
+}
+
+static int32
+ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
+    LrcCtcAudio audio;
+    LrcCtcModelConfig model_config;
+    LrcCtcModelInputResult model_result;
+    LrcCtcModelInput input;
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcFakeInference fake;
+    LrcCtcInferenceBackend backend;
+    LrcCtcInferenceResult inference_result;
+    LrcCtcEmissions emissions;
+    LrcCtcAlignResult align_result;
+    LrcCtcTrellis trellis;
+    LrcCtcPath path;
+    LrcCtcTokenSpans token_spans;
+    LrcCtcWordSpans word_spans;
+    LrcCtcLineTimestamps line_timestamps;
+    int64 shape[3];
+    int32 target_token_ids[2];
+    int32 star_token_id;
+    int64 raw_value_count;
+    int64 vocabulary_size;
+    float *values;
+    float samples[12];
+    bool ok;
+
+    for (int32 i = 0; i < LENGTH(samples); i += 1) {
+        samples[i] = (float)i;
+    }
+
+    lrc_ctc_model_input_init(&input);
+    lrc_lyrics_init(&lyrics);
+    lrc_lyrics_normalized_init(&normalized);
+    lrc_ctc_tokenizer_init(&tokenizer);
+    lrc_ctc_tokenized_text_init(&tokens);
+    lrc_ctc_fake_inference_init(&fake);
+    lrc_ctc_emissions_init(&emissions);
+    lrc_ctc_trellis_init(&trellis);
+    lrc_ctc_path_init(&path);
+    lrc_ctc_token_spans_init(&token_spans);
+    lrc_ctc_word_spans_init(&word_spans);
+    lrc_ctc_line_timestamps_init(&line_timestamps);
+
+    memset64(&audio, 0, SIZEOF(audio));
+    audio.samples = samples;
+    audio.sample_count = LENGTH(samples);
+    audio.sample_rate = 4;
+    audio.channel_count = 1;
+    audio.duration_seconds = 3.0;
+
+    values = NULL;
+    ok = true;
+
+    lrc_ctc_model_config_init(&model_config);
+    model_config.sample_rate = 4;
+    model_config.inputs_to_logits_ratio = 1;
+    model_config.window_seconds = 2;
+    model_config.context_seconds = 1;
+    if (!lrc_ctc_model_input_prepare(&input,
+                                     &audio,
+                                     &model_config,
+                                     &model_result)) {
+        ok = false;
+    }
+    if (ok && ((input.chunk_count != 2)
+               || (input.raw_chunk_emission_count != 16)
+               || (input.original_emission_count != 12))) {
+        ok = false;
+    }
+    if (ok && !ctc_align_load_tokenized_lyrics(STRLIT("ab\n"),
+                                               &lyrics,
+                                               &normalized,
+                                               &tokenizer,
+                                               &tokens)) {
+        ok = false;
+    }
+    if (ok && (tokens.token_count != 2)) {
+        ok = false;
+    }
+
+    vocabulary_size = tokenizer.token_count;
+    raw_value_count = input.chunk_count*input.raw_chunk_emission_count
+                      *vocabulary_size;
+    if (ok) {
+        values = malloc2(raw_value_count*SIZEOF(*values));
+        for (int64 i = 0; i < input.chunk_count*input.raw_chunk_emission_count;
+             i += 1) {
+            ctc_align_set_rank3_row_preference(values,
+                                               i,
+                                               vocabulary_size,
+                                               tokens.tokens[0].token_id);
+        }
+        target_token_ids[0] = tokens.tokens[0].token_id;
+        target_token_ids[1] = tokens.tokens[1].token_id;
+    }
+
+    if (ok) {
+        int64 output_frame;
+
+        output_frame = 0;
+        for (int64 i = 0; i < input.chunk_count; i += 1) {
+            LrcCtcModelChunk *chunk;
+            int64 kept_offset;
+
+            chunk = &input.chunks[i];
+            kept_offset = chunk->kept_emission_start
+                          - chunk->raw_emission_start;
+            for (int64 j = 0; j < chunk->kept_emission_count; j += 1) {
+                int64 raw_frame;
+                int32 preferred_token;
+
+                if (output_frame >= input.original_emission_count) {
+                    break;
+                }
+                raw_frame = i*input.raw_chunk_emission_count + kept_offset + j;
+                preferred_token = tokenizer.blank_id;
+                if (output_frame == 1) {
+                    preferred_token = target_token_ids[0];
+                }
+                if (output_frame == 3) {
+                    preferred_token = target_token_ids[1];
+                }
+                ctc_align_set_rank3_row_preference(values,
+                                                   raw_frame,
+                                                   vocabulary_size,
+                                                   preferred_token);
+                output_frame += 1;
+            }
+        }
+    }
+
+    shape[0] = input.chunk_count;
+    shape[1] = input.raw_chunk_emission_count;
+    shape[2] = vocabulary_size;
+    if (ok && !lrc_ctc_fake_inference_set_shape(&fake,
+                                                values,
+                                                raw_value_count,
+                                                shape,
+                                                3)) {
+        ok = false;
+    }
+    if (ok) {
+        lrc_ctc_fake_inference_backend(&fake, &backend);
+        backend.values_kind = LRC_CTC_EMISSION_VALUES_LOGITS;
+        if (!lrc_ctc_inference_run(&backend,
+                                   &input,
+                                   &emissions,
+                                   &inference_result)) {
+            ok = false;
+        }
+    }
+    if (ok && (emissions.frame_count != input.original_emission_count)) {
+        ok = false;
+    }
+
+    star_token_id = (int32)emissions.vocabulary_size;
+    if (ok && !lrc_ctc_trellis_score_forward_with_edge_stars(
+        &trellis,
+        &emissions,
+        target_token_ids,
+        LENGTH(target_token_ids),
+        tokenizer.blank_id,
+        star_token_id,
+        &align_result
+    )) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_trellis_backtrack_with_edge_stars(&trellis,
+                                                          &emissions,
+                                                          target_token_ids,
+                                                          LENGTH(
+                                                              target_token_ids
+                                                          ),
+                                                          tokenizer.blank_id,
+                                                          star_token_id,
+                                                          &path,
+                                                          &align_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_path_to_token_spans(&path,
+                                           &emissions,
+                                           0.25f,
+                                           &token_spans,
+                                           &align_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_token_spans_to_word_spans(&token_spans,
+                                                 &tokens,
+                                                 &normalized,
+                                                 &word_spans,
+                                                 &align_result)) {
+        ok = false;
+    }
+    if (ok && !lrc_ctc_word_spans_to_line_timestamps(&word_spans,
+                                                     &normalized,
+                                                     &line_timestamps,
+                                                     &align_result)) {
+        ok = false;
+    }
+    if (ok) {
+        ASSERT(token_spans.span_count == 2);
+        ASSERT(token_spans.spans[0].start_frame == 1);
+        ASSERT(token_spans.spans[1].start_frame == 3);
+        ASSERT(line_timestamps.line_count == 1);
+        ASSERT(line_timestamps.lines[0].kind
+               == LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED);
+        ASSERT(ctc_align_float_close(line_timestamps.lines[0].start_seconds,
+                                     0.25f,
+                                     0.00001f));
+    }
+
+    lrc_ctc_line_timestamps_destroy(&line_timestamps);
+    lrc_ctc_word_spans_destroy(&word_spans);
+    lrc_ctc_token_spans_destroy(&token_spans);
+    lrc_ctc_path_destroy(&path);
+    lrc_ctc_trellis_destroy(&trellis);
+    lrc_ctc_emissions_destroy(&emissions);
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+    lrc_ctc_model_input_destroy(&input);
+    if (values) {
+        free2(values, raw_value_count*SIZEOF(*values));
+    }
+
+    if (!ok) {
+        return ctc_align_test_fail("rank-3 trimmed fake inference pipeline");
+    }
+
+    return 0;
+}
+
 static int32
 ctc_align_test_prepare_rejects_invalid_emissions(void) {
     LrcCtcAlignResult result;
@@ -6934,6 +7186,9 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_full_synthetic_lrc_pipeline() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_rank3_trimmed_fake_inference_pipeline() != 0) {
         exit(1);
     }
     if (ctc_align_test_maxwell_fixture_lrc_pipeline() != 0) {
