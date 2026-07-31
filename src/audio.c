@@ -308,7 +308,7 @@ audio_read_file_format(
         NULL,
     };
     Command command = {0};
-    float *samples;
+    char *raw;
     bool result = false;
     int64 frame_bytes;
     int64 raw_len;
@@ -334,7 +334,7 @@ audio_read_file_format(
     }
 
     raw_len = command.result.stdout_len;
-    frame_bytes = (int64)format->channel_count*SIZEOF(*samples);
+    frame_bytes = (int64)format->channel_count*SIZEOF(*audio->left);
     if ((raw_len % frame_bytes) != 0) {
         goto cleanup;
     }
@@ -356,11 +356,18 @@ audio_read_file_format(
         audio->right = malloc2(sample_count);
     }
 
-    samples = (float *)command.result.stdout_output;
+    raw = command.result.stdout_output;
     for (int64 i = 0; i < audio->frame_count; i += 1) {
-        audio->left[i] = samples[audio->channel_count*i];
+        int64 frame_offset;
+
+        frame_offset = frame_bytes*i;
+        memcpy64(&audio->left[i],
+                 raw + frame_offset,
+                 SIZEOF(*audio->left));
         if (audio->channel_count == 2) {
-            audio->right[i] = samples[2*i + 1];
+            memcpy64(&audio->right[i],
+                     raw + frame_offset + SIZEOF(*audio->left),
+                     SIZEOF(*audio->right));
         }
     }
     result = true;
