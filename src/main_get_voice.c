@@ -4,6 +4,9 @@
 #if !defined(TESTING_audio)
 #define TESTING_audio 0
 #endif
+#if !defined(TESTING_ctc_assets)
+#define TESTING_ctc_assets 0
+#endif
 #if !defined(TESTING_cli)
 #define TESTING_cli 0
 #endif
@@ -30,6 +33,7 @@
 
 #include "cli.h"
 #include "vocals.h"
+#include "ctc_assets.h"
 #include "pipeline.h"
 
 #include "fftw.c"
@@ -38,6 +42,7 @@
 #include "ort.c"
 #include "mdx.c"
 #include "vocals.c"
+#include "ctc_assets.c"
 #include "pipeline.c"
 #include "cli.c"
 

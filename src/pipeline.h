@@ -5,6 +5,7 @@
 #include "audio.h"
 #include "mdx.h"
 #include "vocals.h"
+#include "ctc_assets.h"
 
 enum LrcPipelineError {
     LRC_PIPELINE_ERROR_NONE,
@@ -15,6 +16,7 @@ enum LrcPipelineError {
     LRC_PIPELINE_ERROR_TEMP_CLEANUP_FAILED,
     LRC_PIPELINE_ERROR_VOCALS_ALREADY_AVAILABLE,
     LRC_PIPELINE_ERROR_VOCALS_EXTRACT_FAILED,
+    LRC_PIPELINE_ERROR_CTC_ASSETS_INVALID,
 };
 
 typedef struct LrcPipelineConfig {
@@ -50,6 +52,8 @@ typedef struct LrcPipeline {
     char owned_vocals_path[PATH_MAX];
     char *vocals_stage_path;
 
+    LrcCtcAssets ctc_assets;
+
     bool prepared;
     bool owns_temp_dir;
     bool owns_vocals_path;
@@ -69,6 +73,14 @@ static bool lrc_pipeline_vocals_request(
 static bool lrc_pipeline_extract_vocals(
     LrcPipeline *pipeline,
     LrcVocalsExtractResult *result
+);
+static void lrc_pipeline_ctc_assets_config(
+    LrcPipeline *pipeline,
+    LrcCtcAssetsConfig *config
+);
+static bool lrc_pipeline_validate_ctc_assets(
+    LrcPipeline *pipeline,
+    LrcCtcAssetsResult *result
 );
 
 #endif /* PIPELINE_H */

@@ -160,6 +160,8 @@ lrc_pipeline_init(LrcPipeline *pipeline, LrcPipelineConfig *config) {
         lrc_pipeline_config_init(&pipeline->config);
     }
 
+    lrc_ctc_assets_init(&pipeline->ctc_assets);
+
     return;
 }
 
@@ -276,6 +278,60 @@ lrc_pipeline_vocals_request(
     return true;
 }
 
+static void
+lrc_pipeline_ctc_assets_config(
+    LrcPipeline *pipeline,
+    LrcCtcAssetsConfig *config
+) {
+    if (config == NULL) {
+        return;
+    }
+
+    lrc_ctc_assets_config_init(config);
+    if (pipeline == NULL) {
+        return;
+    }
+
+    config->model_path = pipeline->config.ctc_model_path;
+    config->tokenizer_path = pipeline->config.tokenizer_path;
+
+    return;
+}
+
+static bool
+lrc_pipeline_validate_ctc_assets(
+    LrcPipeline *pipeline,
+    LrcCtcAssetsResult *result
+) {
+    LrcCtcAssetsConfig config;
+
+    if (pipeline == NULL) {
+        lrc_ctc_assets_result_init(result);
+        if (result) {
+            result->error = LRC_CTC_ASSETS_ERROR_INVALID_ARGUMENT;
+            result->message = "pipeline is missing";
+            result->path = NULL;
+        }
+        return false;
+    }
+
+    lrc_pipeline_ctc_assets_config(pipeline, &config);
+    if (!lrc_ctc_assets_validate(&pipeline->ctc_assets, &config, result)) {
+        lrc_pipeline_error_set(
+            pipeline,
+            LRC_PIPELINE_ERROR_CTC_ASSETS_INVALID,
+            "CTC assets are invalid",
+            NULL
+        );
+        if (result && result->path) {
+            pipeline->path = result->path;
+        }
+        return false;
+    }
+
+    return true;
+}
+
 static bool
 lrc_pipeline_extract_vocals(
     LrcPipeline *pipeline,
@@ -315,6 +371,8 @@ lrc_pipeline_extract_vocals(
 
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
+#include "ctc_assets.c"
 
 static void
 audio_io_format_init(AudioIoFormat *format) {
@@ -385,20 +443,23 @@ pipeline_test_fail(char *name) {
 
 static bool
 pipeline_test_write_file(char *path) {
-    FILE *file;
+    return write_entire_file(path, STRLIT("x"));
+}
 
-    if ((file = fopen(path, "wb")) == NULL) {
-        return false;
-    }
-    if (fwrite("x", 1, 1, file) != 1) {
-        fclose(file);
-        return false;
-    }
-    if (fclose(file) != 0) {
-        return false;
-    }
+static void
+pipeline_test_join_path(
+    char *buffer,
+    int64 buffer_len,
+    char *dir,
+    char *name
+) {
+    int32 len;
 
-    return true;
+    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
+    ASSERT(len > 0);
+    ASSERT(len < buffer_len);
+
+    return;
 }
 
 static int32
@@ -432,6 +493,9 @@ pipeline_test_config_defaults(void) {
     ASSERT(!pipeline.prepared);
     ASSERT(!pipeline.owns_temp_dir);
     ASSERT(!pipeline.owns_vocals_path);
+    ASSERT(pipeline.ctc_assets.model_path == NULL);
+    ASSERT(pipeline.ctc_assets.tokenizer_path == NULL);
+    ASSERT(!pipeline.ctc_assets.validated);
 
     return 0;
 }
@@ -625,6 +689,128 @@ pipeline_test_existing_vocals_path(void) {
 }
 
 static int32
+pipeline_test_ctc_assets_config(void) {
+    LrcPipelineConfig config;
+    LrcPipeline pipeline;
+    LrcCtcAssetsConfig assets_config;
+
+    lrc_pipeline_config_init(&config);
+    config.ctc_model_path = "ctc.onnx";
+    config.tokenizer_path = "tokens.txt";
+    lrc_pipeline_init(&pipeline, &config);
+
+    lrc_pipeline_ctc_assets_config(&pipeline, &assets_config);
+    ASSERT(strequal(assets_config.model_path, "ctc.onnx"));
+    ASSERT(strequal(assets_config.tokenizer_path, "tokens.txt"));
+
+    return 0;
+}
+
+static int32
+pipeline_test_ctc_assets_validate(void) {
+    LrcPipelineConfig config;
+    LrcPipeline pipeline;
+    LrcCtcAssetsResult result;
+    char temp_dir[PATH_MAX];
+    char model_path[PATH_MAX];
+    char tokenizer_path[PATH_MAX];
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "pipeline_ctc_assets");
+    pipeline_test_join_path(model_path, SIZEOF(model_path), temp_dir,
+                            "ctc.onnx");
+    pipeline_test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
+                            "tokens.txt");
+
+    if (!pipeline_test_write_file(model_path)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("write ctc model asset");
+    }
+    if (!pipeline_test_write_file(tokenizer_path)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("write tokenizer asset");
+    }
+
+    lrc_pipeline_config_init(&config);
+    config.ctc_model_path = model_path;
+    config.tokenizer_path = tokenizer_path;
+    lrc_pipeline_init(&pipeline, &config);
+
+    if (!lrc_pipeline_validate_ctc_assets(&pipeline, &result)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("validate ctc assets");
+    }
+    ASSERT(result.error == LRC_CTC_ASSETS_ERROR_NONE);
+    ASSERT(strequal(pipeline.ctc_assets.model_path, model_path));
+    ASSERT(strequal(pipeline.ctc_assets.tokenizer_path, tokenizer_path));
+    ASSERT(pipeline.ctc_assets.validated);
+    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_NONE);
+
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+static int32
+pipeline_test_ctc_assets_missing_path(void) {
+    LrcPipelineConfig config;
+    LrcPipeline pipeline;
+    LrcCtcAssetsResult result;
+
+    lrc_pipeline_config_init(&config);
+    config.tokenizer_path = "tokens.txt";
+    lrc_pipeline_init(&pipeline, &config);
+
+    if (lrc_pipeline_validate_ctc_assets(&pipeline, &result)) {
+        return pipeline_test_fail("accepted missing ctc model path");
+    }
+    ASSERT(result.error == LRC_CTC_ASSETS_ERROR_MISSING_MODEL_PATH);
+    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_CTC_ASSETS_INVALID);
+    ASSERT(!pipeline.ctc_assets.validated);
+
+    return 0;
+}
+
+static int32
+pipeline_test_ctc_assets_missing_file(void) {
+    LrcPipelineConfig config;
+    LrcPipeline pipeline;
+    LrcCtcAssetsResult result;
+    char temp_dir[PATH_MAX];
+    char model_path[PATH_MAX];
+    char tokenizer_path[PATH_MAX];
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "pipeline_no_ctc");
+    pipeline_test_join_path(model_path, SIZEOF(model_path), temp_dir,
+                            "missing.onnx");
+    pipeline_test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
+                            "tokens.txt");
+
+    if (!pipeline_test_write_file(tokenizer_path)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("write tokenizer asset for missing file");
+    }
+
+    lrc_pipeline_config_init(&config);
+    config.ctc_model_path = model_path;
+    config.tokenizer_path = tokenizer_path;
+    lrc_pipeline_init(&pipeline, &config);
+
+    if (lrc_pipeline_validate_ctc_assets(&pipeline, &result)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("accepted missing ctc model file");
+    }
+    ASSERT(result.error == LRC_CTC_ASSETS_ERROR_MODEL_NOT_FOUND);
+    ASSERT(strequal(result.path, model_path));
+    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_CTC_ASSETS_INVALID);
+    ASSERT(strequal(pipeline.path, model_path));
+    ASSERT(!pipeline.ctc_assets.validated);
+
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+static int32
 pipeline_test_optional_maxwell_config(void) {
     LrcPipelineConfig config;
     LrcPipeline pipeline;
@@ -698,6 +884,18 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_existing_vocals_path() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_ctc_assets_config() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_ctc_assets_validate() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_ctc_assets_missing_path() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_ctc_assets_missing_file() != 0) {
         exit(1);
     }
     if (pipeline_test_optional_maxwell_config() != 0) {
