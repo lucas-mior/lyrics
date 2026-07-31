@@ -148,6 +148,33 @@ lrc_ctc_word_spans_destroy(LrcCtcWordSpans *spans) {
     return;
 }
 
+static void
+lrc_ctc_line_timestamps_init(LrcCtcLineTimestamps *timestamps) {
+    if (timestamps == NULL) {
+        return;
+    }
+
+    memset64(timestamps, 0, SIZEOF(*timestamps));
+
+    return;
+}
+
+static void
+lrc_ctc_line_timestamps_destroy(LrcCtcLineTimestamps *timestamps) {
+    if (timestamps == NULL) {
+        return;
+    }
+
+    if (timestamps->lines) {
+        free2(timestamps->lines,
+              timestamps->line_cap*SIZEOF(*timestamps->lines));
+    }
+
+    lrc_ctc_line_timestamps_init(timestamps);
+
+    return;
+}
+
 static bool
 lrc_ctc_token_spans_allocate(
     LrcCtcTokenSpans *spans,
@@ -1667,6 +1694,421 @@ lrc_ctc_token_spans_to_word_spans(
     return true;
 }
 
+static bool
+lrc_ctc_line_timestamps_allocate(
+    LrcCtcLineTimestamps *timestamps,
+    int64 line_count,
+    LrcCtcAlignResult *result
+) {
+    if (timestamps == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC line timestamps destination is missing",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (line_count <= 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word spans did not produce lyric lines",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (line_count > INT64_MAX/SIZEOF(*timestamps->lines)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            "CTC line timestamp allocation is too large",
+            -1,
+            line_count
+        );
+        return false;
+    }
+
+    lrc_ctc_line_timestamps_destroy(timestamps);
+    timestamps->lines = malloc2(line_count*SIZEOF(*timestamps->lines));
+    timestamps->line_count = line_count;
+    timestamps->line_cap = line_count;
+    timestamps->timestamped_line_count = 0;
+    timestamps->blank_line_count = 0;
+
+    for (int64 i = 0; i < timestamps->line_count; i += 1) {
+        timestamps->lines[i].word_start_index = -1;
+        timestamps->lines[i].word_end_index = -1;
+        timestamps->lines[i].line_index = -1;
+        timestamps->lines[i].start_seconds = 0.0f;
+        timestamps->lines[i].end_seconds = 0.0f;
+        timestamps->lines[i].score = -INFINITY;
+        timestamps->lines[i].kind = LRC_CTC_LINE_TIMESTAMP_KIND_BLANK;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_word_span_valid_for_lines(
+    LrcCtcWordSpan *word,
+    LrcLyricsNormalized *normalized,
+    int64 word_index,
+    LrcCtcAlignResult *result
+) {
+    int32 line_start;
+    int32 line_end;
+
+    if ((word->word_index != word_index)
+        || (word->line_index < 0)
+        || (word->line_index >= normalized->line_count)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word span has invalid indexes",
+            -1,
+            word_index
+        );
+        return false;
+    }
+    if (!lrc_lyrics_normalized_line_range(normalized,
+                                          word->line_index,
+                                          &line_start,
+                                          &line_end)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word span does not belong to an alignable lyric line",
+            -1,
+            word_index
+        );
+        return false;
+    }
+    if ((word->normalized_start < line_start)
+        || (word->normalized_end > line_end)
+        || (word->normalized_end <= word->normalized_start)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word span normalized range is invalid",
+            word->normalized_start,
+            word_index
+        );
+        return false;
+    }
+    if (!isfinite(word->start_seconds) || !isfinite(word->end_seconds)
+        || (word->end_seconds < word->start_seconds)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word span timing is invalid",
+            -1,
+            word_index
+        );
+        return false;
+    }
+    if (!isfinite(word->score)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word span score is invalid",
+            -1,
+            word_index
+        );
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_line_inputs_ready(
+    LrcCtcWordSpans *word_spans,
+    LrcLyricsNormalized *normalized,
+    LrcCtcLineTimestamps *line_timestamps,
+    LrcCtcAlignResult *result
+) {
+    int32 previous_line;
+    float previous_start;
+
+    if ((word_spans == NULL) || (normalized == NULL)
+        || (line_timestamps == NULL)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC line timestamp conversion received invalid arguments",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if ((word_spans->spans == NULL) || (word_spans->span_count <= 0)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word spans are empty",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if ((normalized->lines == NULL) || (normalized->line_count <= 0)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
+            "normalized lyric lines are not ready",
+            -1,
+            -1
+        );
+        return false;
+    }
+
+    previous_line = -1;
+    previous_start = -INFINITY;
+    for (int64 i = 0; i < word_spans->span_count; i += 1) {
+        LrcCtcWordSpan *word;
+
+        word = word_spans->spans + i;
+        if (!lrc_ctc_word_span_valid_for_lines(word,
+                                               normalized,
+                                               i,
+                                               result)) {
+            return false;
+        }
+        if (word->line_index < previous_line) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+                "CTC word spans must be ordered by lyric line",
+                -1,
+                i
+            );
+            return false;
+        }
+        if ((word->line_index == previous_line)
+            && ((word->start_seconds + 0.00001f) < previous_start)) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+                "CTC word spans must be time ordered inside each line",
+                -1,
+                i
+            );
+            return false;
+        }
+
+        previous_line = word->line_index;
+        previous_start = word->start_seconds;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_line_has_words(
+    LrcCtcWordSpans *word_spans,
+    int32 line_index,
+    int64 *first_word_index,
+    int64 *end_word_index
+) {
+    int64 first;
+    int64 end;
+
+    first = -1;
+    end = -1;
+    for (int64 i = 0; i < word_spans->span_count; i += 1) {
+        if (word_spans->spans[i].line_index != line_index) {
+            continue;
+        }
+        if (first < 0) {
+            first = i;
+        }
+        end = i + 1;
+    }
+
+    if (first_word_index) {
+        *first_word_index = first;
+    }
+    if (end_word_index) {
+        *end_word_index = end;
+    }
+
+    return first >= 0;
+}
+
+static bool
+lrc_ctc_count_line_timestamp_entries(
+    LrcCtcWordSpans *word_spans,
+    LrcLyricsNormalized *normalized,
+    int64 *line_count,
+    LrcCtcAlignResult *result
+) {
+    enum LrcLyricsNormalizedLineKind kind;
+
+    *line_count = 0;
+    for (int32 i = 0; i < normalized->line_count; i += 1) {
+        kind = lrc_lyrics_normalized_line_kind(normalized, i);
+        if (kind == LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK) {
+            *line_count += 1;
+            continue;
+        }
+        if (kind == LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE) {
+            if (lrc_ctc_line_has_words(word_spans, i, NULL, NULL)) {
+                *line_count += 1;
+            }
+            continue;
+        }
+    }
+    if (*line_count <= 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            "CTC word spans did not map to lyric lines",
+            -1,
+            -1
+        );
+        return false;
+    }
+
+    return true;
+}
+
+static void
+lrc_ctc_line_timestamp_set_blank(
+    LrcCtcLineTimestamps *timestamps,
+    int64 index,
+    int32 line_index
+) {
+    LrcCtcLineTimestamp *line;
+
+    ASSERT(timestamps != NULL);
+    ASSERT(index >= 0);
+    ASSERT(index < timestamps->line_count);
+
+    line = timestamps->lines + index;
+    line->word_start_index = -1;
+    line->word_end_index = -1;
+    line->line_index = line_index;
+    line->start_seconds = 0.0f;
+    line->end_seconds = 0.0f;
+    line->score = -INFINITY;
+    line->kind = LRC_CTC_LINE_TIMESTAMP_KIND_BLANK;
+    timestamps->blank_line_count += 1;
+
+    return;
+}
+
+static void
+lrc_ctc_line_timestamp_set_timed(
+    LrcCtcLineTimestamps *timestamps,
+    int64 index,
+    int32 line_index,
+    LrcCtcWordSpans *word_spans,
+    int64 first_word_index,
+    int64 end_word_index
+) {
+    LrcCtcLineTimestamp *line;
+    LrcCtcWordSpan *first;
+    LrcCtcWordSpan *last;
+    float score_sum;
+
+    ASSERT(timestamps != NULL);
+    ASSERT(index >= 0);
+    ASSERT(index < timestamps->line_count);
+    ASSERT(first_word_index >= 0);
+    ASSERT(end_word_index > first_word_index);
+    ASSERT(end_word_index <= word_spans->span_count);
+
+    first = word_spans->spans + first_word_index;
+    last = word_spans->spans + end_word_index - 1;
+    score_sum = 0.0f;
+    for (int64 i = first_word_index; i < end_word_index; i += 1) {
+        score_sum += word_spans->spans[i].score;
+    }
+
+    line = timestamps->lines + index;
+    line->word_start_index = first_word_index;
+    line->word_end_index = end_word_index;
+    line->line_index = line_index;
+    line->start_seconds = first->start_seconds;
+    line->end_seconds = last->end_seconds;
+    line->score = score_sum/(float)(end_word_index - first_word_index);
+    line->kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+    timestamps->timestamped_line_count += 1;
+
+    return;
+}
+
+static bool
+lrc_ctc_word_spans_to_line_timestamps(
+    LrcCtcWordSpans *word_spans,
+    LrcLyricsNormalized *normalized,
+    LrcCtcLineTimestamps *line_timestamps,
+    LrcCtcAlignResult *result
+) {
+    int64 line_count;
+    int64 out_index;
+
+    if (result) {
+        lrc_ctc_align_result_init(result);
+    }
+    if (!lrc_ctc_line_inputs_ready(word_spans,
+                                   normalized,
+                                   line_timestamps,
+                                   result)) {
+        return false;
+    }
+    lrc_ctc_line_timestamps_destroy(line_timestamps);
+    if (!lrc_ctc_count_line_timestamp_entries(word_spans,
+                                              normalized,
+                                              &line_count,
+                                              result)) {
+        return false;
+    }
+    if (!lrc_ctc_line_timestamps_allocate(line_timestamps,
+                                          line_count,
+                                          result)) {
+        return false;
+    }
+
+    out_index = 0;
+    for (int32 i = 0; i < normalized->line_count; i += 1) {
+        enum LrcLyricsNormalizedLineKind kind;
+        int64 first_word_index;
+        int64 end_word_index;
+
+        kind = lrc_lyrics_normalized_line_kind(normalized, i);
+        if (kind == LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK) {
+            lrc_ctc_line_timestamp_set_blank(line_timestamps, out_index, i);
+            out_index += 1;
+            continue;
+        }
+        if (kind != LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE) {
+            continue;
+        }
+        if (!lrc_ctc_line_has_words(word_spans,
+                                    i,
+                                    &first_word_index,
+                                    &end_word_index)) {
+            continue;
+        }
+
+        lrc_ctc_line_timestamp_set_timed(line_timestamps,
+                                         out_index,
+                                         i,
+                                         word_spans,
+                                         first_word_index,
+                                         end_word_index);
+        out_index += 1;
+    }
+    ASSERT(out_index == line_timestamps->line_count);
+
+    return true;
+}
+
+
 #if TESTING_ctc_align
 
 #define CBASE_IMPLEMENT
@@ -1674,6 +2116,7 @@ lrc_ctc_token_spans_to_word_spans(
 
 #include "lyrics.c"
 #include "ctc_tokenizer.c"
+#include "lrc.c"
 
 static int32
 ctc_align_test_fail(char *name) {
@@ -1911,12 +2354,14 @@ ctc_align_test_empty_initializers(void) {
     LrcCtcPath path;
     LrcCtcTokenSpans spans;
     LrcCtcWordSpans word_spans;
+    LrcCtcLineTimestamps line_timestamps;
 
     lrc_ctc_align_result_init(&result);
     lrc_ctc_trellis_init(&trellis);
     lrc_ctc_path_init(&path);
     lrc_ctc_token_spans_init(&spans);
     lrc_ctc_word_spans_init(&word_spans);
+    lrc_ctc_line_timestamps_init(&line_timestamps);
 
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
@@ -1940,6 +2385,12 @@ ctc_align_test_empty_initializers(void) {
     ASSERT(word_spans.spans == NULL);
     ASSERT(word_spans.span_count == 0);
     ASSERT(word_spans.span_cap == 0);
+
+    ASSERT(line_timestamps.lines == NULL);
+    ASSERT(line_timestamps.line_count == 0);
+    ASSERT(line_timestamps.line_cap == 0);
+    ASSERT(line_timestamps.timestamped_line_count == 0);
+    ASSERT(line_timestamps.blank_line_count == 0);
 
     return 0;
 }
@@ -2949,6 +3400,301 @@ ctc_align_test_maxwell_word_line_mapping(void) {
 }
 
 
+
+static int32
+ctc_align_test_line_timestamps_from_generated_words(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenSpans token_spans;
+    LrcCtcWordSpans word_spans;
+    LrcCtcLineTimestamps line_timestamps;
+    LrcCtcAlignResult result;
+    char text[] = "Alpha beta\n\nGamma!\n!!!\nDelta\n";
+
+    lrc_ctc_token_spans_init(&token_spans);
+    lrc_ctc_word_spans_init(&word_spans);
+    lrc_ctc_line_timestamps_init(&line_timestamps);
+    if (!ctc_align_load_tokenized_lyrics(text,
+                                         strlen32(text),
+                                         &lyrics,
+                                         &normalized,
+                                         &tokenizer,
+                                         &tokens)) {
+        return ctc_align_test_fail("load generated line lyrics");
+    }
+    if (!ctc_align_make_token_spans_from_tokens(&tokens,
+                                                0.0f,
+                                                0.10f,
+                                                &token_spans)) {
+        return ctc_align_test_fail("make generated line token spans");
+    }
+    if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
+                                           &tokens,
+                                           &normalized,
+                                           &word_spans,
+                                           &result)) {
+        return ctc_align_test_fail("convert generated line word spans");
+    }
+    if (!lrc_ctc_word_spans_to_line_timestamps(&word_spans,
+                                               &normalized,
+                                               &line_timestamps,
+                                               &result)) {
+        return ctc_align_test_fail("convert generated line timestamps");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(line_timestamps.line_count == 4);
+    ASSERT(line_timestamps.timestamped_line_count == 3);
+    ASSERT(line_timestamps.blank_line_count == 1);
+
+    ASSERT(line_timestamps.lines[0].kind
+           == LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED);
+    ASSERT(line_timestamps.lines[0].line_index == 0);
+    ASSERT(line_timestamps.lines[0].word_start_index == 0);
+    ASSERT(line_timestamps.lines[0].word_end_index == 2);
+    ASSERT(ctc_align_float_close(line_timestamps.lines[0].start_seconds,
+                                 0.0f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(line_timestamps.lines[0].end_seconds,
+                                 1.0f,
+                                 0.00001f));
+
+    ASSERT(line_timestamps.lines[1].kind
+           == LRC_CTC_LINE_TIMESTAMP_KIND_BLANK);
+    ASSERT(line_timestamps.lines[1].line_index == 1);
+    ASSERT(line_timestamps.lines[1].word_start_index == -1);
+    ASSERT(line_timestamps.lines[1].word_end_index == -1);
+
+    ASSERT(line_timestamps.lines[2].kind
+           == LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED);
+    ASSERT(line_timestamps.lines[2].line_index == 2);
+    ASSERT(line_timestamps.lines[2].word_start_index == 2);
+    ASSERT(line_timestamps.lines[2].word_end_index == 3);
+    ASSERT(ctc_align_float_close(line_timestamps.lines[2].start_seconds,
+                                 1.1f,
+                                 0.00001f));
+
+    ASSERT(line_timestamps.lines[3].kind
+           == LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED);
+    ASSERT(line_timestamps.lines[3].line_index == 4);
+    ASSERT(line_timestamps.lines[3].word_start_index == 3);
+    ASSERT(line_timestamps.lines[3].word_end_index == 4);
+    ASSERT(ctc_align_float_close(line_timestamps.lines[3].start_seconds,
+                                 1.7f,
+                                 0.00001f));
+
+    lrc_ctc_line_timestamps_destroy(&line_timestamps);
+    lrc_ctc_word_spans_destroy(&word_spans);
+    lrc_ctc_token_spans_destroy(&token_spans);
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_line_timestamps_reject_bad_inputs(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenSpans token_spans;
+    LrcCtcWordSpans word_spans;
+    LrcCtcLineTimestamps line_timestamps;
+    LrcCtcAlignResult result;
+    char text[] = "a b\n";
+
+    lrc_ctc_line_timestamps_init(&line_timestamps);
+    if (lrc_ctc_word_spans_to_line_timestamps(NULL,
+                                              &normalized,
+                                              &line_timestamps,
+                                              &result)) {
+        return ctc_align_test_fail("missing word spans accepted");
+    }
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+
+    lrc_ctc_token_spans_init(&token_spans);
+    lrc_ctc_word_spans_init(&word_spans);
+    if (!ctc_align_load_tokenized_lyrics(text,
+                                         strlen32(text),
+                                         &lyrics,
+                                         &normalized,
+                                         &tokenizer,
+                                         &tokens)) {
+        return ctc_align_test_fail("load bad line lyrics");
+    }
+    if (!ctc_align_make_token_spans_from_tokens(&tokens,
+                                                0.0f,
+                                                0.10f,
+                                                &token_spans)) {
+        return ctc_align_test_fail("make bad line token spans");
+    }
+    if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
+                                           &tokens,
+                                           &normalized,
+                                           &word_spans,
+                                           &result)) {
+        return ctc_align_test_fail("convert bad line word spans");
+    }
+
+    word_spans.spans[0].line_index = -1;
+    if (lrc_ctc_word_spans_to_line_timestamps(&word_spans,
+                                              &normalized,
+                                              &line_timestamps,
+                                              &result)) {
+        return ctc_align_test_fail("bad word line accepted");
+    }
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS);
+    word_spans.spans[0].line_index = 0;
+
+    word_spans.spans[1].line_index = 0;
+    word_spans.spans[1].start_seconds = -INFINITY;
+    if (lrc_ctc_word_spans_to_line_timestamps(&word_spans,
+                                              &normalized,
+                                              &line_timestamps,
+                                              &result)) {
+        return ctc_align_test_fail("bad word timing accepted");
+    }
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS);
+
+    lrc_ctc_line_timestamps_destroy(&line_timestamps);
+    lrc_ctc_word_spans_destroy(&word_spans);
+    lrc_ctc_token_spans_destroy(&token_spans);
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_maxwell_line_timestamp_comparison(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    LrcLyricsLoadResult lyrics_result;
+    LrcParsedFile parsed;
+    LrcParseResult parse_result;
+    LrcCtcWordSpans word_spans;
+    LrcCtcLineTimestamps line_timestamps;
+    LrcCtcAlignResult align_result;
+    char *lyrics_path;
+    char *lrc_path;
+    char *lrc_text;
+    int32 lrc_text_len;
+    int64 word_index;
+
+    lyrics_path = getenv("LRC_TEST_MAXWELL_TXT");
+    if (lyrics_path == NULL) {
+        lyrics_path = "next-phase/maxwell.txt";
+    }
+    lrc_path = getenv("LRC_TEST_MAXWELL_LRC");
+    if (lrc_path == NULL) {
+        lrc_path = "next-phase/maxwell.lrc";
+    }
+    if (!util_file_exists(lyrics_path) || !util_file_exists(lrc_path)) {
+        return 0;
+    }
+
+    lrc_lyrics_init(&lyrics);
+    lrc_lyrics_normalized_init(&normalized);
+    lrc_parsed_file_init(&parsed);
+    lrc_ctc_word_spans_init(&word_spans);
+    lrc_ctc_line_timestamps_init(&line_timestamps);
+    if (!lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
+        return ctc_align_test_fail("load maxwell line lyrics");
+    }
+    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+        return ctc_align_test_fail("normalize maxwell line lyrics");
+    }
+
+    lrc_text = read_entire_file(lrc_path, &lrc_text_len);
+    if (!lrc_parse_text(&parsed, lrc_text, lrc_text_len, &parse_result)) {
+        free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+        return ctc_align_test_fail("parse maxwell expected lrc");
+    }
+    if (!lrc_ctc_word_spans_allocate(&word_spans,
+                                     parsed.timestamped_line_count,
+                                     &align_result)) {
+        free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+        return ctc_align_test_fail("allocate maxwell expected words");
+    }
+
+    word_index = 0;
+    for (int32 i = 0; i < parsed.line_count; i += 1) {
+        LrcParsedLine *line;
+        LrcCtcWordSpan *word;
+        int32 line_start;
+        int32 line_end;
+
+        line = parsed.lines + i;
+        if (line->kind != LRC_PARSED_LINE_KIND_TIMESTAMPED) {
+            continue;
+        }
+        ASSERT(lrc_lyrics_normalized_line_range(&normalized,
+                                                line->source_line_index,
+                                                &line_start,
+                                                &line_end));
+        word = word_spans.spans + word_index;
+        word->word_index = word_index;
+        word->token_start_index = word_index;
+        word->token_end_index = word_index + 1;
+        word->span_start_index = word_index;
+        word->span_end_index = word_index + 1;
+        word->normalized_start = line_start;
+        word->normalized_end = line_end;
+        word->line_index = line->source_line_index;
+        word->start_seconds = line->timestamp_seconds;
+        word->end_seconds = line->timestamp_seconds + 0.5f;
+        word->score = -0.10f;
+        word_index += 1;
+    }
+    ASSERT(word_index == word_spans.span_count);
+
+    if (!lrc_ctc_word_spans_to_line_timestamps(&word_spans,
+                                               &normalized,
+                                               &line_timestamps,
+                                               &align_result)) {
+        free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+        return ctc_align_test_fail("convert maxwell line timestamps");
+    }
+
+    ASSERT(line_timestamps.line_count == parsed.line_count);
+    ASSERT(line_timestamps.timestamped_line_count
+           == parsed.timestamped_line_count);
+    ASSERT(line_timestamps.blank_line_count == parsed.blank_line_count);
+    for (int32 i = 0; i < parsed.line_count; i += 1) {
+        LrcParsedLine *expected;
+        LrcCtcLineTimestamp *actual;
+
+        expected = parsed.lines + i;
+        actual = line_timestamps.lines + i;
+        ASSERT(actual->line_index == expected->source_line_index);
+        if (expected->kind == LRC_PARSED_LINE_KIND_BLANK) {
+            ASSERT(actual->kind == LRC_CTC_LINE_TIMESTAMP_KIND_BLANK);
+            continue;
+        }
+
+        ASSERT(actual->kind == LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED);
+        ASSERT(ctc_align_float_close(actual->start_seconds,
+                                     expected->timestamp_seconds,
+                                     0.015f));
+    }
+
+    lrc_ctc_line_timestamps_destroy(&line_timestamps);
+    lrc_ctc_word_spans_destroy(&word_spans);
+    lrc_parsed_file_destroy(&parsed);
+    free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
 static int32
 ctc_align_test_full_synthetic_alignment_pipeline(void) {
     LrcLyrics lyrics;
@@ -3285,6 +4031,15 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_word_spans_reject_bad_inputs() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_line_timestamps_from_generated_words() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_line_timestamps_reject_bad_inputs() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_maxwell_line_timestamp_comparison() != 0) {
         exit(1);
     }
     if (ctc_align_test_full_synthetic_alignment_pipeline() != 0) {
