@@ -6,15 +6,12 @@ The repository is organized around three executable entry points:
 
 1. `src/main_get_voice.c`
    - Takes an original music file and extracts the voice stem.
-   - This is what the previous `src/main.c` executable did.
 2. `src/main_gen_lrc_raw.c`
    - Takes an already extracted voice audio file plus plain-text lyrics and
      writes an `.lrc` file.
-   - This is a dummy executable for now.
 3. `src/main_gen_lrc.c`
    - Takes original music plus plain-text lyrics, extracts the voice, and then
      writes an `.lrc` file.
-   - This is a dummy executable for now.
 
 `src/main.c` is kept as a compatibility wrapper for `src/main_get_voice.c`.
 New build commands use the explicit main files above.
@@ -59,9 +56,8 @@ Run the current voice extraction executable:
 ./build.sh run get_voice
 ```
 
-The raw and full LRC executables are intentionally dummy programs right now.
-They compile, print their expected command-line shape, and report that the real
-functionality is not implemented yet.
+The model arguments are optional. If omitted, the executables use the default
+relative paths compiled into `src/default_models.h`.
 
 ## Commands
 
@@ -83,6 +79,25 @@ gen_lrc
 ```
 
 `./build.sh` without arguments is the same as `./build.sh build`.
+
+## Default model paths
+
+The command-line model options are optional. The compiled defaults are:
+
+```text
+models/UVR-MDX-NET-Voc_FT.onnx
+models/mms-onnx/onnx/model.onnx
+models/mms-onnx/tokens.txt
+```
+
+Command-line options still override these defaults. The existing environment
+variables are still checked before falling back to the compiled defaults:
+
+```text
+LRC_VOCALS_MODEL
+LRC_CTC_MODEL
+LRC_CTC_TOKENIZER
+```
 
 ## ONNX Runtime pkg-config
 

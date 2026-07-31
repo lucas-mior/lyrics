@@ -9,6 +9,7 @@
 
 #define LRC_PIPELINE_ENABLE_GENERATE 1
 #include "pipeline.h"
+#include "default_models.h"
 
 #include "fftw.c"
 #include "stft.c"
@@ -29,11 +30,18 @@
 static void __attribute((noreturn))
 full_print_usage(FILE *stream) {
     error2(
-        "usage: %s -i SONG -l LYRICS.txt -o OUTPUT.lrc "
-        "--vocals-model MDX.onnx --ctc-model CTC.onnx "
-        "--tokenizer TOKENS.txt [options]\n"
+        "usage: %s -i SONG -l LYRICS.txt -o OUTPUT.lrc [options]\n"
         "\n"
         "options:\n"
+        "    --vocals-model PATH         MDX-Net ONNX model\n"
+        "                                 ["
+        LRC_DEFAULT_VOCALS_MODEL_PATH "]\n"
+        "    --ctc-model PATH            CTC ONNX model\n"
+        "                                 ["
+        LRC_DEFAULT_CTC_MODEL_PATH "]\n"
+        "    --tokenizer PATH            CTC tokenizer tokens file\n"
+        "                                 ["
+        LRC_DEFAULT_CTC_TOKENIZER_PATH "]\n"
         "    --vocals-output PATH         keep extracted vocals at PATH\n"
         "    --ffmpeg PATH                ffmpeg executable [ffmpeg]\n"
         "    --temp-dir PATH              temporary directory [/tmp]\n"
@@ -47,6 +55,18 @@ full_print_usage(FILE *stream) {
     }
 
     exit(EXIT_FAILURE);
+}
+
+static bool
+full_path_missing(char *path) {
+    if (path == NULL) {
+        return true;
+    }
+    if (path[0] == '\0') {
+        return true;
+    }
+
+    return false;
 }
 
 static bool
@@ -245,39 +265,56 @@ full_parse_args(
     }
 
     env = getenv("LRC_VOCALS_MODEL");
-    if ((config->vocals_model_path == NULL) && env) {
+    if ((config->vocals_model_path == NULL)
+        && (env != NULL)
+        && (env[0] != '\0')) {
         config->vocals_model_path = env;
     }
-    env = getenv("LRC_CTC_MODEL");
-    if ((config->ctc_model_path == NULL) && env) {
-        config->ctc_model_path = env;
-    }
-    env = getenv("LRC_CTC_TOKENIZER");
-    if ((config->tokenizer_path == NULL) && env) {
-        config->tokenizer_path = env;
+    if (config->vocals_model_path == NULL) {
+        config->vocals_model_path = LRC_DEFAULT_VOCALS_MODEL_PATH;
     }
 
-    if (config->song_path == NULL) {
+    env = getenv("LRC_CTC_MODEL");
+    if ((config->ctc_model_path == NULL)
+        && (env != NULL)
+        && (env[0] != '\0')) {
+        config->ctc_model_path = env;
+    }
+    if (config->ctc_model_path == NULL) {
+        config->ctc_model_path = LRC_DEFAULT_CTC_MODEL_PATH;
+    }
+
+    env = getenv("LRC_CTC_TOKENIZER");
+    if ((config->tokenizer_path == NULL)
+        && (env != NULL)
+        && (env[0] != '\0')) {
+        config->tokenizer_path = env;
+    }
+    if (config->tokenizer_path == NULL) {
+        config->tokenizer_path = LRC_DEFAULT_CTC_TOKENIZER_PATH;
+    }
+
+    if (full_path_missing(config->song_path)) {
         error2("missing required option: -i/--input\n");
         return false;
     }
-    if (config->lyrics_text_path == NULL) {
+    if (full_path_missing(config->lyrics_text_path)) {
         error2("missing required option: -l/--lyrics\n");
         return false;
     }
-    if (config->output_lrc_path == NULL) {
+    if (full_path_missing(config->output_lrc_path)) {
         error2("missing required option: -o/--output\n");
         return false;
     }
-    if (config->vocals_model_path == NULL) {
+    if (full_path_missing(config->vocals_model_path)) {
         error2("missing required option: --vocals-model\n");
         return false;
     }
-    if (config->ctc_model_path == NULL) {
+    if (full_path_missing(config->ctc_model_path)) {
         error2("missing required option: --ctc-model\n");
         return false;
     }
-    if (config->tokenizer_path == NULL) {
+    if (full_path_missing(config->tokenizer_path)) {
         error2("missing required option: --tokenizer\n");
         return false;
     }

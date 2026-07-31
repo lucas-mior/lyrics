@@ -1,5 +1,6 @@
 #include "cbase.h"
 #include "cli.h"
+#include "default_models.h"
 
 #if !defined(TESTING_cli)
 #define TESTING_cli 0
@@ -337,18 +338,30 @@ parse_long_value_option(CliOptions *options, char *arg) {
     return 1;
 }
 
+static bool
+cli_path_missing(char *path) {
+    if (path == NULL) {
+        return true;
+    }
+    if (path[0] == '\0') {
+        return true;
+    }
+
+    return false;
+}
+
 static int32
 validate_options(CliOptions *options) {
-    if (options->input_path == NULL) {
+    if (cli_path_missing(options->input_path)) {
         error2("missing required option: -i/--input\n");
         return -1;
     }
-    if (options->output_path == NULL) {
+    if (cli_path_missing(options->output_path)) {
         error2("missing required option: -o/--output\n");
         return -1;
     }
-    if (options->model_path == NULL) {
-        error2("missing required option: -m/--model\n");
+    if (cli_path_missing(options->model_path)) {
+        error2("missing model path: -m/--model\n");
         return -1;
     }
 
@@ -359,7 +372,7 @@ static void
 cli_options_init(CliOptions *options) {
     options->input_path = NULL;
     options->output_path = NULL;
-    options->model_path = NULL;
+    options->model_path = LRC_DEFAULT_VOCALS_MODEL_PATH;
     options->ffmpeg_path = "ffmpeg";
     options->format = "wav";
     options->temp_dir = "/tmp";
@@ -425,14 +438,15 @@ cli_parse(CliOptions *options, int32 argc, char **argv) {
 static void
 cli_print_usage(FILE *stream) {
     error2(
-        "usage: %s -i INPUT -o OUTPUT -m MODEL [options]\n"
+        "usage: %s -i INPUT -o OUTPUT [options]\n"
         "\n"
         "required:\n"
         "    -i, --input PATH             music file to read\n"
         "    -o, --output PATH            vocals file to write\n"
-        "    -m, --model PATH             MDX-Net ONNX model\n"
         "\n"
         "options:\n"
+        "    -m, --model PATH             MDX-Net ONNX model "
+        "[" LRC_DEFAULT_VOCALS_MODEL_PATH "]\n"
         "    --ffmpeg PATH                ffmpeg executable [ffmpeg]\n"
         "    --format wav|flac|mp3        output format [wav]\n"
         "    --temp-dir PATH              temporary directory [/tmp]\n"
@@ -588,8 +602,6 @@ cli_test_default_parse(void) {
         "song.mp3",
         "-o",
         "voice.wav",
-        "-m",
-        "model.onnx",
     };
     int32 argc;
 
@@ -597,6 +609,9 @@ cli_test_default_parse(void) {
     cli_options_init(&options);
     if (cli_parse(&options, argc, argv) != 0) {
         return cli_test_fail("default command line did not parse");
+    }
+    if (!strequal(options.model_path, LRC_DEFAULT_VOCALS_MODEL_PATH)) {
+        return cli_test_fail("default model path");
     }
     if (!strequal(options.ffmpeg_path, "ffmpeg")) {
         return cli_test_fail("default ffmpeg");
@@ -648,15 +663,35 @@ cli_test_reject_missing_required(void) {
         "uvr-c",
         "-i",
         "song.mp3",
-        "-o",
-        "voice.wav",
     };
     int32 argc;
 
     argc = (int32)LENGTH(argv);
     cli_options_init(&options);
     if (cli_parse(&options, argc, argv) == 0) {
-        return cli_test_fail("missing model accepted");
+        return cli_test_fail("missing output accepted");
+    }
+
+    return 0;
+}
+
+static int32
+cli_test_reject_empty_model_path(void) {
+    CliOptions options;
+    char *argv[] = {
+        "uvr-c",
+        "-i",
+        "song.mp3",
+        "-o",
+        "voice.wav",
+        "--model=",
+    };
+    int32 argc;
+
+    argc = (int32)LENGTH(argv);
+    cli_options_init(&options);
+    if (cli_parse(&options, argc, argv) == 0) {
+        return cli_test_fail("empty model accepted");
     }
 
     return 0;
@@ -671,8 +706,6 @@ cli_test_reject_invalid_value(void) {
         "song.mp3",
         "-o",
         "voice.wav",
-        "-m",
-        "model.onnx",
         "--model-output",
         "drums",
     };
@@ -696,6 +729,9 @@ main(void) {
         exit(1);
     }
     if (cli_test_reject_missing_required() != 0) {
+        exit(1);
+    }
+    if (cli_test_reject_empty_model_path() != 0) {
         exit(1);
     }
     if (cli_test_reject_invalid_value() != 0) {

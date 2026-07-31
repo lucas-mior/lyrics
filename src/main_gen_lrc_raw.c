@@ -9,6 +9,7 @@
 
 #define LRC_PIPELINE_ENABLE_GENERATE 1
 #include "pipeline.h"
+#include "default_models.h"
 
 #include "audio.c"
 #if LRC_CTC_INFERENCE_ENABLE_ORT
@@ -85,10 +86,15 @@ lrc_extract_vocals(
 static void __attribute((noreturn))
 raw_print_usage(FILE *stream) {
     error2(
-        "usage: %s -i VOCALS -l LYRICS.txt -o OUTPUT.lrc "
-        "--ctc-model MODEL.onnx --tokenizer TOKENS.txt [options]\n"
+        "usage: %s -i VOCALS -l LYRICS.txt -o OUTPUT.lrc [options]\n"
         "\n"
         "options:\n"
+        "    --ctc-model PATH            CTC ONNX model\n"
+        "                                 ["
+        LRC_DEFAULT_CTC_MODEL_PATH "]\n"
+        "    --tokenizer PATH            CTC tokenizer tokens file\n"
+        "                                 ["
+        LRC_DEFAULT_CTC_TOKENIZER_PATH "]\n"
         "    --ffmpeg PATH                ffmpeg executable [ffmpeg]\n"
         "    --temp-dir PATH              temporary directory [/tmp]\n"
         "    --keep-temp-files            keep generated temporary files\n"
@@ -293,12 +299,23 @@ raw_parse_args(
     }
 
     env = getenv("LRC_CTC_MODEL");
-    if ((config->ctc_model_path == NULL) && env) {
+    if ((config->ctc_model_path == NULL)
+        && (env != NULL)
+        && (env[0] != '\0')) {
         config->ctc_model_path = env;
     }
+    if (config->ctc_model_path == NULL) {
+        config->ctc_model_path = LRC_DEFAULT_CTC_MODEL_PATH;
+    }
+
     env = getenv("LRC_CTC_TOKENIZER");
-    if ((config->tokenizer_path == NULL) && env) {
+    if ((config->tokenizer_path == NULL)
+        && (env != NULL)
+        && (env[0] != '\0')) {
         config->tokenizer_path = env;
+    }
+    if (config->tokenizer_path == NULL) {
+        config->tokenizer_path = LRC_DEFAULT_CTC_TOKENIZER_PATH;
     }
 
     if (raw_path_missing(config->existing_vocals_path)) {
