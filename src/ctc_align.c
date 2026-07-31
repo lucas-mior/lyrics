@@ -2684,6 +2684,341 @@ lrc_ctc_normalized_range_has_space(
 }
 
 static bool
+lrc_ctc_tokenized_text_uses_segments(
+    LrcCtcTokenizedText *tokens,
+    LrcLyricsNormalized *normalized
+) {
+    if ((tokens == NULL) || (normalized == NULL)) {
+        return false;
+    }
+    if ((normalized->segments == NULL) || (normalized->segment_count <= 0)) {
+        return false;
+    }
+    if ((tokens->tokens == NULL) || (tokens->token_count <= 0)) {
+        return false;
+    }
+
+    for (int32 i = 0; i < tokens->token_count; i += 1) {
+        if (tokens->tokens[i].segment_index < 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_token_segment_valid(
+    LrcCtcTextToken *token,
+    LrcLyricsNormalized *normalized,
+    int64 token_index,
+    CtcTextSegment **segment_out,
+    LrcCtcAlignResult *result
+) {
+    CtcTextSegment *segment;
+
+    ASSERT(segment_out != NULL);
+    *segment_out = NULL;
+
+    if ((token->segment_index < 0)
+        || (token->segment_index >= normalized->segment_count)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            "CTC token segment index is invalid",
+            -1,
+            token_index
+        );
+        return false;
+    }
+
+    segment = normalized->segments + token->segment_index;
+    if ((segment->normalized_start < 0)
+        || (segment->normalized_end <= segment->normalized_start)
+        || (segment->normalized_end > normalized->text_len)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
+            "CTC segment normalized range is invalid",
+            segment->normalized_start,
+            token_index
+        );
+        return false;
+    }
+    if ((segment->line_index < 0)
+        || (segment->line_index >= normalized->line_count)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
+            "CTC segment line index is invalid",
+            -1,
+            token_index
+        );
+        return false;
+    }
+    if (token->line_index != segment->line_index) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            "CTC token line index does not match its segment",
+            -1,
+            token_index
+        );
+        return false;
+    }
+    if ((token->normalized_start < segment->normalized_start)
+        || (token->normalized_end > segment->normalized_end)) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            "CTC token normalized range is outside its segment",
+            token->normalized_start,
+            token_index
+        );
+        return false;
+    }
+
+    *segment_out = segment;
+
+    return true;
+}
+
+static bool
+lrc_ctc_segment_word_count(
+    LrcCtcTokenSpans *token_spans,
+    LrcCtcTokenizedText *tokens,
+    LrcLyricsNormalized *normalized,
+    int64 *word_count,
+    LrcCtcAlignResult *result
+) {
+    int64 previous_token_index;
+    int32 previous_segment_index;
+
+    ASSERT(word_count != NULL);
+
+    *word_count = 0;
+    previous_token_index = -1;
+    previous_segment_index = -1;
+    for (int64 i = 0; i < token_spans->span_count; i += 1) {
+        LrcCtcTokenSpan *span;
+        LrcCtcTextToken *token;
+        CtcTextSegment *segment;
+
+        span = token_spans->spans + i;
+        if (!lrc_ctc_token_span_resolve_token(span,
+                                              tokens,
+                                              i,
+                                              previous_token_index,
+                                              &token,
+                                              result)) {
+            return false;
+        }
+        if (!lrc_ctc_token_range_valid(token,
+                                       normalized,
+                                       span->token_index,
+                                       result)) {
+            return false;
+        }
+        if (!lrc_ctc_token_segment_valid(token,
+                                         normalized,
+                                         span->token_index,
+                                         &segment,
+                                         result)) {
+            return false;
+        }
+        if (token->segment_index < previous_segment_index) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+                "CTC token segments must be ordered",
+                -1,
+                span->token_index
+            );
+            return false;
+        }
+        if (token->segment_index != previous_segment_index) {
+            *word_count += 1;
+            previous_segment_index = token->segment_index;
+        }
+
+        (void)segment;
+        previous_token_index = span->token_index;
+    }
+
+    return true;
+}
+
+static void
+lrc_ctc_segment_word_span_start(
+    LrcCtcWordSpan *word,
+    int64 word_index,
+    int64 span_index,
+    LrcCtcTokenSpan *token_span,
+    CtcTextSegment *segment
+) {
+    word->word_index = word_index;
+    word->token_start_index = token_span->token_index;
+    word->token_end_index = token_span->token_index + 1;
+    word->span_start_index = span_index;
+    word->span_end_index = span_index + 1;
+
+    word->normalized_start = segment->normalized_start;
+    word->normalized_end = segment->normalized_end;
+    word->line_index = segment->line_index;
+
+    word->start_seconds = token_span->start_seconds;
+    word->end_seconds = token_span->end_seconds;
+    word->score = token_span->score;
+
+    return;
+}
+
+static bool
+lrc_ctc_segment_word_span_extend(
+    LrcCtcWordSpan *word,
+    int64 span_index,
+    LrcCtcTokenSpan *token_span,
+    CtcTextSegment *segment,
+    int64 score_count,
+    float *score_sum,
+    LrcCtcAlignResult *result
+) {
+    if (segment->line_index != word->line_index) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            "CTC segment cannot cross lyric lines",
+            segment->normalized_start,
+            token_span->token_index
+        );
+        return false;
+    }
+    if ((token_span->start_seconds + 0.00001f) < word->end_seconds) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            "CTC token spans must be time ordered",
+            -1,
+            token_span->token_index
+        );
+        return false;
+    }
+
+    word->token_end_index = token_span->token_index + 1;
+    word->span_end_index = span_index + 1;
+    word->normalized_start = segment->normalized_start;
+    word->normalized_end = segment->normalized_end;
+    word->end_seconds = token_span->end_seconds;
+    *score_sum += token_span->score;
+    word->score = *score_sum/(float)score_count;
+
+    return true;
+}
+
+static bool
+lrc_ctc_token_spans_to_segment_word_spans(
+    LrcCtcTokenSpans *token_spans,
+    LrcCtcTokenizedText *tokens,
+    LrcLyricsNormalized *normalized,
+    LrcCtcWordSpans *word_spans,
+    LrcCtcAlignResult *result
+) {
+    LrcCtcWordSpan *word;
+    int64 word_count;
+    int64 word_index;
+    int64 score_count;
+    int64 previous_token_index;
+    int32 previous_segment_index;
+    float score_sum;
+
+    lrc_ctc_word_spans_destroy(word_spans);
+    if (!lrc_ctc_segment_word_count(token_spans,
+                                    tokens,
+                                    normalized,
+                                    &word_count,
+                                    result)) {
+        return false;
+    }
+    if (!lrc_ctc_word_spans_allocate(word_spans, word_count, result)) {
+        return false;
+    }
+
+    word = NULL;
+    word_index = -1;
+    score_count = 0;
+    score_sum = 0.0f;
+    previous_token_index = -1;
+    previous_segment_index = -1;
+    for (int64 i = 0; i < token_spans->span_count; i += 1) {
+        LrcCtcTokenSpan *token_span;
+        LrcCtcTextToken *token;
+        CtcTextSegment *segment;
+
+        token_span = token_spans->spans + i;
+        if (!lrc_ctc_token_span_resolve_token(token_span,
+                                              tokens,
+                                              i,
+                                              previous_token_index,
+                                              &token,
+                                              result)) {
+            lrc_ctc_word_spans_destroy(word_spans);
+            return false;
+        }
+        if (!lrc_ctc_token_segment_valid(token,
+                                         normalized,
+                                         token_span->token_index,
+                                         &segment,
+                                         result)) {
+            lrc_ctc_word_spans_destroy(word_spans);
+            return false;
+        }
+        if (token->segment_index < previous_segment_index) {
+            lrc_ctc_align_result_set(
+                result,
+                LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+                "CTC token segments must be ordered",
+                -1,
+                token_span->token_index
+            );
+            lrc_ctc_word_spans_destroy(word_spans);
+            return false;
+        }
+        if ((word == NULL)
+            || (token->segment_index != previous_segment_index)) {
+            word_index += 1;
+            ASSERT(word_index < word_spans->span_count);
+            word = word_spans->spans + word_index;
+            score_count = 1;
+            score_sum = token_span->score;
+            lrc_ctc_segment_word_span_start(word,
+                                            word_index,
+                                            i,
+                                            token_span,
+                                            segment);
+            previous_segment_index = token->segment_index;
+            previous_token_index = token_span->token_index;
+            continue;
+        }
+
+        score_count += 1;
+        if (!lrc_ctc_segment_word_span_extend(word,
+                                              i,
+                                              token_span,
+                                              segment,
+                                              score_count,
+                                              &score_sum,
+                                              result)) {
+            lrc_ctc_word_spans_destroy(word_spans);
+            return false;
+        }
+        previous_token_index = token_span->token_index;
+    }
+    ASSERT(word_index + 1 == word_spans->span_count);
+
+    return true;
+}
+
+static bool
 lrc_ctc_word_count(
     LrcCtcTokenSpans *token_spans,
     LrcCtcTokenizedText *tokens,
@@ -2696,6 +3031,14 @@ lrc_ctc_word_count(
     int32 previous_end;
 
     ASSERT(word_count != NULL);
+
+    if (lrc_ctc_tokenized_text_uses_segments(tokens, normalized)) {
+        return lrc_ctc_segment_word_count(token_spans,
+                                          tokens,
+                                          normalized,
+                                          word_count,
+                                          result);
+    }
 
     *word_count = 0;
     in_word = false;
@@ -2849,6 +3192,14 @@ lrc_ctc_token_spans_to_word_spans(
                                    word_spans,
                                    result)) {
         return false;
+    }
+
+    if (lrc_ctc_tokenized_text_uses_segments(tokens, normalized)) {
+        return lrc_ctc_token_spans_to_segment_word_spans(token_spans,
+                                                         tokens,
+                                                         normalized,
+                                                         word_spans,
+                                                         result);
     }
 
     lrc_ctc_word_spans_destroy(word_spans);
@@ -5531,6 +5882,92 @@ ctc_align_test_word_spans_handle_removed_punctuation(void) {
 
 
 static int32
+ctc_align_test_word_spans_follow_reference_segments(void) {
+    LrcLyrics lyrics;
+    LrcLyricsNormalized normalized;
+    LrcLyricsPreprocessOptions options;
+    LrcCtcTokenizer tokenizer;
+    LrcCtcTokenizedText tokens;
+    LrcCtcTokenSpans token_spans;
+    LrcCtcWordSpans word_spans;
+    LrcCtcTokenizeResult tokenize_result;
+    LrcCtcAlignResult result;
+    char text[] = "Hi.world stop\n";
+
+    lrc_lyrics_normalized_init(&normalized);
+    lrc_ctc_tokenizer_init(&tokenizer);
+    lrc_ctc_tokenized_text_init(&tokens);
+    lrc_ctc_token_spans_init(&token_spans);
+    lrc_ctc_word_spans_init(&word_spans);
+    if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
+        return ctc_align_test_fail("load reference segment lyrics");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+    if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
+        return ctc_align_test_fail("normalize reference segment lyrics");
+    }
+    if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
+        return ctc_align_test_fail("load reference segment tokenizer");
+    }
+    if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
+                                               &normalized,
+                                               &tokens,
+                                               &tokenize_result)) {
+        return ctc_align_test_fail("tokenize reference segment lyrics");
+    }
+    if (!ctc_align_make_token_spans_from_tokens(&tokens,
+                                                0.0f,
+                                                0.10f,
+                                                &token_spans)) {
+        return ctc_align_test_fail("make reference segment token spans");
+    }
+    if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
+                                           &tokens,
+                                           &normalized,
+                                           &word_spans,
+                                           &result)) {
+        return ctc_align_test_fail("convert reference segment word spans");
+    }
+
+    ASSERT(strequal2(normalized.text,
+                     normalized.text_len,
+                     STRLIT("hi world stop")));
+    ASSERT(tokens.token_count == 11);
+    ASSERT(normalized.segment_count == 2);
+    ASSERT(word_spans.span_count == 2);
+    ctc_align_assert_word_text(&normalized,
+                               word_spans.spans + 0,
+                               STRLIT("hi world"));
+    ctc_align_assert_word_text(&normalized,
+                               word_spans.spans + 1,
+                               STRLIT("stop"));
+    ASSERT(word_spans.spans[0].token_start_index == 0);
+    ASSERT(word_spans.spans[0].token_end_index == 7);
+    ASSERT(word_spans.spans[1].token_start_index == 7);
+    ASSERT(word_spans.spans[1].token_end_index == 11);
+    ASSERT(ctc_align_float_close(word_spans.spans[0].start_seconds,
+                                 0.0f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(word_spans.spans[0].end_seconds,
+                                 0.7f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(word_spans.spans[1].start_seconds,
+                                 0.7f,
+                                 0.00001f));
+
+    lrc_ctc_word_spans_destroy(&word_spans);
+    lrc_ctc_token_spans_destroy(&token_spans);
+    lrc_ctc_tokenized_text_destroy(&tokens);
+    lrc_ctc_tokenizer_destroy(&tokenizer);
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
 ctc_align_test_word_spans_keep_repeated_token_positions(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -7473,6 +7910,9 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_word_spans_handle_removed_punctuation() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_word_spans_follow_reference_segments() != 0) {
         exit(1);
     }
     if (ctc_align_test_word_spans_keep_repeated_token_positions() != 0) {
