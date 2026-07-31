@@ -441,6 +441,7 @@ lrc_lyrics_load_file(
 
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+#include "unicode_norm.c"
 #include "ctc_text.c"
 
 static int32

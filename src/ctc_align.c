@@ -3207,6 +3207,7 @@ lrc_ctc_word_spans_to_line_timestamps(
 #include "cbase.h"
 
 #include "lyrics.c"
+#include "unicode_norm.c"
 #include "ctc_text.c"
 #include "ctc_tokenizer.c"
 #include "audio.c"

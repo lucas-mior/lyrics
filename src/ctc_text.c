@@ -1,5 +1,6 @@
 #include "ctc_text.h"
 #include "lyrics.h"
+#include "unicode_norm.h"
 
 #include "cbase.h"
 
@@ -130,7 +131,7 @@ lrc_lyrics_normalized_append_segment(
     if (source_end <= source_start) {
         return true;
     }
-    if (normalized_end <= normalized_start) {
+    if (normalized_end < normalized_start) {
         return true;
     }
     if (target_start < 0) {
@@ -139,7 +140,7 @@ lrc_lyrics_normalized_append_segment(
     if (target_end < 0) {
         target_end = normalized_end;
     }
-    if (target_end <= target_start) {
+    if (target_end < target_start) {
         return true;
     }
     if (!lrc_lyrics_normalized_reserve_segments(normalized, 1)) {
@@ -549,6 +550,773 @@ lrc_lyrics_ascii_lower(char c) {
 }
 
 
+
+static bool
+ctc_text_is_unicode_space(uint32 rune) {
+    if (rune == ' ') {
+        return true;
+    }
+    if ((rune >= 0x0009) && (rune <= 0x000D)) {
+        return true;
+    }
+    if (rune == 0x0085) {
+        return true;
+    }
+    if (rune == 0x00A0) {
+        return true;
+    }
+    if (rune == 0x1680) {
+        return true;
+    }
+    if ((rune >= 0x2000) && (rune <= 0x200A)) {
+        return true;
+    }
+    if (rune == 0x2028) {
+        return true;
+    }
+    if (rune == 0x2029) {
+        return true;
+    }
+    if (rune == 0x202F) {
+        return true;
+    }
+    if (rune == 0x205F) {
+        return true;
+    }
+    if (rune == 0x3000) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_is_reference_digit(uint32 rune) {
+    if ((rune >= '0') && (rune <= '9')) {
+        return true;
+    }
+    if ((rune >= 0x09E6) && (rune <= 0x09EF)) {
+        return true;
+    }
+    if ((rune >= 0x17E0) && (rune <= 0x17E9)) {
+        return true;
+    }
+    if ((rune >= 0x0966) && (rune <= 0x096F)) {
+        return true;
+    }
+    if ((rune >= 0x0B66) && (rune <= 0x0B6F)) {
+        return true;
+    }
+    if ((rune >= 0x06F0) && (rune <= 0x06F9)) {
+        return true;
+    }
+    if ((rune >= 0xA900) && (rune <= 0xA909)) {
+        return true;
+    }
+    if ((rune >= 0xFF10) && (rune <= 0xFF19)) {
+        return true;
+    }
+    if ((rune >= 0x0D66) && (rune <= 0x0D6F)) {
+        return true;
+    }
+    if ((rune >= 0x1040) && (rune <= 0x1049)) {
+        return true;
+    }
+    if ((rune >= 0x2170) && (rune <= 0x2179)) {
+        return true;
+    }
+    if (rune == 0x206F) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_is_reference_delete(uint32 rune) {
+    if (rune == 0x200B) {
+        return true;
+    }
+    if (rune == 0x200C) {
+        return true;
+    }
+    if (rune == 0x200E) {
+        return true;
+    }
+    if (rune == 0x200F) {
+        return true;
+    }
+    if (rune == 0x202A) {
+        return true;
+    }
+    if (rune == 0x202C) {
+        return true;
+    }
+    if ((rune >= 0x064B) && (rune <= 0x0652)) {
+        return true;
+    }
+    if ((rune >= 0x0656) && (rune <= 0x0657)) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_is_reference_single_quote(uint32 rune) {
+    if (rune == 0x2018) {
+        return true;
+    }
+    if (rune == 0x2019) {
+        return true;
+    }
+    if (rune == 0x201B) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_is_reference_quote_punc(uint32 rune) {
+    if (rune == '"') {
+        return true;
+    }
+    if ((rune >= 0x201C) && (rune <= 0x201F)) {
+        return true;
+    }
+    if ((rune >= 0x2039) && (rune <= 0x203A)) {
+        return true;
+    }
+    if (rune == 0x00AB) {
+        return true;
+    }
+    if (rune == 0x00BB) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_is_reference_chinese_punc(uint32 rune) {
+    if ((rune >= 0x3002) && (rune <= 0x300F)) {
+        return true;
+    }
+    if ((rune >= 0x3008) && (rune <= 0x300B)) {
+        return true;
+    }
+    if (rune == 0x2027) {
+        return true;
+    }
+    if (rune == 0x22EF) {
+        return true;
+    }
+    if (rune == 0x2500) {
+        return true;
+    }
+    if ((rune >= 0xFF01) && (rune <= 0xFF0F)) {
+        return true;
+    }
+    if ((rune >= 0xFF1A) && (rune <= 0xFF1B)) {
+        return true;
+    }
+    if ((rune >= 0xFF1F) && (rune <= 0xFF20)) {
+        return true;
+    }
+    if ((rune >= 0xFF3B) && (rune <= 0xFF3F)) {
+        return true;
+    }
+    if ((rune >= 0xFF5B) && (rune <= 0xFF5E)) {
+        return true;
+    }
+    if (rune == 0xFE4F) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_is_reference_armenian_punc(uint32 rune) {
+    if ((rune >= 0x055A) && (rune <= 0x055F)) {
+        return true;
+    }
+    if (rune == 0x0589) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_is_reference_punctuation(uint32 rune) {
+    if ((rune == '.') || (rune == '?') || (rune == ',') || (rune == ':')) {
+        return true;
+    }
+    if ((rune == '!') || (rune == '{') || (rune == '}') || (rune == ';')) {
+        return true;
+    }
+    if ((rune == '(') || (rune == ')') || (rune == '[') || (rune == ']')) {
+        return true;
+    }
+    if ((rune == '<') || (rune == '>') || (rune == '/')) {
+        return true;
+    }
+    if ((rune == '-') || (rune == '_') || (rune == '\\') || (rune == '|')) {
+        return true;
+    }
+    if ((rune == 0x00A1) || (rune == 0x00BF)) {
+        return true;
+    }
+    if ((rune == 0x060C) || (rune == 0x061B) || (rune == 0x061F)) {
+        return true;
+    }
+    if (rune == 0x0964) {
+        return true;
+    }
+    if (ctc_text_is_reference_single_quote(rune)) {
+        return true;
+    }
+    if (ctc_text_is_reference_quote_punc(rune)) {
+        return true;
+    }
+    if (ctc_text_is_reference_chinese_punc(rune)) {
+        return true;
+    }
+    if (ctc_text_is_reference_armenian_punc(rune)) {
+        return true;
+    }
+    if ((rune >= 0x2000) && (rune <= 0x206F)) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_reference_output_reserve(
+    CtcUnicodeNormResult *result,
+    int32 extra_bytes
+) {
+    int64 needed;
+    int32 new_cap;
+
+    if (extra_bytes <= 0) {
+        return true;
+    }
+
+    needed = (int64)result->text_len + extra_bytes;
+    if (needed >= MAXOF(result->text_cap)) {
+        return false;
+    }
+    if ((needed + 1) <= result->text_cap) {
+        return true;
+    }
+
+    new_cap = result->text_cap;
+    if (new_cap <= 0) {
+        new_cap = 64;
+    }
+    while (new_cap < (needed + 1)) {
+        new_cap *= 2;
+    }
+
+    result->text = realloc2(result->text,
+                            result->text_cap,
+                            new_cap,
+                            SIZEOF(*result->text));
+    result->text_cap = new_cap;
+
+    return true;
+}
+
+static bool
+ctc_text_reference_output_append_bytes(
+    CtcUnicodeNormResult *result,
+    char *text,
+    int32 text_len
+) {
+    if (text_len <= 0) {
+        return true;
+    }
+    if (!ctc_text_reference_output_reserve(result, text_len)) {
+        return false;
+    }
+
+    memcpy64(result->text + result->text_len, text, text_len);
+    result->text_len += text_len;
+    result->text[result->text_len] = '\0';
+
+    return true;
+}
+
+static bool
+ctc_text_reference_output_append_rune(
+    CtcUnicodeNormResult *result,
+    uint32 rune
+) {
+    char encoded[4];
+    int32 encoded_len;
+
+    encoded_len = utf8_encode(rune, encoded, SIZEOF(encoded));
+    if (encoded_len <= 0) {
+        return false;
+    }
+
+    return ctc_text_reference_output_append_bytes(result,
+                                                 encoded,
+                                                 encoded_len);
+}
+
+static bool
+ctc_text_reference_output_append_space(CtcUnicodeNormResult *result) {
+    char space;
+
+    if (result->text_len <= 0) {
+        return true;
+    }
+    if (result->text[result->text_len - 1] == ' ') {
+        return true;
+    }
+
+    space = ' ';
+    return ctc_text_reference_output_append_bytes(result, &space, 1);
+}
+
+static bool
+ctc_text_reference_has_space_before(
+    char *text,
+    int32 byte_index
+) {
+    uint32 rune;
+    int32 step;
+    int32 previous;
+
+    previous = -1;
+    for (int32 i = 0; i < byte_index;) {
+        previous = i;
+        step = utf8_decode_raw(text + i, &rune, byte_index - i);
+        if (step <= 0) {
+            return false;
+        }
+        i += step;
+    }
+    if (previous < 0) {
+        return false;
+    }
+
+    step = utf8_decode_raw(text + previous, &rune, byte_index - previous);
+    if (step <= 0) {
+        return false;
+    }
+
+    return ctc_text_is_unicode_space(rune);
+}
+
+static bool
+ctc_text_reference_has_space_after(
+    char *text,
+    int32 text_len,
+    int32 byte_index
+) {
+    uint32 rune;
+    int32 step;
+
+    if (byte_index >= text_len) {
+        return false;
+    }
+
+    step = utf8_decode_raw(text + byte_index, &rune, text_len - byte_index);
+    if (step <= 0) {
+        return false;
+    }
+
+    return ctc_text_is_unicode_space(rune);
+}
+
+static bool
+ctc_text_reference_is_digit_run(
+    char *text,
+    int32 start,
+    int32 end
+) {
+    for (int32 i = start; i < end;) {
+        uint32 rune;
+        int32 step;
+
+        step = utf8_decode_raw(text + i, &rune, end - i);
+        if (step <= 0) {
+            return false;
+        }
+        if (!ctc_text_is_reference_digit(rune)) {
+            return false;
+        }
+        i += step;
+    }
+
+    return start < end;
+}
+
+static bool
+ctc_text_reference_should_remove_digit_run(
+    char *text,
+    int32 text_len,
+    int32 start,
+    int32 end
+) {
+    bool before;
+    bool after;
+
+    if (!ctc_text_reference_is_digit_run(text, start, end)) {
+        return false;
+    }
+
+    before = ctc_text_reference_has_space_before(text, start);
+    after = ctc_text_reference_has_space_after(text, text_len, end);
+    if ((start == 0) && after) {
+        return true;
+    }
+    if (before && after) {
+        return true;
+    }
+    if (before && (end == text_len)) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool
+ctc_text_reference_remove_number_parentheses(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    uint32 rune;
+    int32 step;
+
+    ctc_unicode_norm_result_destroy(result);
+    for (int32 i = 0; i < text_len;) {
+        step = utf8_decode_raw(text + i, &rune, text_len - i);
+        if (step <= 0) {
+            return false;
+        }
+
+        if (rune == '(') {
+            int32 close;
+            bool found_digit;
+
+            close = -1;
+            found_digit = false;
+            for (int32 j = i + step; j < text_len;) {
+                uint32 inner_rune;
+                int32 inner_step;
+
+                inner_step = utf8_decode_raw(text + j,
+                                             &inner_rune,
+                                             text_len - j);
+                if (inner_step <= 0) {
+                    return false;
+                }
+                if (ctc_text_is_reference_digit(inner_rune)) {
+                    found_digit = true;
+                }
+                if (inner_rune == ')') {
+                    close = j + inner_step;
+                    break;
+                }
+                j += inner_step;
+            }
+            if ((close >= 0) && found_digit) {
+                if (!ctc_text_reference_output_append_space(result)) {
+                    return false;
+                }
+                i = close;
+                continue;
+            }
+        }
+
+        if (!ctc_text_reference_output_append_rune(result, rune)) {
+            return false;
+        }
+        i += step;
+    }
+
+    return true;
+}
+
+static bool
+ctc_text_reference_apply_mappings(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    uint32 prev_rune;
+    uint32 rune;
+    uint32 next_rune;
+    int32 step;
+
+    ctc_unicode_norm_result_destroy(result);
+    prev_rune = 0;
+    for (int32 i = 0; i < text_len;) {
+        if (BEGINS_WITH(text + i, text_len - i, "&lt;")) {
+            i += 4;
+            prev_rune = 0;
+            continue;
+        }
+        if (BEGINS_WITH(text + i, text_len - i, "&gt;")) {
+            i += 4;
+            prev_rune = 0;
+            continue;
+        }
+        if (BEGINS_WITH(text + i, text_len - i, "&nbsp")) {
+            i += 5;
+            prev_rune = 0;
+            continue;
+        }
+
+        step = utf8_decode_raw(text + i, &rune, text_len - i);
+        if (step <= 0) {
+            return false;
+        }
+
+        next_rune = 0;
+        if ((i + step) < text_len) {
+            int32 next_step;
+
+            next_step = utf8_decode_raw(text + i + step,
+                                        &next_rune,
+                                        text_len - i - step);
+            if (next_step <= 0) {
+                return false;
+            }
+        }
+
+        if ((rune >= 'A') && (rune <= 'Z')) {
+            rune = (uint32)(rune - 'A' + 'a');
+        }
+
+        if (ctc_text_is_reference_single_quote(rune)
+            && !ctc_text_is_unicode_space(prev_rune)
+            && !ctc_text_is_unicode_space(next_rune)
+            && (prev_rune != 0)
+            && (next_rune != 0)) {
+            if (!ctc_text_reference_output_append_bytes(result,
+                                                        STRLIT("'"))) {
+                return false;
+            }
+        } else if (!ctc_text_reference_output_append_rune(result, rune)) {
+            return false;
+        }
+
+        prev_rune = rune;
+        i += step;
+    }
+
+    return true;
+}
+
+static bool
+ctc_text_reference_replace_punctuation_delete(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    uint32 rune;
+    int32 step;
+
+    ctc_unicode_norm_result_destroy(result);
+    for (int32 i = 0; i < text_len;) {
+        step = utf8_decode_raw(text + i, &rune, text_len - i);
+        if (step <= 0) {
+            return false;
+        }
+
+        if (ctc_text_is_reference_delete(rune)) {
+            i += step;
+            continue;
+        }
+        if (ctc_text_is_reference_punctuation(rune)) {
+            if (!ctc_text_reference_output_append_space(result)) {
+                return false;
+            }
+        } else {
+            if (!ctc_text_reference_output_append_rune(result, rune)) {
+                return false;
+            }
+        }
+
+        i += step;
+    }
+
+    return true;
+}
+
+static bool
+ctc_text_reference_remove_numbers(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    int32 run_start;
+    bool in_digit_run;
+
+    ctc_unicode_norm_result_destroy(result);
+    run_start = -1;
+    in_digit_run = false;
+    for (int32 i = 0; i <= text_len;) {
+        uint32 rune;
+        int32 step;
+        bool is_digit;
+
+        if (i >= text_len) {
+            rune = 0;
+            step = 0;
+            is_digit = false;
+        } else {
+            step = utf8_decode_raw(text + i, &rune, text_len - i);
+            if (step <= 0) {
+                return false;
+            }
+            is_digit = ctc_text_is_reference_digit(rune);
+        }
+
+        if (is_digit && !in_digit_run) {
+            run_start = i;
+            in_digit_run = true;
+        }
+        if ((!is_digit || (i >= text_len)) && in_digit_run) {
+            if (ctc_text_reference_should_remove_digit_run(text,
+                                                           text_len,
+                                                           run_start,
+                                                           i)) {
+                if (!ctc_text_reference_output_append_space(result)) {
+                    return false;
+                }
+            } else if (!ctc_text_reference_output_append_bytes(
+                result,
+                text + run_start,
+                i - run_start
+            )) {
+                return false;
+            }
+            in_digit_run = false;
+        }
+        if (!is_digit && (i < text_len)) {
+            if (!ctc_text_reference_output_append_rune(result, rune)) {
+                return false;
+            }
+        }
+        if (i >= text_len) {
+            break;
+        }
+
+        i += step;
+    }
+
+    return true;
+}
+
+static bool
+ctc_text_reference_collapse_spaces(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    uint32 rune;
+    int32 step;
+
+    ctc_unicode_norm_result_destroy(result);
+    for (int32 i = 0; i < text_len;) {
+        step = utf8_decode_raw(text + i, &rune, text_len - i);
+        if (step <= 0) {
+            return false;
+        }
+
+        if (ctc_text_is_unicode_space(rune)) {
+            if (!ctc_text_reference_output_append_space(result)) {
+                return false;
+            }
+        } else if (!ctc_text_reference_output_append_rune(result, rune)) {
+            return false;
+        }
+
+        i += step;
+    }
+
+    while ((result->text_len > 0) && (result->text[0] == ' ')) {
+        memmove(result->text, result->text + 1, result->text_len);
+        result->text_len -= 1;
+        result->text[result->text_len] = '\0';
+    }
+    while ((result->text_len > 0)
+           && (result->text[result->text_len - 1] == ' ')) {
+        result->text_len -= 1;
+        result->text[result->text_len] = '\0';
+    }
+
+    return true;
+}
+
+static bool
+ctc_text_reference_normalize_word(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result
+) {
+    CtcUnicodeNormResult stage1;
+    CtcUnicodeNormResult stage2;
+    CtcUnicodeNormResult stage3;
+    CtcUnicodeNormResult stage4;
+    CtcUnicodeNormResult stage5;
+    bool ok;
+
+    ctc_unicode_norm_result_init(&stage1);
+    ctc_unicode_norm_result_init(&stage2);
+    ctc_unicode_norm_result_init(&stage3);
+    ctc_unicode_norm_result_init(&stage4);
+    ctc_unicode_norm_result_init(&stage5);
+    ctc_unicode_norm_result_destroy(result);
+
+    ok = false;
+    if (!ctc_unicode_norm_nfkc_lower(text, text_len, &stage1)) {
+        goto done;
+    }
+    if (!ctc_text_reference_remove_number_parentheses(stage1.text,
+                                                      stage1.text_len,
+                                                      &stage2)) {
+        goto done;
+    }
+    if (!ctc_text_reference_apply_mappings(stage2.text,
+                                           stage2.text_len,
+                                           &stage3)) {
+        goto done;
+    }
+    if (!ctc_text_reference_replace_punctuation_delete(stage3.text,
+                                                       stage3.text_len,
+                                                       &stage4)) {
+        goto done;
+    }
+    if (!ctc_text_reference_remove_numbers(stage4.text,
+                                           stage4.text_len,
+                                           &stage5)) {
+        goto done;
+    }
+    ok = ctc_text_reference_collapse_spaces(stage5.text,
+                                            stage5.text_len,
+                                            result);
+
+done:
+    ctc_unicode_norm_result_destroy(&stage5);
+    ctc_unicode_norm_result_destroy(&stage4);
+    ctc_unicode_norm_result_destroy(&stage3);
+    ctc_unicode_norm_result_destroy(&stage2);
+    ctc_unicode_norm_result_destroy(&stage1);
+
+    return ok;
+}
+
 typedef struct CtcTextSegmentBuild {
     bool active;
     bool has_text;
@@ -787,110 +1555,77 @@ lrc_lyrics_normalize_word_segment(
     int32 word_end,
     bool *wrote_line
 ) {
+    CtcUnicodeNormResult word;
     int32 normalized_start;
     int32 normalized_end;
     int32 target_start;
     int32 target_end;
-    bool wrote_word;
+    bool ok;
 
-    normalized_start = -1;
-    normalized_end = -1;
-    target_start = -1;
-    target_end = -1;
-    wrote_word = false;
+    ctc_unicode_norm_result_init(&word);
+    normalized_start = normalized->text_len;
+    normalized_end = normalized_start;
+    target_start = normalized->target_text_len;
+    target_end = target_start;
+    ok = false;
 
-    for (int32 i = word_start; i < word_end;) {
-        uint32 rune;
-        int32 step;
+    if (!ctc_text_reference_normalize_word(lyrics->text + word_start,
+                                           word_end - word_start,
+                                           &word)) {
+        goto done;
+    }
 
-        step = utf8_decode_raw(lyrics->text + i, &rune, word_end - i);
-        if (step <= 0) {
-            return false;
+    if (word.text_len > 0) {
+        if ((normalized->text_len > 0)
+            && !lrc_lyrics_normalized_append_space(normalized,
+                                                   line_index,
+                                                   word_start,
+                                                   word_end)) {
+            goto done;
+        }
+        if (line_range->normalized_start < 0) {
+            line_range->normalized_start = normalized->text_len;
         }
 
-        if (rune < 0x80) {
-            char c;
-
-            c = lyrics->text[i];
-            if (lrc_lyrics_ascii_alnum(c)) {
-                c = lrc_lyrics_ascii_lower(c);
-                if (!wrote_word) {
-                    if ((normalized->text_len > 0)
-                        && !lrc_lyrics_normalized_append_space(
-                            normalized,
-                            line_index,
-                            word_start,
-                            word_end
-                        )) {
-                        return false;
-                    }
-                    if (line_range->normalized_start < 0) {
-                        line_range->normalized_start = normalized->text_len;
-                    }
-                    normalized_start = normalized->text_len;
-                    wrote_word = true;
-                }
-                if (!lrc_lyrics_normalized_append_char(normalized,
-                                                       c,
-                                                       line_index,
-                                                       i,
-                                                       i + step)) {
-                    return false;
-                }
-                normalized_end = normalized->text_len;
-            }
-        } else {
-            if (!wrote_word) {
-                if ((normalized->text_len > 0)
-                    && !lrc_lyrics_normalized_append_space(normalized,
-                                                           line_index,
-                                                           word_start,
-                                                           word_end)) {
-                    return false;
-                }
-                if (line_range->normalized_start < 0) {
-                    line_range->normalized_start = normalized->text_len;
-                }
-                normalized_start = normalized->text_len;
-                wrote_word = true;
-            }
-            if (!lrc_lyrics_normalized_append_bytes(normalized,
-                                                    lyrics->text + i,
-                                                    step,
-                                                    line_index,
-                                                    i,
-                                                    i + step)) {
-                return false;
-            }
-            normalized_end = normalized->text_len;
-        }
-
-        i += step;
-    }
-
-    if (!wrote_word) {
-        return true;
-    }
-
-    if (!lrc_lyrics_normalized_append_target_from_normalized(normalized,
-                                                             line_index,
-                                                             normalized_start,
-                                                             normalized_end,
-                                                             &target_start,
-                                                             &target_end)) {
-        return false;
-    }
-
-    line_range->normalized_end = normalized_end;
-    *wrote_line = true;
-    return lrc_lyrics_normalized_append_segment(normalized,
+        normalized_start = normalized->text_len;
+        if (!lrc_lyrics_normalized_append_bytes(normalized,
+                                                word.text,
+                                                word.text_len,
                                                 line_index,
                                                 word_start,
-                                                word_end,
-                                                normalized_start,
-                                                normalized_end,
-                                                target_start,
-                                                target_end);
+                                                word_end)) {
+            goto done;
+        }
+        normalized_end = normalized->text_len;
+
+        if (!lrc_lyrics_normalized_append_target_from_normalized(
+            normalized,
+            line_index,
+            normalized_start,
+            normalized_end,
+            &target_start,
+            &target_end
+        )) {
+            goto done;
+        }
+
+        line_range->normalized_end = normalized_end;
+        *wrote_line = true;
+    }
+
+    ok = lrc_lyrics_normalized_append_segment(normalized,
+                                              line_index,
+                                              word_start,
+                                              word_end,
+                                              normalized_start,
+                                              normalized_end,
+                                              target_start,
+                                              target_end);
+
+done:
+    ctc_unicode_norm_result_destroy(&word);
+
+    return ok;
 }
 
 static int32
@@ -1162,6 +1897,7 @@ lrc_lyrics_normalized_segment(
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 #include "lyrics.c"
+#include "unicode_norm.c"
 
 static int32
 ctc_text_test_fail(char *name) {
@@ -1558,13 +2294,17 @@ typedef struct CtcTextReferenceWordFixture {
     char input[CTC_TEXT_REFERENCE_WORD_INPUT_MAX];
     char text_split[CTC_TEXT_REFERENCE_WORD_MAX]
                    [CTC_TEXT_REFERENCE_WORD_TEXT_MAX];
+    char normalized[CTC_TEXT_REFERENCE_WORD_MAX]
+                   [CTC_TEXT_REFERENCE_WORD_TEXT_MAX];
     char tokens[CTC_TEXT_REFERENCE_WORD_MAX]
                [CTC_TEXT_REFERENCE_WORD_TEXT_MAX];
 
     int32 input_len;
     int32 text_split_lens[CTC_TEXT_REFERENCE_WORD_MAX];
+    int32 normalized_lens[CTC_TEXT_REFERENCE_WORD_MAX];
     int32 tokens_lens[CTC_TEXT_REFERENCE_WORD_MAX];
     int32 text_split_count;
+    int32 normalized_count;
     int32 tokens_count;
 } CtcTextReferenceWordFixture;
 
@@ -1708,6 +2448,21 @@ ctc_text_reference_load_word_fixture(
                 );
                 ASSERT(fixture->text_split_lens[index] >= 0);
                 fixture->text_split_count += 1;
+            } else if (ctc_text_reference_field_equal(line,
+                                                      tab,
+                                                      "normalized")) {
+                int32 index;
+
+                index = fixture->normalized_count;
+                ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX);
+                fixture->normalized_lens[index] = ctc_text_decode_hex(
+                    fixture->normalized[index],
+                    CTC_TEXT_REFERENCE_WORD_TEXT_MAX,
+                    line + tab + 1,
+                    line_len - tab - 1
+                );
+                ASSERT(fixture->normalized_lens[index] >= 0);
+                fixture->normalized_count += 1;
             } else if (ctc_text_reference_field_equal(line, tab, "tokens")) {
                 int32 index;
 
@@ -1732,6 +2487,7 @@ ctc_text_reference_load_word_fixture(
     }
     ASSERT(fixture->input_len > 0);
     ASSERT(fixture->text_split_count > 0);
+    ASSERT(fixture->normalized_count == fixture->text_split_count);
     ASSERT(fixture->tokens_count == fixture->text_split_count);
 
     return true;
@@ -1797,6 +2553,69 @@ ctc_text_test_word_split_matches_reference_fixtures(void) {
 }
 
 static int32
+ctc_text_test_word_normalized_fixture_case(char *fixture_name) {
+    CtcTextReferenceWordFixture fixture;
+    LrcLyricsPreprocessOptions options;
+    LrcLyricsNormalized normalized;
+    LrcLyrics lyrics;
+
+    if (!ctc_text_reference_load_word_fixture(fixture_name, &fixture)) {
+        return ctc_text_test_fail("load word normalized fixture");
+    }
+    if (!ctc_text_load_lyrics(&lyrics, fixture.input, fixture_name)) {
+        return ctc_text_test_fail("load word normalized fixture lyrics");
+    }
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+
+    lrc_lyrics_normalized_init(&normalized);
+    if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
+        lrc_lyrics_destroy(&lyrics);
+        return ctc_text_test_fail("normalize word fixture lyrics");
+    }
+
+    ASSERT(normalized.segment_count == fixture.normalized_count);
+    for (int32 i = 0; i < fixture.normalized_count; i += 1) {
+        CtcTextSegment *segment;
+        int32 normalized_len;
+
+        segment = lrc_lyrics_normalized_segment(&normalized, i);
+        ASSERT(segment);
+        normalized_len = segment->normalized_end - segment->normalized_start;
+        ASSERT(strequal2(
+            normalized.text + segment->normalized_start,
+            normalized_len,
+            fixture.normalized[i],
+            fixture.normalized_lens[i]
+        ));
+    }
+
+    lrc_lyrics_normalized_destroy(&normalized);
+    lrc_lyrics_destroy(&lyrics);
+
+    return 0;
+}
+
+static int32
+ctc_text_test_word_normalization_matches_reference_fixtures(void) {
+    int32 status;
+
+    status = 0;
+
+    status += ctc_text_test_word_normalized_fixture_case("plain_english");
+    status += ctc_text_test_word_normalized_fixture_case("apostrophes");
+    status += ctc_text_test_word_normalized_fixture_case("punctuation_digits");
+    status += ctc_text_test_word_normalized_fixture_case("accents");
+    status += ctc_text_test_word_normalized_fixture_case(
+        "portuguese_soltasbruxa"
+    );
+    status += ctc_text_test_word_normalized_fixture_case("german_ich_will");
+
+    return status;
+}
+
+static int32
 ctc_text_test_word_target_fixture_case(char *fixture_name) {
     CtcTextReferenceWordFixture fixture;
     LrcLyricsPreprocessOptions options;
@@ -1850,6 +2669,8 @@ ctc_text_test_word_targets_match_reference_fixtures(void) {
     status = 0;
 
     status += ctc_text_test_word_target_fixture_case("plain_english");
+    status += ctc_text_test_word_target_fixture_case("apostrophes");
+    status += ctc_text_test_word_target_fixture_case("punctuation_digits");
     status += ctc_text_test_word_target_fixture_case("accents");
     status += ctc_text_test_word_target_fixture_case("portuguese_soltasbruxa");
     status += ctc_text_test_word_target_fixture_case("german_ich_will");
@@ -2047,6 +2868,7 @@ main(void) {
     status += ctc_text_test_reference_fixtures_load();
     status += ctc_text_test_word_split_option_preserves_current_text();
     status += ctc_text_test_word_split_matches_reference_fixtures();
+    status += ctc_text_test_word_normalization_matches_reference_fixtures();
     status += ctc_text_test_word_target_text_is_character_spaced();
     status += ctc_text_test_word_targets_match_reference_fixtures();
 
