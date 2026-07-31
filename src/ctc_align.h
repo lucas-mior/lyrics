@@ -63,6 +63,28 @@ typedef struct LrcCtcPath {
     int64 step_cap;
 } LrcCtcPath;
 
+typedef struct LrcCtcPathSegment {
+    int64 token_index;
+    int64 start_frame;
+    int64 end_frame;
+
+    float start_seconds;
+    float end_seconds;
+    float score;
+
+    int32 token_id;
+
+    bool is_blank;
+    bool is_star;
+} LrcCtcPathSegment;
+
+typedef struct LrcCtcPathSegments {
+    LrcCtcPathSegment *segments;
+
+    int64 segment_count;
+    int64 segment_cap;
+} LrcCtcPathSegments;
+
 typedef struct LrcCtcTokenSpan {
     int64 token_index;
     int64 start_frame;
@@ -137,6 +159,8 @@ static void lrc_ctc_trellis_init(LrcCtcTrellis *trellis);
 static void lrc_ctc_trellis_destroy(LrcCtcTrellis *trellis);
 static void lrc_ctc_path_init(LrcCtcPath *path);
 static void lrc_ctc_path_destroy(LrcCtcPath *path);
+static void lrc_ctc_path_segments_init(LrcCtcPathSegments *segments);
+static void lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments);
 static void lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans);
 static void lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans);
 static void lrc_ctc_word_spans_init(LrcCtcWordSpans *spans);
@@ -216,6 +240,13 @@ static bool lrc_ctc_trellis_backtrack_with_segment_stars(
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_path_to_segments(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    float frame_duration_seconds,
+    LrcCtcPathSegments *segments,
     LrcCtcAlignResult *result
 );
 static bool lrc_ctc_path_to_token_spans(

@@ -681,6 +681,33 @@ lrc_ctc_path_destroy(LrcCtcPath *path) {
 }
 
 static void
+lrc_ctc_path_segments_init(LrcCtcPathSegments *segments) {
+    if (segments == NULL) {
+        return;
+    }
+
+    memset64(segments, 0, SIZEOF(*segments));
+
+    return;
+}
+
+static void
+lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments) {
+    if (segments == NULL) {
+        return;
+    }
+
+    if (segments->segments) {
+        free2(segments->segments,
+              segments->segment_cap*SIZEOF(*segments->segments));
+    }
+
+    lrc_ctc_path_segments_init(segments);
+
+    return;
+}
+
+static void
 lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans) {
     if (spans == NULL) {
         return;
@@ -810,6 +837,64 @@ lrc_ctc_token_spans_allocate(
         spans->spans[i].end_seconds = 0.0f;
         spans->spans[i].score = -INFINITY;
         spans->spans[i].token_id = -1;
+    }
+
+    return true;
+}
+
+static bool
+lrc_ctc_path_segments_allocate(
+    LrcCtcPathSegments *segments,
+    int64 segment_count,
+    LrcCtcAlignResult *result
+) {
+    int64 alloc_size;
+
+    if (segments == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            "CTC path segments destination is missing",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (segment_count <= 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path does not contain segments",
+            -1,
+            -1
+        );
+        return false;
+    }
+    if (!lrc_ctc_align_checked_multiply(
+        segment_count,
+        SIZEOF(*segments->segments),
+        &alloc_size,
+        "CTC path segment allocation is too large",
+        result
+    )) {
+        return false;
+    }
+
+    lrc_ctc_path_segments_destroy(segments);
+    segments->segments = malloc2(alloc_size);
+    segments->segment_count = segment_count;
+    segments->segment_cap = segment_count;
+
+    for (int64 i = 0; i < segments->segment_count; i += 1) {
+        segments->segments[i].token_index = -1;
+        segments->segments[i].start_frame = -1;
+        segments->segments[i].end_frame = -1;
+        segments->segments[i].start_seconds = 0.0f;
+        segments->segments[i].end_seconds = 0.0f;
+        segments->segments[i].score = -INFINITY;
+        segments->segments[i].token_id = -1;
+        segments->segments[i].is_blank = true;
+        segments->segments[i].is_star = false;
     }
 
     return true;
@@ -2231,6 +2316,189 @@ lrc_ctc_path_ready_for_spans(
             return false;
         }
     }
+
+    return true;
+}
+
+static bool
+lrc_ctc_path_steps_share_label(
+    LrcCtcPathStep *a,
+    LrcCtcPathStep *b
+) {
+    ASSERT(a != NULL);
+    ASSERT(b != NULL);
+
+    if (a->is_blank && b->is_blank) {
+        return true;
+    }
+    if (a->is_star && b->is_star) {
+        return true;
+    }
+    if (a->is_blank || b->is_blank || a->is_star || b->is_star) {
+        return false;
+    }
+
+    return a->token_id == b->token_id;
+}
+
+static int64
+lrc_ctc_path_count_segments(LrcCtcPath *path) {
+    int64 count;
+
+    ASSERT(path != NULL);
+    ASSERT(path->steps != NULL);
+    ASSERT(path->step_count > 0);
+
+    count = 1;
+    for (int64 i = 1; i < path->step_count; i += 1) {
+        if (!lrc_ctc_path_steps_share_label(path->steps + i - 1,
+                                            path->steps + i)) {
+            count += 1;
+        }
+    }
+
+    return count;
+}
+
+static bool
+lrc_ctc_path_step_score(
+    LrcCtcPathStep *step,
+    LrcCtcEmissions *emissions,
+    float *score,
+    LrcCtcAlignResult *result
+) {
+    ASSERT(step != NULL);
+    ASSERT(emissions != NULL);
+    ASSERT(score != NULL);
+
+    if (step->token_id < 0) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path step token id is invalid",
+            step->frame_index,
+            step->token_index
+        );
+        return false;
+    }
+    if (((int64)step->token_id > emissions->vocabulary_size)
+        || (!step->is_star
+            && ((int64)step->token_id >= emissions->vocabulary_size))) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path step token id is outside emissions",
+            step->frame_index,
+            step->token_index
+        );
+        return false;
+    }
+
+    *score = lrc_ctc_emission_value(emissions,
+                                    step->frame_index,
+                                    step->token_id);
+
+    return true;
+}
+
+static void
+lrc_ctc_path_segment_finish(
+    LrcCtcPathSegment *segment,
+    int64 score_count,
+    float score_sum,
+    float frame_duration_seconds
+) {
+    ASSERT(segment != NULL);
+    ASSERT(segment->start_frame >= 0);
+    ASSERT(segment->end_frame > segment->start_frame);
+    ASSERT(score_count > 0);
+
+    segment->start_seconds = (float)segment->start_frame*frame_duration_seconds;
+    segment->end_seconds = (float)segment->end_frame*frame_duration_seconds;
+    segment->score = score_sum/(float)score_count;
+
+    return;
+}
+
+static bool
+lrc_ctc_path_to_segments(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    float frame_duration_seconds,
+    LrcCtcPathSegments *segments,
+    LrcCtcAlignResult *result
+) {
+    int64 segment_count;
+    int64 segment_index;
+    int64 score_count;
+    float score_sum;
+    LrcCtcPathSegment *segment;
+
+    if (result) {
+        lrc_ctc_align_result_init(result);
+    }
+    if (!lrc_ctc_path_ready_for_spans(path,
+                                      emissions,
+                                      frame_duration_seconds,
+                                      result)) {
+        return false;
+    }
+
+    segment_count = lrc_ctc_path_count_segments(path);
+    if (!lrc_ctc_path_segments_allocate(segments, segment_count, result)) {
+        return false;
+    }
+
+    segment_index = -1;
+    score_count = 0;
+    score_sum = 0.0f;
+    segment = NULL;
+    for (int64 i = 0; i < path->step_count; i += 1) {
+        LrcCtcPathStep *step = path->steps + i;
+        float score;
+
+        if ((i == 0)
+            || !lrc_ctc_path_steps_share_label(path->steps + i - 1,
+                                               step)) {
+            if (segment) {
+                lrc_ctc_path_segment_finish(segment,
+                                            score_count,
+                                            score_sum,
+                                            frame_duration_seconds);
+            }
+
+            segment_index += 1;
+            ASSERT(segment_index < segments->segment_count);
+            segment = segments->segments + segment_index;
+            segment->token_index = step->token_index;
+            segment->start_frame = step->frame_index;
+            segment->end_frame = step->frame_index + 1;
+            segment->token_id = step->token_id;
+            segment->is_blank = step->is_blank;
+            segment->is_star = step->is_star;
+            score_count = 0;
+            score_sum = 0.0f;
+        }
+
+        ASSERT(segment != NULL);
+        if (step->frame_index + 1 > segment->end_frame) {
+            segment->end_frame = step->frame_index + 1;
+        }
+        if (!lrc_ctc_path_step_score(step, emissions, &score, result)) {
+            lrc_ctc_path_segments_destroy(segments);
+            return false;
+        }
+        score_sum += score;
+        score_count += 1;
+    }
+
+    if (segment) {
+        lrc_ctc_path_segment_finish(segment,
+                                    score_count,
+                                    score_sum,
+                                    frame_duration_seconds);
+    }
+    ASSERT(segment_index + 1 == segments->segment_count);
 
     return true;
 }
@@ -4271,6 +4539,7 @@ ctc_align_test_empty_initializers(void) {
     LrcCtcAlignGraph graph;
     LrcCtcTrellis trellis;
     LrcCtcPath path;
+    LrcCtcPathSegments path_segments;
     LrcCtcTokenSpans spans;
     LrcCtcWordSpans word_spans;
     LrcCtcLineTimestamps line_timestamps;
@@ -4279,6 +4548,7 @@ ctc_align_test_empty_initializers(void) {
     lrc_ctc_align_graph_init(&graph);
     lrc_ctc_trellis_init(&trellis);
     lrc_ctc_path_init(&path);
+    lrc_ctc_path_segments_init(&path_segments);
     lrc_ctc_token_spans_init(&spans);
     lrc_ctc_word_spans_init(&word_spans);
     lrc_ctc_line_timestamps_init(&line_timestamps);
@@ -4301,6 +4571,10 @@ ctc_align_test_empty_initializers(void) {
     ASSERT(path.steps == NULL);
     ASSERT(path.step_count == 0);
     ASSERT(path.step_cap == 0);
+
+    ASSERT(path_segments.segments == NULL);
+    ASSERT(path_segments.segment_count == 0);
+    ASSERT(path_segments.segment_cap == 0);
 
     ASSERT(spans.spans == NULL);
     ASSERT(spans.span_count == 0);
@@ -5351,6 +5625,210 @@ ctc_align_test_backtrack_rejects_invalid_trellis(void) {
 
     ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS);
     ASSERT(path.steps == NULL);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_path_segments_merge_blanks_and_tokens(void) {
+    LrcCtcAlignResult result;
+    LrcCtcPath path;
+    LrcCtcEmissions emissions;
+    LrcCtcPathSegments segments;
+    float values[] = {
+        -0.10f, -5.00f, -5.00f,
+        -0.20f, -5.00f, -5.00f,
+        -5.00f, -0.30f, -5.00f,
+        -5.00f, -0.50f, -5.00f,
+        -0.40f, -5.00f, -5.00f,
+        -5.00f, -5.00f, -0.60f,
+        -0.70f, -5.00f, -5.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 7, 3);
+    lrc_ctc_path_init(&path);
+    lrc_ctc_path_segments_init(&segments);
+    if (!lrc_ctc_path_allocate(&path, 7, &result)) {
+        return ctc_align_test_fail("allocate path segment path");
+    }
+
+    lrc_ctc_path_set_blank_step(&path, 0, 0, 0);
+    lrc_ctc_path_set_blank_step(&path, 1, 0, 0);
+    lrc_ctc_path_set_token_step(&path, 2, 1, 0, 1);
+    lrc_ctc_path_set_token_step(&path, 3, 1, 0, 1);
+    lrc_ctc_path_set_blank_step(&path, 4, 2, 0);
+    lrc_ctc_path_set_token_step(&path, 5, 3, 1, 2);
+    lrc_ctc_path_set_blank_step(&path, 6, 4, 0);
+    if (!lrc_ctc_path_to_segments(&path,
+                                  &emissions,
+                                  0.10f,
+                                  &segments,
+                                  &result)) {
+        return ctc_align_test_fail("merge blank/token path segments");
+    }
+
+    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(segments.segment_count == 5);
+    ASSERT(segments.segments[0].is_blank);
+    ASSERT(!segments.segments[0].is_star);
+    ASSERT(segments.segments[0].token_id == 0);
+    ASSERT(segments.segments[0].token_index == -1);
+    ASSERT(segments.segments[0].start_frame == 0);
+    ASSERT(segments.segments[0].end_frame == 2);
+    ASSERT(ctc_align_float_close(segments.segments[0].start_seconds,
+                                 0.0f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(segments.segments[0].end_seconds,
+                                 0.2f,
+                                 0.00001f));
+    ASSERT(ctc_align_float_close(segments.segments[0].score,
+                                 -0.15f,
+                                 0.00001f));
+    ASSERT(!segments.segments[1].is_blank);
+    ASSERT(!segments.segments[1].is_star);
+    ASSERT(segments.segments[1].token_id == 1);
+    ASSERT(segments.segments[1].token_index == 0);
+    ASSERT(segments.segments[1].start_frame == 2);
+    ASSERT(segments.segments[1].end_frame == 4);
+    ASSERT(ctc_align_float_close(segments.segments[1].score,
+                                 -0.40f,
+                                 0.00001f));
+    ASSERT(segments.segments[2].is_blank);
+    ASSERT(segments.segments[2].start_frame == 4);
+    ASSERT(segments.segments[2].end_frame == 5);
+    ASSERT(!segments.segments[3].is_blank);
+    ASSERT(segments.segments[3].token_id == 2);
+    ASSERT(segments.segments[3].token_index == 1);
+    ASSERT(segments.segments[3].start_frame == 5);
+    ASSERT(segments.segments[3].end_frame == 6);
+    ASSERT(segments.segments[4].is_blank);
+    ASSERT(segments.segments[4].start_frame == 6);
+    ASSERT(segments.segments[4].end_frame == 7);
+
+    lrc_ctc_path_segments_destroy(&segments);
+    lrc_ctc_path_destroy(&path);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_path_segments_split_repeated_token_after_blank(void) {
+    LrcCtcAlignResult result;
+    LrcCtcPath path;
+    LrcCtcEmissions emissions;
+    LrcCtcPathSegments segments;
+    float values[] = {
+        -5.00f, -0.10f,
+        -5.00f, -0.20f,
+        -0.30f, -5.00f,
+        -5.00f, -0.40f,
+        -5.00f, -0.50f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 5, 2);
+    lrc_ctc_path_init(&path);
+    lrc_ctc_path_segments_init(&segments);
+    if (!lrc_ctc_path_allocate(&path, 5, &result)) {
+        return ctc_align_test_fail("allocate repeated segment path");
+    }
+
+    lrc_ctc_path_set_token_step(&path, 0, 1, 0, 1);
+    lrc_ctc_path_set_token_step(&path, 1, 1, 0, 1);
+    lrc_ctc_path_set_blank_step(&path, 2, 2, 0);
+    lrc_ctc_path_set_token_step(&path, 3, 3, 1, 1);
+    lrc_ctc_path_set_token_step(&path, 4, 3, 1, 1);
+    if (!lrc_ctc_path_to_segments(&path,
+                                  &emissions,
+                                  0.25f,
+                                  &segments,
+                                  &result)) {
+        return ctc_align_test_fail("split repeated token segments");
+    }
+
+    ASSERT(segments.segment_count == 3);
+    ASSERT(!segments.segments[0].is_blank);
+    ASSERT(segments.segments[0].token_id == 1);
+    ASSERT(segments.segments[0].token_index == 0);
+    ASSERT(segments.segments[0].start_frame == 0);
+    ASSERT(segments.segments[0].end_frame == 2);
+    ASSERT(segments.segments[1].is_blank);
+    ASSERT(segments.segments[1].start_frame == 2);
+    ASSERT(segments.segments[1].end_frame == 3);
+    ASSERT(!segments.segments[2].is_blank);
+    ASSERT(segments.segments[2].token_id == 1);
+    ASSERT(segments.segments[2].token_index == 1);
+    ASSERT(segments.segments[2].start_frame == 3);
+    ASSERT(segments.segments[2].end_frame == 5);
+    ASSERT(ctc_align_float_close(segments.segments[2].end_seconds,
+                                 1.25f,
+                                 0.00001f));
+
+    lrc_ctc_path_segments_destroy(&segments);
+    lrc_ctc_path_destroy(&path);
+
+    return 0;
+}
+
+static int32
+ctc_align_test_path_segments_keep_stars(void) {
+    LrcCtcAlignResult result;
+    LrcCtcPath path;
+    LrcCtcEmissions emissions;
+    LrcCtcPathSegments segments;
+    int32 star_token_id;
+    float values[] = {
+        -5.00f, -5.00f,
+        -5.00f, -5.00f,
+        -5.00f, -0.10f,
+        -0.20f, -5.00f,
+        -5.00f, -5.00f,
+    };
+
+    ctc_align_make_emissions(&emissions, values, 5, 2);
+    star_token_id = (int32)emissions.vocabulary_size;
+    lrc_ctc_path_init(&path);
+    lrc_ctc_path_segments_init(&segments);
+    if (!lrc_ctc_path_allocate(&path, 5, &result)) {
+        return ctc_align_test_fail("allocate star segment path");
+    }
+
+    lrc_ctc_path_set_star_step(&path, 0, 1, star_token_id);
+    lrc_ctc_path_set_star_step(&path, 1, 1, star_token_id);
+    lrc_ctc_path_set_token_step(&path, 2, 3, 0, 1);
+    lrc_ctc_path_set_blank_step(&path, 3, 4, 0);
+    lrc_ctc_path_set_star_step(&path, 4, 5, star_token_id);
+    if (!lrc_ctc_path_to_segments(&path,
+                                  &emissions,
+                                  0.10f,
+                                  &segments,
+                                  &result)) {
+        return ctc_align_test_fail("keep star path segments");
+    }
+
+    ASSERT(segments.segment_count == 4);
+    ASSERT(!segments.segments[0].is_blank);
+    ASSERT(segments.segments[0].is_star);
+    ASSERT(segments.segments[0].token_id == star_token_id);
+    ASSERT(segments.segments[0].token_index == -1);
+    ASSERT(segments.segments[0].start_frame == 0);
+    ASSERT(segments.segments[0].end_frame == 2);
+    ASSERT(ctc_align_float_close(segments.segments[0].score,
+                                 0.0f,
+                                 0.00001f));
+    ASSERT(!segments.segments[1].is_blank);
+    ASSERT(!segments.segments[1].is_star);
+    ASSERT(segments.segments[1].token_id == 1);
+    ASSERT(segments.segments[1].start_frame == 2);
+    ASSERT(segments.segments[1].end_frame == 3);
+    ASSERT(segments.segments[2].is_blank);
+    ASSERT(segments.segments[2].start_frame == 3);
+    ASSERT(segments.segments[2].end_frame == 4);
+    ASSERT(segments.segments[3].is_star);
+    ASSERT(segments.segments[3].start_frame == 4);
+    ASSERT(segments.segments[3].end_frame == 5);
+
+    lrc_ctc_path_segments_destroy(&segments);
+    lrc_ctc_path_destroy(&path);
 
     return 0;
 }
@@ -7886,6 +8364,15 @@ main(void) {
         exit(1);
     }
     if (ctc_align_test_backtrack_rejects_invalid_trellis() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_path_segments_merge_blanks_and_tokens() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_path_segments_split_repeated_token_after_blank() != 0) {
+        exit(1);
+    }
+    if (ctc_align_test_path_segments_keep_stars() != 0) {
         exit(1);
     }
     if (ctc_align_test_token_spans_from_backtracked_path() != 0) {
