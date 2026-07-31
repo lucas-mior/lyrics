@@ -168,6 +168,17 @@ lrc_pipeline_config_init(LrcPipelineConfig *config) {
     return;
 }
 
+static bool
+lrc_pipeline_debug_dump_enabled(LrcPipeline *pipeline) {
+    if (pipeline == NULL) {
+        return false;
+    }
+
+    return !lrc_pipeline_path_missing(
+        pipeline->config.ctc_debug_dump_path
+    );
+}
+
 static void
 lrc_pipeline_init(LrcPipeline *pipeline, LrcPipelineConfig *config) {
     if (pipeline == NULL) {
@@ -2088,6 +2099,7 @@ pipeline_test_config_defaults(void) {
     ASSERT(config.vocals_model_path == NULL);
     ASSERT(config.ctc_model_path == NULL);
     ASSERT(config.tokenizer_path == NULL);
+    ASSERT(config.ctc_debug_dump_path == NULL);
     ASSERT(strequal(config.temp_dir, "/tmp"));
     ASSERT(strequal(config.ffmpeg_path, "ffmpeg"));
     ASSERT(strequal(config.vocals_container_format, "wav"));
@@ -2118,6 +2130,10 @@ pipeline_test_config_defaults(void) {
     ASSERT(!pipeline.prepared);
     ASSERT(!pipeline.owns_temp_dir);
     ASSERT(!pipeline.owns_vocals_path);
+    ASSERT(!lrc_pipeline_debug_dump_enabled(&pipeline));
+
+    pipeline.config.ctc_debug_dump_path = "dump.txt";
+    ASSERT(lrc_pipeline_debug_dump_enabled(&pipeline));
     ASSERT(pipeline.ctc_assets.model_path == NULL);
     ASSERT(pipeline.ctc_assets.tokenizer_path == NULL);
     ASSERT(!pipeline.ctc_assets.validated);

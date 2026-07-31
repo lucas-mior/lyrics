@@ -8,3 +8,4 @@ mistral
 *.zip
 *.tar.gz
 step-*
+models/mms-onnx/onnx/

@@ -79,6 +79,7 @@ typedef struct LrcPipelineConfig {
     char *vocals_model_path;
     char *ctc_model_path;
     char *tokenizer_path;
+    char *ctc_debug_dump_path;
 
     char *temp_dir;
     char *ffmpeg_path;
@@ -114,6 +115,7 @@ typedef struct LrcPipeline {
 } LrcPipeline;
 
 static void lrc_pipeline_config_init(LrcPipelineConfig *config);
+static bool lrc_pipeline_debug_dump_enabled(LrcPipeline *pipeline);
 static void lrc_pipeline_init(
     LrcPipeline *pipeline,
     LrcPipelineConfig *config

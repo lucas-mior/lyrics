@@ -48,6 +48,7 @@ full_print_usage(FILE *stream) {
         "    --ffmpeg PATH                ffmpeg executable [ffmpeg]\n"
         "    --temp-dir PATH              temporary directory [/tmp]\n"
         "    --keep-temp-files            keep generated temporary files\n"
+        "    --ctc-debug-dump PATH        write CTC parity debug dump\n"
         "    --emissions KIND             logits|probabilities|"
         "log-probabilities\n",
         program
@@ -156,6 +157,10 @@ full_parse_value_option(
         config->temp_dir = value;
         return true;
     }
+    if (strequal(option, "--ctc-debug-dump")) {
+        config->ctc_debug_dump_path = value;
+        return true;
+    }
     if (strequal(option, "--emissions")) {
         return full_parse_emissions(config, value);
     }
@@ -209,6 +214,10 @@ full_parse_long_value(
         config->temp_dir = value;
         return true;
     }
+    if (full_long_option_value(arg, "--ctc-debug-dump", &value)) {
+        config->ctc_debug_dump_path = value;
+        return true;
+    }
     if (full_long_option_value(arg, "--emissions", &value)) {
         return full_parse_emissions(config, value);
     }
@@ -230,6 +239,7 @@ full_option_needs_value(char *option) {
            || strequal(option, "--tokenizer")
            || strequal(option, "--ffmpeg")
            || strequal(option, "--temp-dir")
+           || strequal(option, "--ctc-debug-dump")
            || strequal(option, "--emissions");
 }
 
