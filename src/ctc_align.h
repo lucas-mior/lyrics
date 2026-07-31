@@ -13,6 +13,8 @@ enum LrcCtcAlignError {
     LRC_CTC_ALIGN_ERROR_INVALID_BLANK_TOKEN,
     LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
     LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+    LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+    LRC_CTC_ALIGN_ERROR_INVALID_FRAME_DURATION,
     LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT,
     LRC_CTC_ALIGN_ERROR_TOO_LARGE,
 };
@@ -50,11 +52,32 @@ typedef struct LrcCtcPath {
     int64 step_cap;
 } LrcCtcPath;
 
+typedef struct LrcCtcTokenSpan {
+    int64 token_index;
+    int64 start_frame;
+    int64 end_frame;
+
+    float start_seconds;
+    float end_seconds;
+    float score;
+
+    int32 token_id;
+} LrcCtcTokenSpan;
+
+typedef struct LrcCtcTokenSpans {
+    LrcCtcTokenSpan *spans;
+
+    int64 span_count;
+    int64 span_cap;
+} LrcCtcTokenSpans;
+
 static void lrc_ctc_align_result_init(LrcCtcAlignResult *result);
 static void lrc_ctc_trellis_init(LrcCtcTrellis *trellis);
 static void lrc_ctc_trellis_destroy(LrcCtcTrellis *trellis);
 static void lrc_ctc_path_init(LrcCtcPath *path);
 static void lrc_ctc_path_destroy(LrcCtcPath *path);
+static void lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans);
+static void lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans);
 static float *lrc_ctc_trellis_cell(
     LrcCtcTrellis *trellis,
     int64 frame_index,
@@ -88,6 +111,13 @@ static bool lrc_ctc_trellis_backtrack(
     int64 target_token_count,
     int32 blank_token_id,
     LrcCtcPath *path,
+    LrcCtcAlignResult *result
+);
+static bool lrc_ctc_path_to_token_spans(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    float frame_duration_seconds,
+    LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
 );
 
