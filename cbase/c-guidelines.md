@@ -193,7 +193,7 @@ That means to also avoid calling `strlen32`:
     + Instead, to `my_function(STRLIT("literal"))`
 - `STRLIT("literal")` can be used to pass the string literal and its length
   in an "don't repeat yourself" way, that also does not depend on the compiler
-  to optimize the strlen32 away, since it uses `sizeof` to get the length of the
+  to optimize the `strlen32`, since it uses `sizeof` to get the length of the
   literal.
 
 Exceptions to this rule are:
