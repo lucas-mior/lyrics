@@ -1,0 +1,122 @@
+#if !defined(CTC_INFERENCE_H)
+#define CTC_INFERENCE_H
+
+#include "cbase.h"
+#include "ctc_model.h"
+#include "ort.h"
+
+#define LRC_CTC_EMISSIONS_MAX_RANK 3
+
+#if !defined(LRC_CTC_INFERENCE_ENABLE_ORT)
+#define LRC_CTC_INFERENCE_ENABLE_ORT 0
+#endif
+
+enum LrcCtcInferenceError {
+    LRC_CTC_INFERENCE_ERROR_NONE,
+    LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+    LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
+    LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+    LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+    LRC_CTC_INFERENCE_ERROR_NON_FINITE_OUTPUT,
+    LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
+    LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
+    LRC_CTC_INFERENCE_ERROR_MODEL_LOAD_FAILED,
+};
+
+typedef struct LrcCtcInferenceResult {
+    enum LrcCtcInferenceError error;
+    char *message;
+
+    int64 output_index;
+} LrcCtcInferenceResult;
+
+typedef struct LrcCtcEmissions {
+    float *values;
+
+    int64 value_count;
+    int64 row_count;
+    int64 row_frame_count;
+    int64 frame_count;
+    int64 vocabulary_size;
+    int64 shape[LRC_CTC_EMISSIONS_MAX_RANK];
+
+    int32 shape_len;
+} LrcCtcEmissions;
+
+typedef bool (*LrcCtcInferenceRunFunction)(
+    void *backend,
+    LrcCtcModelInput *input,
+    LrcCtcEmissions *emissions,
+    LrcCtcInferenceResult *result
+);
+
+typedef struct LrcCtcInferenceBackend {
+    void *backend;
+    LrcCtcInferenceRunFunction run;
+} LrcCtcInferenceBackend;
+
+typedef struct LrcCtcFakeInference {
+    float *values;
+
+    int64 shape[LRC_CTC_EMISSIONS_MAX_RANK];
+    int64 value_count;
+    int32 shape_len;
+} LrcCtcFakeInference;
+
+typedef struct LrcCtcOnnxInference {
+    OrtContext context;
+    OrtModel model;
+
+    bool loaded;
+} LrcCtcOnnxInference;
+
+static void lrc_ctc_inference_result_init(LrcCtcInferenceResult *result);
+static void lrc_ctc_emissions_init(LrcCtcEmissions *emissions);
+static void lrc_ctc_emissions_destroy(LrcCtcEmissions *emissions);
+static bool lrc_ctc_emissions_copy_shape(
+    LrcCtcEmissions *emissions,
+    float *values,
+    int64 value_count,
+    int64 *shape,
+    int32 shape_len,
+    LrcCtcInferenceResult *result
+);
+static bool lrc_ctc_inference_run(
+    LrcCtcInferenceBackend *backend,
+    LrcCtcModelInput *input,
+    LrcCtcEmissions *emissions,
+    LrcCtcInferenceResult *result
+);
+
+static void lrc_ctc_fake_inference_init(LrcCtcFakeInference *fake);
+static bool lrc_ctc_fake_inference_set_shape(
+    LrcCtcFakeInference *fake,
+    float *values,
+    int64 value_count,
+    int64 *shape,
+    int32 shape_len
+);
+static bool lrc_ctc_fake_inference_set(
+    LrcCtcFakeInference *fake,
+    float *values,
+    int64 frame_count,
+    int64 vocabulary_size
+);
+static void lrc_ctc_fake_inference_backend(
+    LrcCtcFakeInference *fake,
+    LrcCtcInferenceBackend *backend
+);
+
+static void lrc_ctc_onnx_inference_init(LrcCtcOnnxInference *onnx);
+static void lrc_ctc_onnx_inference_destroy(LrcCtcOnnxInference *onnx);
+static bool lrc_ctc_onnx_inference_load(
+    LrcCtcOnnxInference *onnx,
+    char *model_path,
+    LrcCtcInferenceResult *result
+);
+static void lrc_ctc_onnx_inference_backend(
+    LrcCtcOnnxInference *onnx,
+    LrcCtcInferenceBackend *backend
+);
+
+#endif /* CTC_INFERENCE_H */
