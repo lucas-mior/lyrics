@@ -1,7 +1,6 @@
 temp_delete_me*
 build/
 bin/
-third_party/
 compile_commands.json
 mistral
 *.o
@@ -9,4 +8,3 @@ mistral
 *.zip
 *.tar.gz
 step-*
-*mms-onnx
