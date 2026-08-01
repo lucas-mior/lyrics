@@ -1244,6 +1244,7 @@ ctc_tokenizer_normalize_lyrics_text(
     char *name
 ) {
     LrcLyricsLoadResult result;
+    LrcLyricsPreprocessOptions options;
     char temp_dir[PATH_MAX];
     char path[PATH_MAX];
     bool ok;
@@ -1263,7 +1264,11 @@ ctc_tokenizer_normalize_lyrics_text(
         return false;
     }
 
-    return lrc_lyrics_normalize(lyrics, normalized);
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
+
+    return lrc_lyrics_normalize_with_options(lyrics, normalized, &options);
 }
 
 static int32

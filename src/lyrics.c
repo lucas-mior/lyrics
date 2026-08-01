@@ -659,7 +659,7 @@ lyrics_test_normalize_punctuation_sections_and_mapping(void) {
     }
 
     ASSERT(strequal2(normalized.text, normalized.text_len,
-                     "hello world bangbang maxwells", 29));
+                     "hello world bang bang maxwell's", 31));
     ASSERT(normalized.byte_count == normalized.text_len);
     ASSERT(normalized.alignable_line_count == 2);
     ASSERT(normalized.line_count == lyrics.line_count);
@@ -669,13 +669,13 @@ lyrics_test_normalize_punctuation_sections_and_mapping(void) {
         1,
         LRC_LYRICS_NORMALIZED_LINE_KIND_SECTION_MARKER
     );
-    lyrics_test_assert_line_range(&normalized, 2, 12, 29);
+    lyrics_test_assert_line_range(&normalized, 2, 12, 31);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, 0) == 0);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, 10) == 0);
 
     bang = memmem64(normalized.text,
                     normalized.text_len,
-                    STRLIT("bangbang"));
+                    STRLIT("bang bang"));
     ASSERT(bang != NULL);
     bang_offset = (int32)(bang - normalized.text);
     ASSERT(lrc_lyrics_normalized_line_at(&normalized, bang_offset) == 2);
@@ -707,7 +707,7 @@ lyrics_test_normalize_unicode_and_blank_lines(void) {
     }
 
     ASSERT(strequal2(normalized.text, normalized.text_len,
-                     "olá 世界 again", 17));
+                     "ola shi jie again", 17));
     ASSERT(normalized.alignable_line_count == 2);
     ASSERT(normalized.line_count == lyrics.line_count);
     lyrics_test_assert_line_range(&normalized, 0, 0, 11);
@@ -792,10 +792,10 @@ lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
     }
 
     lrc_lyrics_preprocess_options_init(&options);
-    ASSERT(options.split_size == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT);
+    ASSERT(options.split_size == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD);
     ASSERT(options.star_frequency
            == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
-    ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+    ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
     ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
 
     lrc_lyrics_normalized_init(&default_normalized);

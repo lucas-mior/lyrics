@@ -3918,11 +3918,11 @@ pipeline_test_config_defaults(void) {
     ASSERT(config.ctc_model_config.window_seconds == 30);
     ASSERT(config.ctc_model_config.context_seconds == 2);
     ASSERT(config.lyrics_preprocess_options.split_size
-           == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT);
+           == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD);
     ASSERT(config.lyrics_preprocess_options.star_frequency
            == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
     ASSERT(config.lyrics_preprocess_options.romanization
-           == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+           == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
     ASSERT(strequal2(config.lyrics_preprocess_options.language,
                      config.lyrics_preprocess_options.language_len,
                      STRLIT("eng")));

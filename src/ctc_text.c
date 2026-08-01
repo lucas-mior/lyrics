@@ -1381,15 +1381,17 @@ ctc_text_reference_normalize_word(
         goto done;
     }
     if (ctc_text_reference_should_romanize(options)) {
-        if (!ctc_unicode_norm_transliterate_latin(result->text,
-                                                  result->text_len,
-                                                  &stage6)) {
-            goto done;
-        }
-        if (!ctc_text_reference_normalize_uroman(stage6.text,
-                                                 stage6.text_len,
-                                                 result)) {
-            goto done;
+        if (result->text_len > 0) {
+            if (!ctc_unicode_norm_transliterate_latin(result->text,
+                                                      result->text_len,
+                                                      &stage6)) {
+                goto done;
+            }
+            if (!ctc_text_reference_normalize_uroman(stage6.text,
+                                                     stage6.text_len,
+                                                     result)) {
+                goto done;
+            }
         }
     }
     ok = true;
@@ -2218,33 +2220,37 @@ ctc_text_test_assert_segment(
     int32 expected_line_index,
     int32 expected_normalized_start,
     int32 expected_normalized_end,
+    int32 expected_target_start,
+    int32 expected_target_end,
     char *expected_source
 ) {
     CtcTextSegment *segment;
     int32 source_len;
-    int32 normalized_len;
-    int32 target_len;
 
     segment = lrc_lyrics_normalized_segment(normalized, segment_index);
     ASSERT(segment);
 
     source_len = segment->source_end - segment->source_start;
-    normalized_len = segment->normalized_end - segment->normalized_start;
-    target_len = segment->target_end - segment->target_start;
 
     ASSERT(segment->line_index == expected_line_index);
     ASSERT(segment->normalized_start == expected_normalized_start);
     ASSERT(segment->normalized_end == expected_normalized_end);
-    ASSERT(segment->target_start == expected_normalized_start);
-    ASSERT(segment->target_end == expected_normalized_end);
+    ASSERT(segment->target_start == expected_target_start);
+    ASSERT(segment->target_end == expected_target_end);
+    ASSERT(segment->target_start >= 0);
+    ASSERT(segment->target_end <= normalized->target_byte_count);
     ASSERT(strequal2(lyrics->text + segment->source_start,
                      source_len,
                      expected_source,
                      strlen32(expected_source)));
-    ASSERT(strequal2(normalized->text + segment->normalized_start,
-                     normalized_len,
-                     normalized->text + segment->target_start,
-                     target_len));
+    for (int32 i = segment->target_start; i < segment->target_end; i += 1) {
+        LrcLyricsTargetByte *target_byte;
+
+        target_byte = &normalized->target_bytes[i];
+        ASSERT(target_byte->line_index == expected_line_index);
+        ASSERT(target_byte->normalized_start >= segment->normalized_start);
+        ASSERT(target_byte->normalized_end <= segment->normalized_end);
+    }
 
     return;
 }
@@ -2837,6 +2843,7 @@ ctc_text_test_word_split_fixture_case(char *fixture_name) {
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
     lrc_lyrics_normalized_init(&normalized);
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
@@ -2896,6 +2903,7 @@ ctc_text_test_word_normalized_fixture_case(char *fixture_name) {
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
     lrc_lyrics_normalized_init(&normalized);
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
@@ -2959,6 +2967,7 @@ ctc_text_test_word_target_fixture_case(char *fixture_name) {
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
     lrc_lyrics_normalized_init(&normalized);
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
@@ -3042,6 +3051,7 @@ ctc_text_test_star_target_sequence_fixture_case(char *fixture_name) {
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
     lrc_lyrics_normalized_init(&normalized);
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
@@ -3201,6 +3211,7 @@ ctc_text_test_char_fixture_case(
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = split_size;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
     ctc_text_test_options_language(&options, language);
 
     lrc_lyrics_normalized_init(&normalized);
@@ -3422,11 +3433,11 @@ ctc_text_test_default_options(void) {
 
     lrc_lyrics_preprocess_options_init(&options);
 
-    ASSERT(options.split_size == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT);
+    ASSERT(options.split_size == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD);
     ASSERT(
         options.star_frequency == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES
     );
-    ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+    ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
     ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
 
     return 0;
@@ -3456,10 +3467,18 @@ ctc_text_test_word_segments_preserve_line_mapping(void) {
     ASSERT(lrc_lyrics_normalized_segment(&normalized, -1) == NULL);
     ASSERT(lrc_lyrics_normalized_segment(&normalized, 4) == NULL);
 
-    ctc_text_test_assert_segment(&lyrics, &normalized, 0, 0, 0, 5, "Hello,");
-    ctc_text_test_assert_segment(&lyrics, &normalized, 1, 0, 6, 11, "WORLD!");
-    ctc_text_test_assert_segment(&lyrics, &normalized, 2, 2, 12, 17, "again?!");
-    ctc_text_test_assert_segment(&lyrics, &normalized, 3, 2, 18, 22, "voce");
+    ctc_text_test_assert_segment(
+        &lyrics, &normalized, 0, 0, 0, 5, 0, 9, "Hello,"
+    );
+    ctc_text_test_assert_segment(
+        &lyrics, &normalized, 1, 0, 6, 11, 10, 19, "WORLD!"
+    );
+    ctc_text_test_assert_segment(
+        &lyrics, &normalized, 2, 2, 12, 17, 20, 29, "again?!"
+    );
+    ctc_text_test_assert_segment(
+        &lyrics, &normalized, 3, 2, 18, 22, 30, 37, "voce"
+    );
 
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);

@@ -103,9 +103,9 @@ lrc_lyrics_preprocess_options_init(
 
     memset64(options, 0, SIZEOF(*options));
 
-    options->split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
+    options->split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     options->star_frequency = LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES;
-    options->romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
+    options->romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
 
     memcpy64(options->language, STRLIT("eng"));
     options->language[3] = '\0';

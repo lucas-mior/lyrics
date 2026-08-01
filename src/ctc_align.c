@@ -5087,6 +5087,20 @@ ctc_align_load_lyrics_text(
 }
 
 static bool
+ctc_align_normalize_current_lyrics(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized
+) {
+    LrcLyricsPreprocessOptions options;
+
+    lrc_lyrics_preprocess_options_init(&options);
+    options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
+    options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
+
+    return lrc_lyrics_normalize_with_options(lyrics, normalized, &options);
+}
+
+static bool
 ctc_align_make_token_spans_from_tokens(
     LrcCtcTokenizedText *tokens,
     float first_start_seconds,
@@ -5140,7 +5154,7 @@ ctc_align_load_tokenized_lyrics(
     if (!ctc_align_load_lyrics_text(lyrics, text, text_len)) {
         return false;
     }
-    if (!lrc_lyrics_normalize(lyrics, normalized)) {
+    if (!ctc_align_normalize_current_lyrics(lyrics, normalized)) {
         return false;
     }
     if (!ctc_align_load_alphabet_tokenizer(tokenizer)) {
@@ -7465,7 +7479,7 @@ ctc_align_test_synthetic_lrc_uses_padded_blank_midpoints(void) {
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
         ok = false;
     }
-    if (ok && !lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (ok && !ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         ok = false;
     }
     if (ok && !ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
@@ -7906,7 +7920,7 @@ ctc_align_test_word_spans_use_skipped_space_gaps(void) {
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
         return ctc_align_test_fail("load skipped-space lyrics");
     }
-    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         return ctc_align_test_fail("normalize skipped-space lyrics");
     }
     if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
@@ -8229,7 +8243,7 @@ ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
         return ctc_align_test_fail("load repeated boundary lyrics");
     }
-    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         return ctc_align_test_fail("normalize repeated boundary lyrics");
     }
     if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
@@ -8465,7 +8479,7 @@ ctc_align_test_maxwell_word_line_mapping(void) {
     if (!lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
         return ctc_align_test_fail("load maxwell word lyrics");
     }
-    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         return ctc_align_test_fail("normalize maxwell word lyrics");
     }
     if (!ctc_align_load_alphabet_tokenizer(&tokenizer)) {
@@ -8735,7 +8749,7 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
     if (!lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
         return ctc_align_test_fail("load maxwell line lyrics");
     }
-    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         return ctc_align_test_fail("normalize maxwell line lyrics");
     }
 
@@ -8852,7 +8866,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
         return ctc_align_test_fail("load synthetic lyrics");
     }
-    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         return ctc_align_test_fail("normalize synthetic lyrics");
     }
     ASSERT(strequal2(normalized.text, normalized.text_len, "ab cab", 6));
@@ -8989,7 +9003,7 @@ ctc_align_test_maxwell_fake_token_timing(void) {
     if (!lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
         return ctc_align_test_fail("load maxwell lyrics");
     }
-    if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         return ctc_align_test_fail("normalize maxwell lyrics");
     }
     if (!ctc_align_load_alphabet_tokenizer(&tokenizer)) {
@@ -9192,7 +9206,7 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     if (ok && !lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
         ok = false;
     }
-    if (ok && !lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (ok && !ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         ok = false;
     }
     if (ok && !ctc_align_load_alphabet_tokenizer(&tokenizer)) {
@@ -9487,7 +9501,7 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     if (ok && !lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
         ok = false;
     }
-    if (ok && !lrc_lyrics_normalize(&lyrics, &normalized)) {
+    if (ok && !ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         ok = false;
     }
     if (ok && !ctc_align_load_alphabet_tokenizer(&tokenizer)) {
