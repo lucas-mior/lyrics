@@ -656,6 +656,42 @@ lrc_ctc_debug_dump_write_key_value(
     return;
 }
 
+static void
+lrc_ctc_debug_dump_write_key_int32(
+    LrcCtcDebugDumpWriter *writer,
+    char *key,
+    int32 value
+) {
+    lrc_ctc_debug_dump_write_cstring(writer, key);
+    lrc_ctc_debug_dump_printf(writer, "=%d\n", value);
+
+    return;
+}
+
+static void
+lrc_ctc_debug_dump_write_key_int64(
+    LrcCtcDebugDumpWriter *writer,
+    char *key,
+    int64 value
+) {
+    lrc_ctc_debug_dump_write_cstring(writer, key);
+    lrc_ctc_debug_dump_printf(writer, "=%lld\n", value);
+
+    return;
+}
+
+static void
+lrc_ctc_debug_dump_write_key_double(
+    LrcCtcDebugDumpWriter *writer,
+    char *key,
+    double value
+) {
+    lrc_ctc_debug_dump_write_cstring(writer, key);
+    lrc_ctc_debug_dump_printf(writer, "=%.9g\n", value);
+
+    return;
+}
+
 static char *
 lrc_pipeline_preprocess_split_size_name(
     enum LrcLyricsPreprocessSplitSize split_size
@@ -878,6 +914,81 @@ lrc_ctc_debug_dump_write_text_and_tokens(
                                           target_text,
                                           target_text_len);
     lrc_ctc_debug_dump_write_target_tokens(writer, tokenizer, tokens);
+
+    return;
+}
+
+static void
+lrc_ctc_debug_dump_write_audio_model(
+    LrcCtcDebugDumpWriter *writer,
+    LrcPipeline *pipeline,
+    LrcCtcAudio *audio,
+    LrcCtcModelInput *input,
+    LrcCtcEmissions *emissions,
+    LrcCtcTokenizer *tokenizer,
+    int32 star_token_id
+) {
+    double frame_duration_seconds;
+
+    lrc_ctc_debug_dump_write_section(writer, "frames");
+
+    if ((pipeline == NULL) || (audio == NULL) || (input == NULL)
+        || (emissions == NULL) || (tokenizer == NULL)) {
+        lrc_ctc_debug_dump_write_key_value(writer, "status", "missing_data");
+        return;
+    }
+
+    frame_duration_seconds = input->stride_ms/1000.0;
+
+    lrc_ctc_debug_dump_write_key_int32(writer,
+                                       "audio_sample_rate",
+                                       audio->sample_rate);
+    lrc_ctc_debug_dump_write_key_int64(writer,
+                                       "audio_sample_count",
+                                       audio->sample_count);
+    lrc_ctc_debug_dump_write_key_int32(writer,
+                                       "model_sample_rate",
+                                       input->sample_rate);
+    lrc_ctc_debug_dump_write_key_int32(writer,
+                                       "inputs_to_logits_ratio",
+                                       input->inputs_to_logits_ratio);
+    lrc_ctc_debug_dump_write_key_double(writer,
+                                        "stride_ms",
+                                        input->stride_ms);
+    lrc_ctc_debug_dump_write_key_double(writer,
+                                        "frame_duration_seconds",
+                                        frame_duration_seconds);
+    lrc_ctc_debug_dump_write_key_int64(writer,
+                                       "emission_frame_count",
+                                       emissions->frame_count);
+    lrc_ctc_debug_dump_write_key_int64(writer,
+                                       "emission_vocabulary_size",
+                                       emissions->vocabulary_size);
+    lrc_ctc_debug_dump_write_key_int32(writer,
+                                       "tokenizer_token_count",
+                                       tokenizer->token_count);
+    lrc_ctc_debug_dump_write_key_int32(writer,
+                                       "blank_token_id",
+                                       tokenizer->blank_id);
+    lrc_ctc_debug_dump_write_key_int32(writer,
+                                       "star_token_id",
+                                       star_token_id);
+    lrc_ctc_debug_dump_write_key_int64(writer,
+                                       "chunk_count",
+                                       input->chunk_count);
+    lrc_ctc_debug_dump_write_key_int64(writer,
+                                       "row_sample_count",
+                                       input->row_sample_count);
+    lrc_ctc_debug_dump_write_key_int32(
+        writer,
+        "window_seconds",
+        pipeline->config.ctc_model_config.window_seconds
+    );
+    lrc_ctc_debug_dump_write_key_int32(
+        writer,
+        "context_seconds",
+        pipeline->config.ctc_model_config.context_seconds
+    );
 
     return;
 }
@@ -1659,6 +1770,24 @@ lrc_pipeline_generate_lrc(
             ok = false;
         } else {
             star_token_id = (int32)emissions.vocabulary_size;
+        }
+    }
+    if (ok && lrc_pipeline_debug_dump_enabled(pipeline)) {
+        lrc_ctc_debug_dump_write_audio_model(&debug_dump,
+                                             pipeline,
+                                             &audio,
+                                             &input,
+                                             &emissions,
+                                             &tokenizer,
+                                             star_token_id);
+        if (!debug_dump.ok) {
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+                "could not write CTC debug dump",
+                pipeline->config.ctc_debug_dump_path
+            );
+            ok = false;
         }
     }
     if (ok && !lrc_pipeline_trellis_score_forward(pipeline,
@@ -2786,6 +2915,156 @@ pipeline_test_ctc_debug_dump_text_and_tokens(void) {
 }
 
 static int32
+pipeline_test_ctc_debug_dump_audio_model(void) {
+    LrcPipelineConfig config;
+    LrcPipeline pipeline;
+    LrcCtcDebugDumpWriter writer;
+    LrcCtcAudio audio;
+    LrcCtcModelInput input;
+    LrcCtcEmissions emissions;
+    LrcCtcTokenizer tokenizer;
+    char temp_dir[PATH_MAX];
+    char dump_path[PATH_MAX];
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_dump_frames");
+    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+                            "dump.txt");
+
+    lrc_pipeline_config_init(&config);
+    config.ctc_model_config.window_seconds = 42;
+    config.ctc_model_config.context_seconds = 7;
+    lrc_pipeline_init(&pipeline, &config);
+
+    lrc_ctc_audio_init(&audio);
+    audio.sample_rate = 16000;
+    audio.sample_count = 123456;
+
+    lrc_ctc_model_input_init(&input);
+    input.sample_rate = 16000;
+    input.inputs_to_logits_ratio = 320;
+    input.stride_ms = 20.0;
+    input.chunk_count = 3;
+    input.row_sample_count = 512000;
+
+    lrc_ctc_emissions_init(&emissions);
+    emissions.frame_count = 6172;
+    emissions.vocabulary_size = 1130;
+
+    lrc_ctc_tokenizer_init(&tokenizer);
+    tokenizer.token_count = 1129;
+    tokenizer.blank_id = 0;
+
+    if (!lrc_ctc_debug_dump_writer_open(&writer, dump_path)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("open debug dump frames");
+    }
+    lrc_ctc_debug_dump_write_audio_model(&writer,
+                                         &pipeline,
+                                         &audio,
+                                         &input,
+                                         &emissions,
+                                         &tokenizer,
+                                         1130);
+    if (!lrc_ctc_debug_dump_writer_close(&writer)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("close debug dump frames");
+    }
+    if (!pipeline_test_file_contains(dump_path, STRLIT("[frames]\n"))) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump frames section");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("audio_sample_rate=16000\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump audio sample rate");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("audio_sample_count=123456\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump audio sample count");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("stride_ms=20\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump stride ms");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("frame_duration_seconds=0.02\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump frame duration");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("emission_frame_count=6172\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump emission frame count");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("emission_vocabulary_size=1130\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump vocabulary size");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("tokenizer_token_count=1129\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump tokenizer token count");
+    }
+    if (!pipeline_test_file_contains(dump_path, STRLIT("blank_token_id=0\n"))) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump blank token id");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("star_token_id=1130\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump star token id");
+    }
+    if (!pipeline_test_file_contains(dump_path, STRLIT("chunk_count=3\n"))) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump chunk count");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("row_sample_count=512000\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump row sample count");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("window_seconds=42\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump window seconds");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("context_seconds=7\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump context seconds");
+    }
+
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+static int32
 pipeline_test_config_defaults(void) {
     LrcPipelineConfig config;
     LrcPipeline pipeline;
@@ -3287,6 +3566,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_ctc_debug_dump_text_and_tokens() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_ctc_debug_dump_audio_model() != 0) {
         exit(1);
     }
     if (pipeline_test_config_defaults() != 0) {
