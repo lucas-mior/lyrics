@@ -101,6 +101,11 @@ raw_print_usage(FILE *stream) {
         "    --temp-dir PATH              temporary directory [/tmp]\n"
         "    --keep-temp-files            keep generated temporary files\n"
         "    --ctc-debug-dump PATH        write CTC parity debug dump\n"
+        "    --split-size KIND           current|word|char\n"
+        "    --star-frequency KIND       none|edges|segment\n"
+        "    --romanize                  enable ICU romanization\n"
+        "    --romanization KIND         off|icu\n"
+        "    --language CODE             3-letter language code [eng]\n"
         "    --emissions KIND             logits|probabilities|"
         "log-probabilities\n",
         program
@@ -205,6 +210,18 @@ raw_parse_value_option(
         config->ctc_debug_dump_path = value;
         return true;
     }
+    if (strequal(option, "--split-size")) {
+        return lrc_pipeline_parse_preprocess_split_size(config, value);
+    }
+    if (strequal(option, "--star-frequency")) {
+        return lrc_pipeline_parse_preprocess_star_frequency(config, value);
+    }
+    if (strequal(option, "--romanization")) {
+        return lrc_pipeline_parse_preprocess_romanization(config, value);
+    }
+    if (strequal(option, "--language")) {
+        return lrc_pipeline_parse_preprocess_language(config, value);
+    }
     if (strequal(option, "--emissions")) {
         return raw_parse_emissions(config, value);
     }
@@ -254,6 +271,18 @@ raw_parse_long_value(
         config->ctc_debug_dump_path = value;
         return true;
     }
+    if (raw_long_option_value(arg, "--split-size", &value)) {
+        return lrc_pipeline_parse_preprocess_split_size(config, value);
+    }
+    if (raw_long_option_value(arg, "--star-frequency", &value)) {
+        return lrc_pipeline_parse_preprocess_star_frequency(config, value);
+    }
+    if (raw_long_option_value(arg, "--romanization", &value)) {
+        return lrc_pipeline_parse_preprocess_romanization(config, value);
+    }
+    if (raw_long_option_value(arg, "--language", &value)) {
+        return lrc_pipeline_parse_preprocess_language(config, value);
+    }
     if (raw_long_option_value(arg, "--emissions", &value)) {
         return raw_parse_emissions(config, value);
     }
@@ -274,6 +303,10 @@ raw_option_needs_value(char *option) {
            || strequal(option, "--ffmpeg")
            || strequal(option, "--temp-dir")
            || strequal(option, "--ctc-debug-dump")
+           || strequal(option, "--split-size")
+           || strequal(option, "--star-frequency")
+           || strequal(option, "--romanization")
+           || strequal(option, "--language")
            || strequal(option, "--emissions");
 }
 
@@ -291,6 +324,10 @@ raw_parse_args(
         }
         if (strequal(argv[i], "--keep-temp-files")) {
             config->keep_temp_files = true;
+            continue;
+        }
+        if (strequal(argv[i], "--romanize")) {
+            lrc_pipeline_enable_preprocess_romanization(config);
             continue;
         }
         if (raw_parse_long_value(config, argv[i])) {

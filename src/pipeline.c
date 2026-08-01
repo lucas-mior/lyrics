@@ -740,6 +740,132 @@ lrc_pipeline_preprocess_romanization_name(
     }
 }
 
+static bool
+lrc_pipeline_parse_preprocess_split_size(
+    LrcPipelineConfig *config,
+    char *value
+) {
+    if ((config == NULL) || (value == NULL)) {
+        return false;
+    }
+
+    if (strequal(value, "current")) {
+        config->lyrics_preprocess_options.split_size =
+            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
+        return true;
+    }
+    if (strequal(value, "word")) {
+        config->lyrics_preprocess_options.split_size =
+            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
+        return true;
+    }
+    if (strequal(value, "char")) {
+        config->lyrics_preprocess_options.split_size =
+            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR;
+        return true;
+    }
+    if (strequal(value, "sentence")) {
+        config->lyrics_preprocess_options.split_size =
+            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_SENTENCE;
+        return true;
+    }
+
+    error2("--split-size must be current, word, char, or sentence\n");
+
+    return false;
+}
+
+static bool
+lrc_pipeline_parse_preprocess_star_frequency(
+    LrcPipelineConfig *config,
+    char *value
+) {
+    if ((config == NULL) || (value == NULL)) {
+        return false;
+    }
+
+    if (strequal(value, "none")) {
+        config->lyrics_preprocess_options.star_frequency =
+            LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE;
+        return true;
+    }
+    if (strequal(value, "edges")) {
+        config->lyrics_preprocess_options.star_frequency =
+            LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES;
+        return true;
+    }
+    if (strequal(value, "segment")) {
+        config->lyrics_preprocess_options.star_frequency =
+            LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT;
+        return true;
+    }
+
+    error2("--star-frequency must be none, edges, or segment\n");
+
+    return false;
+}
+
+static bool
+lrc_pipeline_parse_preprocess_romanization(
+    LrcPipelineConfig *config,
+    char *value
+) {
+    if ((config == NULL) || (value == NULL)) {
+        return false;
+    }
+
+    if (strequal(value, "off")) {
+        config->lyrics_preprocess_options.romanization =
+            LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
+        return true;
+    }
+    if (strequal(value, "icu")) {
+        config->lyrics_preprocess_options.romanization =
+            LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
+        return true;
+    }
+
+    error2("--romanization must be off or icu\n");
+
+    return false;
+}
+
+static void
+lrc_pipeline_enable_preprocess_romanization(LrcPipelineConfig *config) {
+    if (config == NULL) {
+        return;
+    }
+
+    config->lyrics_preprocess_options.romanization =
+        LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
+
+    return;
+}
+
+static bool
+lrc_pipeline_parse_preprocess_language(
+    LrcPipelineConfig *config,
+    char *value
+) {
+    int32 value_len;
+
+    if ((config == NULL) || (value == NULL)) {
+        return false;
+    }
+
+    value_len = strlen32(value);
+    if (value_len != 3) {
+        error2("--language must be a 3-letter language code\n");
+        return false;
+    }
+
+    memcpy64(config->lyrics_preprocess_options.language, value, value_len);
+    config->lyrics_preprocess_options.language[value_len] = '\0';
+    config->lyrics_preprocess_options.language_len = value_len;
+
+    return true;
+}
+
 static void
 lrc_ctc_debug_dump_write_config(
     LrcCtcDebugDumpWriter *writer,
@@ -3718,6 +3844,50 @@ pipeline_test_ctc_debug_dump_word_spans(void) {
 }
 
 static int32
+pipeline_test_preprocess_option_parsers(void) {
+    LrcPipelineConfig config;
+
+    lrc_pipeline_config_init(&config);
+
+    ASSERT(lrc_pipeline_parse_preprocess_split_size(&config, "word"));
+    ASSERT(config.lyrics_preprocess_options.split_size
+           == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD);
+    ASSERT(lrc_pipeline_parse_preprocess_split_size(&config, "char"));
+    ASSERT(config.lyrics_preprocess_options.split_size
+           == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR);
+    ASSERT(lrc_pipeline_parse_preprocess_split_size(&config, "current"));
+    ASSERT(config.lyrics_preprocess_options.split_size
+           == LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT);
+
+    ASSERT(lrc_pipeline_parse_preprocess_star_frequency(&config, "none"));
+    ASSERT(config.lyrics_preprocess_options.star_frequency
+           == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE);
+    ASSERT(lrc_pipeline_parse_preprocess_star_frequency(&config, "segment"));
+    ASSERT(config.lyrics_preprocess_options.star_frequency
+           == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT);
+    ASSERT(lrc_pipeline_parse_preprocess_star_frequency(&config, "edges"));
+    ASSERT(config.lyrics_preprocess_options.star_frequency
+           == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
+
+    ASSERT(lrc_pipeline_parse_preprocess_romanization(&config, "icu"));
+    ASSERT(config.lyrics_preprocess_options.romanization
+           == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
+    ASSERT(lrc_pipeline_parse_preprocess_romanization(&config, "off"));
+    ASSERT(config.lyrics_preprocess_options.romanization
+           == LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF);
+    lrc_pipeline_enable_preprocess_romanization(&config);
+    ASSERT(config.lyrics_preprocess_options.romanization
+           == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
+
+    ASSERT(lrc_pipeline_parse_preprocess_language(&config, "rus"));
+    ASSERT(strequal2(config.lyrics_preprocess_options.language,
+                     config.lyrics_preprocess_options.language_len,
+                     STRLIT("rus")));
+
+    return 0;
+}
+
+static int32
 pipeline_test_config_defaults(void) {
     LrcPipelineConfig config;
     LrcPipeline pipeline;
@@ -4215,6 +4385,9 @@ pipeline_test_optional_maxwell_config(void) {
 
 int32
 main(void) {
+    if (pipeline_test_preprocess_option_parsers() != 0) {
+        exit(1);
+    }
     if (pipeline_test_ctc_debug_dump_escape() != 0) {
         exit(1);
     }
