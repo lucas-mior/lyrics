@@ -1076,6 +1076,184 @@ lrc_ctc_debug_dump_write_path_segments(
     return;
 }
 
+
+static void
+lrc_ctc_debug_dump_write_word_span_text(
+    LrcCtcDebugDumpWriter *writer,
+    LrcLyricsNormalized *normalized,
+    LrcCtcWordSpan *word
+) {
+    int32 text_len;
+
+    if ((normalized == NULL) || (word == NULL)
+        || (normalized->text == NULL)
+        || (word->normalized_start < 0)
+        || (word->normalized_end < word->normalized_start)
+        || (word->normalized_end > normalized->text_len)) {
+        lrc_ctc_debug_dump_write_escaped_text(writer, STRLIT("<invalid>"));
+        return;
+    }
+
+    text_len = word->normalized_end - word->normalized_start;
+    lrc_ctc_debug_dump_write_escaped_text(writer,
+                                          normalized->text
+                                          + word->normalized_start,
+                                          text_len);
+
+    return;
+}
+
+static void
+lrc_ctc_debug_dump_write_word_spans(
+    LrcCtcDebugDumpWriter *writer,
+    char *section_name,
+    LrcLyricsNormalized *normalized,
+    LrcCtcWordSpans *word_spans
+) {
+    lrc_ctc_debug_dump_write_section(writer, section_name);
+    lrc_ctc_debug_dump_printf(
+        writer,
+        "index\tline_index\tword_index\ttext\tnormalized_start\t"
+        "normalized_end\ttoken_start_index\ttoken_end_index\t"
+        "span_start_index\tspan_end_index\tstart_seconds\t"
+        "end_seconds\tscore\n"
+    );
+    if (word_spans == NULL) {
+        return;
+    }
+
+    for (int64 i = 0; i < word_spans->span_count; i += 1) {
+        LrcCtcWordSpan *word;
+
+        word = word_spans->spans + i;
+        lrc_ctc_debug_dump_printf(writer,
+                                  "%lld\t%d\t%lld\t",
+                                  i,
+                                  word->line_index,
+                                  word->word_index);
+        lrc_ctc_debug_dump_write_word_span_text(writer, normalized, word);
+        lrc_ctc_debug_dump_printf(
+            writer,
+            "\t%d\t%d\t%lld\t%lld\t%lld\t%lld\t%.9g\t%.9g\t%.9g\n",
+            word->normalized_start,
+            word->normalized_end,
+            word->token_start_index,
+            word->token_end_index,
+            word->span_start_index,
+            word->span_end_index,
+            word->start_seconds,
+            word->end_seconds,
+            word->score
+        );
+    }
+
+    return;
+}
+
+static bool
+lrc_pipeline_debug_dump_check_writer(
+    LrcPipeline *pipeline,
+    LrcCtcDebugDumpWriter *writer,
+    LrcPipelineGenerateResult *result
+) {
+    if ((writer == NULL) || writer->ok) {
+        return true;
+    }
+
+    lrc_pipeline_generate_result_set(
+        result,
+        LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+        "could not write CTC debug dump",
+        pipeline->config.ctc_debug_dump_path
+    );
+
+    return false;
+}
+
+static bool
+lrc_pipeline_debug_dump_write_active_word_spans(
+    LrcPipeline *pipeline,
+    LrcCtcDebugDumpWriter *writer,
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    LrcCtcTokenizedText *tokens,
+    LrcLyricsNormalized *normalized,
+    float frame_duration_seconds,
+    LrcCtcAlignResult *align_result,
+    LrcPipelineGenerateResult *result
+) {
+    LrcCtcTokenSpans active_token_spans;
+    LrcCtcWordSpans active_word_spans;
+    bool ok;
+
+    if (!lrc_pipeline_debug_dump_enabled(pipeline)) {
+        return true;
+    }
+
+    lrc_ctc_token_spans_init(&active_token_spans);
+    lrc_ctc_word_spans_init(&active_word_spans);
+
+    ok = lrc_ctc_path_to_token_spans(path,
+                                     emissions,
+                                     frame_duration_seconds,
+                                     &active_token_spans,
+                                     align_result);
+    if (ok) {
+        ok = lrc_ctc_token_spans_to_word_spans(&active_token_spans,
+                                               tokens,
+                                               normalized,
+                                               &active_word_spans,
+                                               align_result);
+    }
+    if (ok) {
+        lrc_ctc_debug_dump_write_word_spans(writer,
+                                            "word_spans_before_padding",
+                                            normalized,
+                                            &active_word_spans);
+    }
+
+    lrc_ctc_word_spans_destroy(&active_word_spans);
+    lrc_ctc_token_spans_destroy(&active_token_spans);
+
+    if (!ok) {
+        char *message;
+
+        message = "could not build active CTC word spans";
+        if (align_result) {
+            message = align_result->message;
+        }
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            message,
+            NULL
+        );
+        return false;
+    }
+
+    return lrc_pipeline_debug_dump_check_writer(pipeline, writer, result);
+}
+
+static bool
+lrc_pipeline_debug_dump_write_padded_word_spans(
+    LrcPipeline *pipeline,
+    LrcCtcDebugDumpWriter *writer,
+    LrcLyricsNormalized *normalized,
+    LrcCtcWordSpans *word_spans,
+    LrcPipelineGenerateResult *result
+) {
+    if (!lrc_pipeline_debug_dump_enabled(pipeline)) {
+        return true;
+    }
+
+    lrc_ctc_debug_dump_write_word_spans(writer,
+                                        "word_spans_after_padding",
+                                        normalized,
+                                        word_spans);
+
+    return lrc_pipeline_debug_dump_check_writer(pipeline, writer, result);
+}
+
 static bool
 lrc_pipeline_debug_dump_write_path_segments(
     LrcPipeline *pipeline,
@@ -1966,6 +2144,19 @@ lrc_pipeline_generate_lrc(
     )) {
         ok = false;
     }
+    if (ok && !lrc_pipeline_debug_dump_write_active_word_spans(
+        pipeline,
+        &debug_dump,
+        &path,
+        &emissions,
+        &tokens,
+        &normalized,
+        frame_duration_seconds,
+        &align_result,
+        result
+    )) {
+        ok = false;
+    }
     if (ok && !lrc_pipeline_path_to_padded_token_spans(
         pipeline,
         &path,
@@ -1992,6 +2183,15 @@ lrc_pipeline_generate_lrc(
             align_result.message,
             NULL
         );
+        ok = false;
+    }
+    if (ok && !lrc_pipeline_debug_dump_write_padded_word_spans(
+        pipeline,
+        &debug_dump,
+        &normalized,
+        &word_spans,
+        result
+    )) {
         ok = false;
     }
     if (ok && !lrc_ctc_word_spans_to_line_timestamps(&word_spans,
@@ -3372,6 +3572,151 @@ pipeline_test_ctc_debug_dump_path_segments(void) {
     return 0;
 }
 
+
+static int32
+pipeline_test_ctc_debug_dump_word_spans(void) {
+    LrcCtcDebugDumpWriter writer;
+    LrcLyricsNormalized normalized;
+    LrcCtcWordSpans before_spans;
+    LrcCtcWordSpans after_spans;
+    char temp_dir[PATH_MAX];
+    char dump_path[PATH_MAX];
+    char normalized_text[] = "Ich sehe";
+    LrcCtcWordSpan before[] = {
+        {
+            .word_index = 0,
+            .token_start_index = 0,
+            .token_end_index = 3,
+            .span_start_index = 0,
+            .span_end_index = 3,
+            .normalized_start = 0,
+            .normalized_end = 3,
+            .line_index = 0,
+            .start_seconds = 1.0f,
+            .end_seconds = 1.5f,
+            .score = -1.0f,
+        },
+        {
+            .word_index = 1,
+            .token_start_index = 3,
+            .token_end_index = 7,
+            .span_start_index = 3,
+            .span_end_index = 7,
+            .normalized_start = 4,
+            .normalized_end = 8,
+            .line_index = 0,
+            .start_seconds = 2.0f,
+            .end_seconds = 2.25f,
+            .score = -2.0f,
+        },
+    };
+    LrcCtcWordSpan after[] = {
+        {
+            .word_index = 0,
+            .token_start_index = 0,
+            .token_end_index = 3,
+            .span_start_index = 0,
+            .span_end_index = 3,
+            .normalized_start = 0,
+            .normalized_end = 3,
+            .line_index = 0,
+            .start_seconds = 0.5f,
+            .end_seconds = 1.75f,
+            .score = -1.0f,
+        },
+        {
+            .word_index = 1,
+            .token_start_index = 3,
+            .token_end_index = 7,
+            .span_start_index = 3,
+            .span_end_index = 7,
+            .normalized_start = 4,
+            .normalized_end = 8,
+            .line_index = 0,
+            .start_seconds = 1.75f,
+            .end_seconds = 3.0f,
+            .score = -2.0f,
+        },
+    };
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_dump_word_spans");
+    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+                            "dump.txt");
+
+    lrc_lyrics_normalized_init(&normalized);
+    normalized.text = normalized_text;
+    normalized.text_len = strlen32(normalized.text);
+    before_spans.spans = before;
+    before_spans.span_count = LENGTH(before);
+    before_spans.span_cap = LENGTH(before);
+    after_spans.spans = after;
+    after_spans.span_count = LENGTH(after);
+    after_spans.span_cap = LENGTH(after);
+
+    if (!lrc_ctc_debug_dump_writer_open(&writer, dump_path)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("open debug dump word spans");
+    }
+    lrc_ctc_debug_dump_write_word_spans(&writer,
+                                        "word_spans_before_padding",
+                                        &normalized,
+                                        &before_spans);
+    lrc_ctc_debug_dump_write_word_spans(&writer,
+                                        "word_spans_after_padding",
+                                        &normalized,
+                                        &after_spans);
+    if (!lrc_ctc_debug_dump_writer_close(&writer)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("close debug dump word spans");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("[word_spans_before_padding]\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump before word span section");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("[word_spans_after_padding]\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump after word span section");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("index\tline_index\tword_index\ttext\tnormalized_start")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump word span header");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("0\t0\t0\tIch\t0\t3\t0\t3\t0\t3\t1\t1.5\t-1\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump before first word span");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("0\t0\t0\tIch\t0\t3\t0\t3\t0\t3\t0.5\t1.75\t-1\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump after first word span");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("1\t0\t1\tsehe\t4\t8\t3\t7\t3\t7\t1.75\t3\t-2\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump after second word span");
+    }
+
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
 static int32
 pipeline_test_config_defaults(void) {
     LrcPipelineConfig config;
@@ -3880,6 +4225,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_ctc_debug_dump_path_segments() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_ctc_debug_dump_word_spans() != 0) {
         exit(1);
     }
     if (pipeline_test_config_defaults() != 0) {
