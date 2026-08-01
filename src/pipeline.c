@@ -993,6 +993,143 @@ lrc_ctc_debug_dump_write_audio_model(
     return;
 }
 
+static void
+lrc_ctc_debug_dump_write_segment_token_text(
+    LrcCtcDebugDumpWriter *writer,
+    LrcCtcTokenizer *tokenizer,
+    LrcCtcPathSegment *segment
+) {
+    LrcCtcToken *token;
+
+    if (segment == NULL) {
+        lrc_ctc_debug_dump_write_escaped_text(writer, STRLIT("<invalid>"));
+        return;
+    }
+    if (segment->is_star) {
+        lrc_ctc_debug_dump_write_escaped_text(writer, STRLIT("<star>"));
+        return;
+    }
+
+    token = lrc_pipeline_debug_dump_token(tokenizer, segment->token_id);
+    if (token) {
+        lrc_ctc_debug_dump_write_escaped_text(writer,
+                                              token->text,
+                                              token->text_len);
+    } else {
+        lrc_ctc_debug_dump_write_escaped_text(writer, STRLIT("<invalid>"));
+    }
+
+    return;
+}
+
+static void
+lrc_ctc_debug_dump_write_path_segments(
+    LrcCtcDebugDumpWriter *writer,
+    LrcCtcTokenizer *tokenizer,
+    LrcCtcPathSegments *segments
+) {
+    lrc_ctc_debug_dump_write_section(writer, "merged_path_segments");
+    lrc_ctc_debug_dump_printf(
+        writer,
+        "index\ttoken_index\ttoken_id\ttoken_text\tstart_frame\t"
+        "end_frame\tstart_seconds\tend_seconds\tscore\tis_blank\tis_star\n"
+    );
+    if (segments == NULL) {
+        return;
+    }
+
+    for (int64 i = 0; i < segments->segment_count; i += 1) {
+        LrcCtcPathSegment *segment;
+        int32 is_blank;
+        int32 is_star;
+
+        segment = segments->segments + i;
+        is_blank = 0;
+        is_star = 0;
+        if (segment->is_blank) {
+            is_blank = 1;
+        }
+        if (segment->is_star) {
+            is_star = 1;
+        }
+        lrc_ctc_debug_dump_printf(writer,
+                                  "%lld\t%lld\t%d\t",
+                                  i,
+                                  segment->token_index,
+                                  segment->token_id);
+        lrc_ctc_debug_dump_write_segment_token_text(writer,
+                                                    tokenizer,
+                                                    segment);
+        lrc_ctc_debug_dump_printf(
+            writer,
+            "\t%lld\t%lld\t%.9g\t%.9g\t%.9g\t%d\t%d\n",
+            segment->start_frame,
+            segment->end_frame,
+            segment->start_seconds,
+            segment->end_seconds,
+            segment->score,
+            is_blank,
+            is_star
+        );
+    }
+
+    return;
+}
+
+static bool
+lrc_pipeline_debug_dump_write_path_segments(
+    LrcPipeline *pipeline,
+    LrcCtcDebugDumpWriter *writer,
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    LrcCtcTokenizer *tokenizer,
+    float frame_duration_seconds,
+    LrcCtcAlignResult *align_result,
+    LrcPipelineGenerateResult *result
+) {
+    LrcCtcPathSegments segments;
+
+    if (!lrc_pipeline_debug_dump_enabled(pipeline)) {
+        return true;
+    }
+
+    lrc_ctc_path_segments_init(&segments);
+    if (!lrc_ctc_path_to_segments(path,
+                                  emissions,
+                                  frame_duration_seconds,
+                                  &segments,
+                                  align_result)) {
+        char *message;
+
+        message = "could not build merged CTC path segments";
+        if (align_result) {
+            message = align_result->message;
+        }
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            message,
+            NULL
+        );
+        lrc_ctc_path_segments_destroy(&segments);
+        return false;
+    }
+
+    lrc_ctc_debug_dump_write_path_segments(writer, tokenizer, &segments);
+    lrc_ctc_path_segments_destroy(&segments);
+    if (!writer->ok) {
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+            "could not write CTC debug dump",
+            pipeline->config.ctc_debug_dump_path
+        );
+        return false;
+    }
+
+    return true;
+}
+
 static bool
 lrc_pipeline_debug_dump_open_and_write_text(
     LrcPipeline *pipeline,
@@ -1817,6 +1954,18 @@ lrc_pipeline_generate_lrc(
     }
 
     frame_duration_seconds = (float)(input.stride_ms/1000.0);
+    if (ok && !lrc_pipeline_debug_dump_write_path_segments(
+        pipeline,
+        &debug_dump,
+        &path,
+        &emissions,
+        &tokenizer,
+        frame_duration_seconds,
+        &align_result,
+        result
+    )) {
+        ok = false;
+    }
     if (ok && !lrc_pipeline_path_to_padded_token_spans(
         pipeline,
         &path,
@@ -2452,6 +2601,37 @@ lrc_ctc_path_destroy(LrcCtcPath *path) {
     return;
 }
 
+static void
+lrc_ctc_path_segments_init(LrcCtcPathSegments *segments) {
+    memset64(segments, 0, SIZEOF(*segments));
+
+    return;
+}
+
+static void
+lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments) {
+    lrc_pipeline_test_noop(segments);
+
+    return;
+}
+
+static bool
+lrc_ctc_path_to_segments(
+    LrcCtcPath *path,
+    LrcCtcEmissions *emissions,
+    float frame_duration_seconds,
+    LrcCtcPathSegments *segments,
+    LrcCtcAlignResult *result
+) {
+    (void)path;
+    (void)emissions;
+    (void)frame_duration_seconds;
+    (void)segments;
+    (void)result;
+
+    return false;
+}
+
 static bool
 lrc_ctc_path_to_token_spans(
     LrcCtcPath *path,
@@ -3065,6 +3245,134 @@ pipeline_test_ctc_debug_dump_audio_model(void) {
 }
 
 static int32
+pipeline_test_ctc_debug_dump_path_segments(void) {
+    LrcCtcDebugDumpWriter writer;
+    LrcCtcPathSegments segments;
+    char temp_dir[PATH_MAX];
+    char dump_path[PATH_MAX];
+    LrcCtcToken tokenizer_tokens[] = {
+        {.text = "", .text_len = 0, .id = 0, .is_blank = true},
+        {.text = "A", .text_len = 1, .id = 1},
+        {.text = "B", .text_len = 1, .id = 2},
+    };
+    LrcCtcTokenizer tokenizer = {
+        .tokens = tokenizer_tokens,
+        .token_count = LENGTH(tokenizer_tokens),
+        .blank_id = 0,
+        .unknown_id = -1,
+    };
+    LrcCtcPathSegment path_segments[] = {
+        {
+            .token_index = -1,
+            .start_frame = 0,
+            .end_frame = 2,
+            .start_seconds = 0.0f,
+            .end_seconds = 2.0f,
+            .score = -1.0f,
+            .token_id = 0,
+            .is_blank = true,
+        },
+        {
+            .token_index = 0,
+            .start_frame = 2,
+            .end_frame = 4,
+            .start_seconds = 2.0f,
+            .end_seconds = 4.0f,
+            .score = -2.0f,
+            .token_id = 1,
+        },
+        {
+            .token_index = -1,
+            .start_frame = 4,
+            .end_frame = 5,
+            .start_seconds = 4.0f,
+            .end_seconds = 5.0f,
+            .score = -2.0f,
+            .token_id = 0,
+            .is_blank = true,
+        },
+        {
+            .token_index = 1,
+            .start_frame = 5,
+            .end_frame = 6,
+            .start_seconds = 5.0f,
+            .end_seconds = 6.0f,
+            .score = -3.0f,
+            .token_id = 2,
+        },
+        {
+            .token_index = -1,
+            .start_frame = 6,
+            .end_frame = 7,
+            .start_seconds = 6.0f,
+            .end_seconds = 7.0f,
+            .score = -4.0f,
+            .token_id = 0,
+            .is_blank = true,
+        },
+    };
+
+    test_make_temp_dir(temp_dir,
+                       SIZEOF(temp_dir),
+                       "ctc_dump_path_segments");
+    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+                            "dump.txt");
+
+    segments.segments = path_segments;
+    segments.segment_count = LENGTH(path_segments);
+    segments.segment_cap = LENGTH(path_segments);
+
+    if (!lrc_ctc_debug_dump_writer_open(&writer, dump_path)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("open debug dump path segments");
+    }
+    lrc_ctc_debug_dump_write_path_segments(&writer, &tokenizer, &segments);
+    if (!lrc_ctc_debug_dump_writer_close(&writer)) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("close debug dump path segments");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("[merged_path_segments]\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump path segment section");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("index\ttoken_index\ttoken_id\ttoken_text")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump path segment header");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("0\t-1\t0\t\t0\t2\t0\t2\t-1\t1\t0\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump first path segment");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("1\t0\t1\tA\t2\t4\t2\t4\t-2\t0\t0\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump second path segment");
+    }
+    if (!pipeline_test_file_contains(
+        dump_path,
+        STRLIT("4\t-1\t0\t\t6\t7\t6\t7\t-4\t1\t0\n")
+    )) {
+        test_remove_tree(temp_dir);
+        return pipeline_test_fail("debug dump fifth path segment");
+    }
+
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+static int32
 pipeline_test_config_defaults(void) {
     LrcPipelineConfig config;
     LrcPipeline pipeline;
@@ -3569,6 +3877,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_ctc_debug_dump_audio_model() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_ctc_debug_dump_path_segments() != 0) {
         exit(1);
     }
     if (pipeline_test_config_defaults() != 0) {
