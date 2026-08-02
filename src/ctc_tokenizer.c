@@ -1,4 +1,4 @@
-#include "lyrics.h"
+#include "lyricsync.h"
 #include "ctc_tokenizer.h"
 
 #include "cbase.h"

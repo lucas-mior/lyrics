@@ -6,7 +6,7 @@
 #include "mdx.h"
 #include "vocals.h"
 #include "ctc_assets.h"
-#include "lyrics_file.h"
+#include "lyrics.h"
 #include "ctc_tokenizer.h"
 #include "ctc_audio.h"
 #include "ctc_model.h"

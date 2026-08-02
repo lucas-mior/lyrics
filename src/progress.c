@@ -2,7 +2,7 @@
 #define LRC_PROGRESS_IMPLEMENTED
 
 #include "cbase.h"
-#include "lyrics.h"
+#include "lyricsync.h"
 #include "progress.h"
 
 #if !defined(TESTING_progress)

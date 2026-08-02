@@ -1,4 +1,4 @@
-#include "lyrics.h"
+#include "lyricsync.h"
 #if !defined(TESTING_ort)
 #define TESTING_ort 0
 #endif

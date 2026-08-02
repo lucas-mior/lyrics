@@ -1,4 +1,4 @@
-#include "lyrics.h"
+#include "lyricsync.h"
 #include "cbase.h"
 #include "vocals.h"
 #include "ort.h"

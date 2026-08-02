@@ -1,4 +1,4 @@
-#include "lyrics.h"
+#include "lyricsync.h"
 #include "unicode_norm.h"
 
 #include "cbase.h"

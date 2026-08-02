@@ -238,7 +238,7 @@ uninstall)
 
     rm -f "${DESTDIR}${PREFIX}/bin/${program}"
     rm -f "${DESTDIR}${PREFIX}/lib/${program}.so"
-    rm -f "${DESTDIR}${PREFIX}/include/lyrics.h"
+    rm -f "${DESTDIR}${PREFIX}/include/lyricsync.h"
     uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
     uninstall_opt "etc" "${DESTDIR}/etc/${program}"
     uninstall_opt \
@@ -260,7 +260,7 @@ install)
 
     install -Dm755 "$program_path" "${DESTDIR}${PREFIX}/bin/${program}"
     install -Dm755 "$library_path" "${DESTDIR}${PREFIX}/lib/${program}.so"
-    install -Dm644 src/lyrics.h "${DESTDIR}${PREFIX}/include/lyrics.h"
+    install -Dm644 src/lyricsync.h "${DESTDIR}${PREFIX}/include/lyricsync.h"
     install_opt \
         -Dm644 "${program}.1" \
         "${DESTDIR}${PREFIX}/man/man1/${program}.1"

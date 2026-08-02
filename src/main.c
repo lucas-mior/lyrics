@@ -8,7 +8,7 @@
 #include "cbase.h"
 
 #define LRC_PIPELINE_ENABLE_GENERATE 1
-#include "lyrics.h"
+#include "lyricsync.h"
 #include "default_models.h"
 
 #include "fftw.c"

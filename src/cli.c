@@ -1,4 +1,4 @@
-#include "lyrics.h"
+#include "lyricsync.h"
 #include "cbase.h"
 #include "cli.h"
 #include "default_models.h"

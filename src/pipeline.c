@@ -6,7 +6,7 @@
 #define LRC_PIPELINE_ENABLE_GENERATE TESTING_pipeline
 #endif
 
-#include "lyrics.h"
+#include "lyricsync.h"
 #include "cbase.h"
 #include "pipeline.h"
 
