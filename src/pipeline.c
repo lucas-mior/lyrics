@@ -1191,9 +1191,9 @@ lrc_ctc_debug_dump_write_path_segments(
             "\t%lld\t%lld\t%.9g\t%.9g\t%.9g\t%d\t%d\n",
             segment->start_frame,
             segment->end_frame,
-            segment->start_seconds,
-            segment->end_seconds,
-            segment->score,
+            (double)segment->start_seconds,
+            (double)segment->end_seconds,
+            (double)segment->score,
             is_blank,
             is_star
         );
@@ -1267,9 +1267,9 @@ lrc_ctc_debug_dump_write_word_spans(
             word->token_end_index,
             word->span_start_index,
             word->span_end_index,
-            word->start_seconds,
-            word->end_seconds,
-            word->score
+            (double)word->start_seconds,
+            (double)word->end_seconds,
+            (double)word->score
         );
     }
 

@@ -31,6 +31,31 @@ audio_io_format_valid(AudioIoFormat *format) {
     return true;
 }
 
+static bool
+audio_opus_sample_rate_valid(int32 sample_rate) {
+    return (sample_rate == 48000)
+           || (sample_rate == 24000)
+           || (sample_rate == 16000)
+           || (sample_rate == 12000)
+           || (sample_rate == 8000);
+}
+
+static void
+audio_prepare_output_format(
+    AudioIoFormat *format,
+    char *container_format
+) {
+    if ((format == NULL) || (container_format == NULL)) {
+        return;
+    }
+    if (strequal(container_format, "opus")
+        && !audio_opus_sample_rate_valid(format->sample_rate)) {
+        format->sample_rate = 48000;
+    }
+
+    return;
+}
+
 static void
 audio_file_info_init(AudioFileInfo *info) {
     info->sample_rate = 0;
@@ -485,6 +510,7 @@ audio_write_file_format(
     } else {
         file_format = buffer_format;
     }
+    audio_prepare_output_format(&file_format, container_format);
     if (!audio_io_format_valid(&file_format)) {
         return false;
     }
