@@ -907,7 +907,21 @@ main_parse_args(MainOptions *options, int32 argc, char **argv) {
     int32 device_id;
     int32 parsed;
 
+    if ((options == NULL) || (argc < 0)) {
+        return false;
+    }
+    if ((argc > 0) && (argv == NULL)) {
+        error2("missing command line argument vector\n");
+        main_mark_usage_error(options);
+        return false;
+    }
+
     for (int32 i = 1; i < argc; i += 1) {
+        if (argv[i] == NULL) {
+            error2("missing command line argument %d\n", i);
+            main_mark_usage_error(options);
+            return false;
+        }
         if (strequal(argv[i], "-h") || strequal(argv[i], "--help")) {
             main_print_usage(stdout);
         }

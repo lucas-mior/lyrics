@@ -372,17 +372,10 @@ mdx_unpack_output(
         return false;
     }
 
-    left_real = malloc2(full_len*SIZEOF(*left_real));
-    left_imag = malloc2(full_len*SIZEOF(*left_imag));
-    right_real = malloc2(full_len*SIZEOF(*right_real));
-    right_imag = malloc2(full_len*SIZEOF(*right_imag));
-
-    for (int64 i = 0; i < full_len; i += 1) {
-        left_real[i] = 0.0f;
-        left_imag[i] = 0.0f;
-        right_real[i] = 0.0f;
-        right_imag[i] = 0.0f;
-    }
+    left_real = malloc2_zero(full_len*SIZEOF(*left_real));
+    left_imag = malloc2_zero(full_len*SIZEOF(*left_imag));
+    right_real = malloc2_zero(full_len*SIZEOF(*right_real));
+    right_imag = malloc2_zero(full_len*SIZEOF(*right_imag));
 
     channel_stride = (int64)config->dim_f*(int64)config->dim_t;
     for (int32 bin = 0; bin < config->dim_f; bin += 1) {

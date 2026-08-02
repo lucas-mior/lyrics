@@ -926,7 +926,7 @@ lrc_ctc_tokenizer_token_id(
 
 static LrcCtcToken *
 lrc_ctc_tokenizer_id_to_token(LrcCtcTokenizer *tokenizer, int32 id) {
-    if (tokenizer == NULL) {
+    if ((tokenizer == NULL) || (tokenizer->tokens == NULL)) {
         return NULL;
     }
     if ((id < 0) || (id >= tokenizer->token_count)) {

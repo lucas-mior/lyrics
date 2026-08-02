@@ -2993,6 +2993,8 @@ lrc_ctc_pad_token_intervals_with_blanks(
     LrcCtcAlignedTokenIntervals *intervals,
     LrcCtcAlignResult *result
 ) {
+    LrcCtcPathSegment *path_segments;
+
     if (result) {
         lrc_ctc_align_result_init(result);
     }
@@ -3002,6 +3004,18 @@ lrc_ctc_pad_token_intervals_with_blanks(
         intervals,
         result
     )) {
+        return false;
+    }
+
+    path_segments = segments->segments;
+    if (path_segments == NULL) {
+        lrc_ctc_align_result_set(
+            result,
+            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            "CTC path segments are empty",
+            -1,
+            -1
+        );
         return false;
     }
 
@@ -3018,7 +3032,7 @@ lrc_ctc_pad_token_intervals_with_blanks(
 
         previous = NULL;
         if (interval->segment_start_index > 0) {
-            previous = segments->segments + interval->segment_start_index - 1;
+            previous = path_segments + interval->segment_start_index - 1;
         }
         if ((previous != NULL) && previous->is_blank) {
             if (i == 0) {
@@ -3030,7 +3044,7 @@ lrc_ctc_pad_token_intervals_with_blanks(
 
         next = NULL;
         if (interval->segment_end_index < segments->segment_count) {
-            next = segments->segments + interval->segment_end_index;
+            next = path_segments + interval->segment_end_index;
         }
         if ((next != NULL) && next->is_blank) {
             if (i == intervals->interval_count - 1) {

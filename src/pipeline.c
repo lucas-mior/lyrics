@@ -948,7 +948,7 @@ lrc_pipeline_debug_dump_token(
     LrcCtcTokenizer *tokenizer,
     int32 token_id
 ) {
-    if (tokenizer == NULL) {
+    if ((tokenizer == NULL) || (tokenizer->tokens == NULL)) {
         return NULL;
     }
     if ((token_id < 0) || (token_id >= tokenizer->token_count)) {

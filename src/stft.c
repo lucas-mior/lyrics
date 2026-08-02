@@ -155,15 +155,13 @@ stft_inverse_channel(
         || (plan->complex_count <= 0)) {
         return false;
     }
-    if ((output_len < 0)
+    if ((output_len <= 0)
+        || (frame_count <= 0)
         || (frame_count != stft_frame_count(plan, output_len))) {
         return false;
     }
 
-    norm = NULL;
-    if (output_len > 0) {
-        norm = malloc2(output_len*SIZEOF(*norm));
-    }
+    norm = malloc2(output_len*SIZEOF(*norm));
 
     for (int64 i = 0; i < output_len; i += 1) {
         output[i] = 0.0f;
@@ -181,9 +179,7 @@ stft_inverse_channel(
                                plan->real,
                                plan->imag,
                                plan->inverse)) {
-            if (norm) {
-                free2(norm, output_len*SIZEOF(*norm));
-            }
+            free2(norm, output_len*SIZEOF(*norm));
             return false;
         }
 
@@ -209,9 +205,7 @@ stft_inverse_channel(
         }
     }
 
-    if (norm) {
-        free2(norm, output_len*SIZEOF(*norm));
-    }
+    free2(norm, output_len*SIZEOF(*norm));
 
     return true;
 }
