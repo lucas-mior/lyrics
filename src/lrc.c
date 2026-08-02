@@ -1313,6 +1313,26 @@ lrc_test_format_timestamped_line_preserves_text(void) {
 }
 
 static int32
+lrc_test_format_timestamped_empty_line(void) {
+    LrcFormatResult result;
+    StrBuilder builder;
+
+    sb_init(&builder);
+    if (!lrc_format_timestamped_line(&builder,
+                                      3.40f,
+                                      NULL,
+                                      0,
+                                      &result)) {
+        return lrc_test_fail("format timestamped empty line");
+    }
+    ASSERT(strequal(builder.data, "[00:03.40]"));
+
+    sb_free(&builder);
+
+    return 0;
+}
+
+static int32
 lrc_test_format_reject_bad_inputs(void) {
     LrcFormatResult result;
     StrBuilder builder;
@@ -1432,6 +1452,55 @@ lrc_test_write_generated_file(void) {
     }
     ASSERT(result.error == LRC_WRITE_ERROR_NONE);
     ASSERT(util_file_exists(path));
+
+    text = read_entire_file(path, &text_len);
+    ASSERT(text_len == strlen32(expected));
+    ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
+
+    free2(text, ((int64)text_len + 1)*SIZEOF(*text));
+    test_remove_tree(temp_dir);
+
+    return 0;
+}
+
+static int32
+lrc_test_write_timestamped_empty_line(void) {
+    LrcOutputLine lines[3];
+    LrcWriteResult result;
+    char temp_dir[PATH_MAX];
+    char path[PATH_MAX];
+    char first[] = "First";
+    char empty[] = "";
+    char second[] = "Second";
+    char expected[] = "[00:01.00]First\n"
+                      "[00:03.40]\n"
+                      "[00:07.58]Second\n";
+    char *text;
+    int32 text_len;
+
+    test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_empty_line");
+    lrc_test_output_path(path, SIZEOF(path), temp_dir);
+
+    lrc_test_set_output_line(lines + 0,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             100,
+                             first,
+                             strlen32(first));
+    lrc_test_set_output_line(lines + 1,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             340,
+                             empty,
+                             strlen32(empty));
+    lrc_test_set_output_line(lines + 2,
+                             LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
+                             758,
+                             second,
+                             strlen32(second));
+
+    if (!lrc_write_output_file(path, lines, 3, &result)) {
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("write timestamped empty lrc line");
+    }
 
     text = read_entire_file(path, &text_len);
     ASSERT(text_len == strlen32(expected));
@@ -1820,10 +1889,16 @@ main(void) {
     if (lrc_test_format_timestamped_line_preserves_text() != 0) {
         exit(1);
     }
+    if (lrc_test_format_timestamped_empty_line() != 0) {
+        exit(1);
+    }
     if (lrc_test_format_reject_bad_inputs() != 0) {
         exit(1);
     }
     if (lrc_test_write_generated_file() != 0) {
+        exit(1);
+    }
+    if (lrc_test_write_timestamped_empty_line() != 0) {
         exit(1);
     }
     if (lrc_test_write_overwrites_existing_file() != 0) {
