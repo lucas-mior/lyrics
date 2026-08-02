@@ -2,19 +2,15 @@
 
 C prototype for the lyric timestamp generation pipeline.
 
-The repository is organized around three executable entry points:
+The repository now builds a single executable from `src/main.c`. Runtime mode is
+selected by the input arguments:
 
-1. `src/main_get_voice.c`
-   - Takes an original music file and extracts the voice stem.
-2. `src/main_gen_lrc_raw.c`
-   - Takes an already extracted voice audio file plus plain-text lyrics and
-     writes an `.lrc` file.
-3. `src/main_gen_lrc.c`
-   - Takes original music plus plain-text lyrics, extracts the voice, and then
-     writes an `.lrc` file.
+- `--input-song PATH` extracts vocals from the original song.
+- `--input-vocals PATH` skips extraction and uses an existing vocals file.
+- `--input-lyrics PATH` enables LRC generation.
+- Omitting `--input-lyrics` runs vocals-output mode only.
 
-`src/main.c` is kept as a compatibility wrapper for `src/main_get_voice.c`.
-New build commands use the explicit main files above.
+Passing both `--input-song` and `--input-vocals` is an error.
 
 ## Reference working for separating vocals
 
@@ -36,46 +32,53 @@ audio-separator Paranoid.flac \
 
 ## Build and run
 
-Build all configured executables:
+Build the executable:
 
 ```sh
 ./build.sh build
 ```
 
-Build one executable:
+Run extraction only:
 
 ```sh
-./build.sh build get_voice
-./build.sh build gen_lrc_raw
-./build.sh build gen_lrc
+./build.sh run --input-song song.mp3 --output-vocals vocals.opus
 ```
 
-Run the current voice extraction executable:
+Extract vocals and generate synced lyrics:
 
 ```sh
-./build.sh run get_voice
+./build.sh run \
+    --input-song song.mp3 \
+    --input-lyrics full_lyrics.txt \
+    --output-vocals vocals.opus \
+    --output-lrc synced_lyrics.lrc
 ```
 
-The model arguments are optional. If omitted, the executables use the default
+Generate synced lyrics from already extracted vocals:
+
+```sh
+./build.sh run \
+    --input-vocals vocals.opus \
+    --input-lyrics full_lyrics.txt \
+    --output-lrc synced_lyrics.lrc
+```
+
+If `--output-lrc` is omitted, the executable derives it from the input path by
+removing the final extension and appending `.lrc`. For example,
+`song.mp3` becomes `song.lrc`. The derived output is rejected when that file
+already exists.
+
+The model arguments are optional. If omitted, the executable uses the default
 relative paths compiled into `src/default_models.h`.
 
 ## Commands
 
 ```sh
-./build.sh build [app]    # build all executables, or one selected app
-./build.sh run [app]      # build and run one selected app
-./build.sh test [module]  # build and run embedded module tests
-./build.sh check [app]    # run GCC and Clang static analyzers
-./build.sh clean          # remove generated build outputs
-```
-
-Available app names:
-
-```text
-all
-get_voice
-gen_lrc_raw
-gen_lrc
+./build.sh build         # build the executable
+./build.sh run [args]    # build and run the executable
+./build.sh test [module] # build and run embedded module tests
+./build.sh check         # run GCC and Clang static analyzers
+./build.sh clean         # remove generated build outputs
 ```
 
 `./build.sh` without arguments is the same as `./build.sh build`.
@@ -114,5 +117,5 @@ Install an ONNX Runtime package that provides `onnxruntime.pc`, or point
 
 ```sh
 ./build.sh clean
-PKG_CONFIG_PATH=/opt/onnxruntime/lib/pkgconfig ./build.sh build get_voice
+PKG_CONFIG_PATH=/opt/onnxruntime/lib/pkgconfig ./build.sh build
 ```

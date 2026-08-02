@@ -14,22 +14,21 @@ alias trace_off='{ set +x; } 2>/dev/null'
 
 dir=$(dirname "$(readlink -f "$0")")
 program=$(basename "$(readlink -f "$(dirname "$0")")")
-exe="bin/program"
+program_path="bin/$program"
 cd "$dir" || exit
 
-target=${1:-debug}
-target_arg=${2:-}
+target=${1:-build}
+if [ "$#" -gt 0 ]; then
+    shift
+fi
 
-APP=${APP:-${target_arg:-all}}
-GET_VOICE_PROGRAM="bin/${program}-get-voice"
-GEN_LRC_RAW_PROGRAM="bin/${program}-gen-lyrics"
-GEN_LRC_PROGRAM="bin/$program"
-LIBRARY="bin/${program}.so"
-
+target_arg=${1:-}
 DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
+PREFIX=${PREFIX:-/usr/local}
+DESTDIR=${DESTDIR:-}
 
 requested_cc=${CC:-}
-if [ "$target" = "test" ] || [ "$target" = "debug" ] \
+if { [ "$target" = "test" ] || [ "$target" = "debug" ]; } \
    && [ -z "$requested_cc" ] \
    && command -v tcc >/dev/null 2>&1; then
     CC=tcc
@@ -131,10 +130,11 @@ pkg_config_flags=
 
 usage() {
     cat <<'USAGE'
-usage: ./build.sh [command] [app-or-test]
+usage: ./build.sh [command] [args]
 
 commands:
-    build    build all executables, or one selected app
+    build    build the executable
+    run      build and run the executable with the remaining args
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
     check    build with GCC and Clang static analyzers
@@ -143,15 +143,8 @@ commands:
 
 environment:
     CC                   C compiler, default: cc or tcc for tests
-    APP                  app to build/run, default: all for build
     CFLAGS               extra compiler flags
     DEFAULT_LDLIBS       default libraries, default: -lm
-
-available apps:
-    all
-    get_voice
-    gen_lrc_raw
-    gen_lrc
 USAGE
 }
 
@@ -162,20 +155,6 @@ pkg_config_add_flags() {
     trace_off
 
     pkg_config_flags="$pkg_config_flags $flags"
-}
-
-pkg_config_add_optional_flags() {
-    pkg="$1"
-    macro="$2"
-
-    if pkg-config --exists "$pkg"; then
-        trace_on
-        flags=$(pkg-config --cflags --libs "$pkg")
-        trace_off
-
-        CPPFLAGS="$CPPFLAGS -D$macro=1"
-        pkg_config_flags="$pkg_config_flags $flags"
-    fi
 }
 
 setup_pkg_config_flags() {
@@ -197,59 +176,15 @@ setup_pkg_config_flags() {
     pkg_config_add_flags fftw3f
 }
 
-build_app() {
-    app="$1"
-
-    case "$app" in
-    get_voice)
-        source=src/main_get_voice.c
-        output="$GET_VOICE_PROGRAM"
-        app_cppflags=
-        ;;
-    gen_lrc_raw)
-        source=src/main_gen_lrc_raw.c
-        output="$GEN_LRC_RAW_PROGRAM"
-        app_cppflags="-DLRC_CTC_INFERENCE_ENABLE_ORT=1"
-        ;;
-    gen_lrc)
-        source=src/main_gen_lrc.c
-        output="$GEN_LRC_PROGRAM"
-        app_cppflags="-DLRC_CTC_INFERENCE_ENABLE_ORT=1"
-        ;;
-    *)
-        echo "unknown app: $app" >&2
-        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
-        exit 1
-        ;;
-    esac
-
-    mkdir -p "$(dirname "$output")"
-
-    trace_on
-    $CC $CPPFLAGS $app_cppflags $CFLAGS "$source" \
-        $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
-        -o "$output"
-    trace_off
-}
-
 build_program() {
     setup_pkg_config_flags
+    mkdir -p "$(dirname "$program_path")"
 
-    case "$APP" in
-    all)
-        build_app get_voice
-        build_app gen_lrc_raw
-        build_app gen_lrc
-        ;;
-    get_voice|gen_lrc_raw|gen_lrc)
-        build_app "$APP"
-        ;;
-    *)
-        echo "unknown app: $APP" >&2
-        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
-        exit 1
-        ;;
-    esac
+    trace_on
+    $CC $CPPFLAGS -DLRC_CTC_INFERENCE_ENABLE_ORT=1 $CFLAGS src/main.c \
+        $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
+        -o "$program_path"
+    trace_off
 }
 
 install_opt () {
@@ -278,27 +213,36 @@ case "$target" in
 build|all)
     build_program
     ;;
-"uninstall")
+run)
+    build_program
+    trace_on
+    "$program_path" "$@"
+    trace_off
+    ;;
+uninstall)
     trace_on
 
     rm -f "${DESTDIR}${PREFIX}/bin/${program}"
     uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
     uninstall_opt "etc" "${DESTDIR}/etc/${program}"
     uninstall_opt \
-        "${program}.desktop" "${DESTDIR}/usr/share/applications/${program}.desktop"
+        "${program}.desktop" \
+        "${DESTDIR}/usr/share/applications/${program}.desktop"
 
     trace_off
     exit
     ;;
-"install")
+install)
     trace_on
 
-    if [ ! -f "$exe" ]; then
+    if [ ! -f "$program_path" ]; then
         "$0" build
     fi
 
-    install -Dm755 "$exe" "${DESTDIR}${PREFIX}/bin/${program}"
-    install_opt -Dm644 "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
+    install -Dm755 "$program_path" "${DESTDIR}${PREFIX}/bin/${program}"
+    install_opt \
+        -Dm644 "${program}.1" \
+        "${DESTDIR}${PREFIX}/man/man1/${program}.1"
     install_opt -dm755 "etc" "${DESTDIR}/etc/${program}"
     install_opt -Dm755 \
         "${program}.desktop" \
