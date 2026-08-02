@@ -1127,6 +1127,117 @@ lrc_ctc_onnx_model_input_info(
 #endif
 
 static bool
+lrc_ctc_onnx_validate_model_input(
+    LrcCtcModelInput *input,
+    LrcCtcModelIoInfo *input_info,
+    LrcCtcModelInputResult *input_result
+) {
+    LrcCtcModelInput chunk_input;
+
+    if ((input == NULL) || (input_info == NULL)) {
+        lrc_ctc_model_input_result_init(input_result);
+        return false;
+    }
+
+    chunk_input = *input;
+    if (input->chunked && (input->chunk_count > 1)) {
+        chunk_input.sample_count = input->row_sample_count;
+        chunk_input.shape[0] = 1;
+        chunk_input.shape[1] = input->row_sample_count;
+    }
+
+    return lrc_ctc_model_input_validate_model_io(&chunk_input,
+                                                 input_info,
+                                                 input_result);
+}
+
+static bool
+lrc_ctc_onnx_chunk_output_shape(
+    OrtTensor *output,
+    int64 chunk_index,
+    int64 *chunk_emission_count,
+    int64 *vocabulary_size,
+    int64 *chunk_value_count,
+    LrcCtcInferenceResult *result
+) {
+    int64 shape[3];
+    int64 row_count;
+    int64 row_emission_count;
+    int64 total_emission_count;
+    int64 vocab;
+    int64 value_count;
+
+    if ((output == NULL) || (output->data == NULL)
+        || (chunk_emission_count == NULL) || (vocabulary_size == NULL)
+        || (chunk_value_count == NULL)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC chunk output shape arguments are invalid",
+            chunk_index
+        );
+        return false;
+    }
+    *chunk_emission_count = 0;
+    *vocabulary_size = 0;
+    *chunk_value_count = 0;
+
+    if (output->shape_len == 2) {
+        shape[0] = 1;
+        shape[1] = output->shape[0];
+        shape[2] = output->shape[1];
+    } else if (output->shape_len == 3) {
+        shape[0] = output->shape[0];
+        shape[1] = output->shape[1];
+        shape[2] = output->shape[2];
+    } else {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC chunk output must have rank 2 or rank 3",
+            chunk_index
+        );
+        return false;
+    }
+
+    if (!lrc_ctc_emissions_shape_valid(shape,
+                                       3,
+                                       &row_count,
+                                       &row_emission_count,
+                                       &total_emission_count,
+                                       &vocab,
+                                       &value_count,
+                                       result)) {
+        return false;
+    }
+    if (row_count != 1) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC chunk output batch size must be one",
+            chunk_index
+        );
+        return false;
+    }
+    if (output->data_len != value_count) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC chunk output value count does not match shape",
+            chunk_index
+        );
+        return false;
+    }
+
+    *chunk_emission_count = row_emission_count;
+    *vocabulary_size = vocab;
+    *chunk_value_count = value_count;
+    (void)total_emission_count;
+
+    return true;
+}
+
+static bool
 lrc_ctc_onnx_inference_load(
     LrcCtcOnnxInference *onnx,
     char *model_path,
@@ -1183,6 +1294,261 @@ lrc_ctc_onnx_inference_load(
 #endif
 }
 
+#if LRC_CTC_INFERENCE_ENABLE_ORT
+static void
+lrc_ctc_onnx_chunked_free_values(float **values, int64 value_count) {
+    if ((values == NULL) || (*values == NULL)) {
+        return;
+    }
+
+    free2(*values, value_count*SIZEOF(**values));
+    *values = NULL;
+
+    return;
+}
+
+static bool
+lrc_ctc_onnx_chunked_prepare_values(
+    LrcCtcModelInput *input,
+    int64 chunk_value_count,
+    float **values,
+    int64 *value_count,
+    LrcCtcInferenceResult *result
+) {
+    if ((input == NULL) || (values == NULL) || (value_count == NULL)
+        || (chunk_value_count <= 0)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            "CTC chunked output allocation arguments are invalid",
+            -1
+        );
+        return false;
+    }
+    *values = NULL;
+    *value_count = 0;
+
+    if ((input->chunk_count <= 0)
+        || (input->chunk_count > INT64_MAX/chunk_value_count)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            "CTC chunked output tensor is too large",
+            -1
+        );
+        return false;
+    }
+
+    *value_count = input->chunk_count*chunk_value_count;
+    if (*value_count > INT64_MAX/SIZEOF(**values)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            "CTC chunked output copy is too large",
+            -1
+        );
+        *value_count = 0;
+        return false;
+    }
+
+    *values = malloc2(*value_count*SIZEOF(**values));
+
+    return true;
+}
+
+static bool
+lrc_ctc_onnx_run_one_chunk(
+    LrcCtcOnnxInference *onnx,
+    LrcCtcModelInput *input,
+    int64 chunk_index,
+    int64 *shape,
+    OrtTensor *output,
+    LrcCtcInferenceResult *result
+) {
+    OrtTensor input_tensor;
+    int64 sample_offset;
+
+    ort_tensor_init_empty(&input_tensor);
+    ort_tensor_init_empty(output);
+    sample_offset = chunk_index*input->row_sample_count;
+    if (!ort_tensor_create_f32(&onnx->context,
+                               &input_tensor,
+                               input->samples + sample_offset,
+                               input->row_sample_count,
+                               shape,
+                               LRC_CTC_MODEL_INPUT_RANK)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
+            "could not create CTC ONNX chunk input tensor",
+            chunk_index
+        );
+        return false;
+    }
+    if (!ort_model_run_f32(&onnx->context,
+                           &onnx->model,
+                           &input_tensor,
+                           output)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
+            "could not run CTC ONNX chunk inference",
+            chunk_index
+        );
+        ort_tensor_destroy(&onnx->context, &input_tensor);
+        return false;
+    }
+
+    ort_tensor_destroy(&onnx->context, &input_tensor);
+
+    return true;
+}
+
+static bool
+lrc_ctc_onnx_chunked_copy_output(
+    LrcCtcModelInput *input,
+    OrtTensor *output,
+    int64 chunk_index,
+    int64 *chunk_emission_count,
+    int64 *vocabulary_size,
+    int64 *chunk_value_count,
+    float **values,
+    int64 *value_count,
+    LrcCtcInferenceResult *result
+) {
+    int64 current_emission_count;
+    int64 current_vocabulary_size;
+    int64 current_value_count;
+    int64 output_offset;
+
+    if (!lrc_ctc_onnx_chunk_output_shape(output,
+                                         chunk_index,
+                                         &current_emission_count,
+                                         &current_vocabulary_size,
+                                         &current_value_count,
+                                         result)) {
+        return false;
+    }
+
+    if (chunk_index == 0) {
+        *chunk_emission_count = current_emission_count;
+        *vocabulary_size = current_vocabulary_size;
+        *chunk_value_count = current_value_count;
+        if (!lrc_ctc_onnx_chunked_prepare_values(input,
+                                                 *chunk_value_count,
+                                                 values,
+                                                 value_count,
+                                                 result)) {
+            return false;
+        }
+    } else if ((current_emission_count != *chunk_emission_count)
+               || (current_vocabulary_size != *vocabulary_size)
+               || (current_value_count != *chunk_value_count)) {
+        lrc_ctc_inference_result_set(
+            result,
+            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            "CTC chunk output shape changed between chunks",
+            chunk_index
+        );
+        return false;
+    }
+
+    output_offset = chunk_index*(*chunk_value_count);
+    memcpy64(*values + output_offset,
+             output->data,
+             *chunk_value_count*SIZEOF(**values));
+
+    return true;
+}
+
+static bool
+lrc_ctc_onnx_inference_run_chunked(
+    LrcCtcOnnxInference *onnx,
+    LrcCtcModelInput *input,
+    LrcCtcEmissions *emissions,
+    enum LrcCtcEmissionValuesKind values_kind,
+    bool print_progress,
+    LrcCtcInferenceResult *result
+) {
+    LrcProgress progress;
+    OrtTensor output;
+    float *values;
+    int64 input_shape[2];
+    int64 output_shape[3];
+    int64 chunk_emission_count;
+    int64 vocabulary_size;
+    int64 chunk_value_count;
+    int64 value_count;
+    bool ok;
+
+    values = NULL;
+    value_count = 0;
+    chunk_emission_count = 0;
+    vocabulary_size = 0;
+    chunk_value_count = 0;
+    input_shape[0] = 1;
+    input_shape[1] = input->row_sample_count;
+    ok = true;
+
+    lrc_progress_init(&progress,
+                      print_progress,
+                      "run CTC model",
+                      input->chunk_count);
+    lrc_progress_begin(&progress);
+    for (int64 i = 0; i < input->chunk_count; i += 1) {
+        ort_tensor_init_empty(&output);
+        if (!lrc_ctc_onnx_run_one_chunk(onnx,
+                                        input,
+                                        i,
+                                        input_shape,
+                                        &output,
+                                        result)) {
+            ok = false;
+        } else if (!lrc_ctc_onnx_chunked_copy_output(input,
+                                                     &output,
+                                                     i,
+                                                     &chunk_emission_count,
+                                                     &vocabulary_size,
+                                                     &chunk_value_count,
+                                                     &values,
+                                                     &value_count,
+                                                     result)) {
+            ok = false;
+        }
+
+        ort_tensor_destroy(&onnx->context, &output);
+        if (!ok) {
+            break;
+        }
+        lrc_progress_update(&progress, i + 1);
+    }
+
+    if (ok) {
+        lrc_progress_finish(&progress);
+        output_shape[0] = input->chunk_count;
+        output_shape[1] = chunk_emission_count;
+        output_shape[2] = vocabulary_size;
+        ok = lrc_ctc_emissions_build_trimmed_from_model_output(
+            emissions,
+            input,
+            values,
+            value_count,
+            output_shape,
+            3,
+            values_kind,
+            print_progress,
+            result
+        );
+    } else {
+        lrc_progress_cancel(&progress);
+    }
+
+    lrc_ctc_onnx_chunked_free_values(&values, value_count);
+
+    return ok;
+}
+#endif
+
 static bool
 lrc_ctc_onnx_inference_run(
     void *backend,
@@ -1212,9 +1578,9 @@ lrc_ctc_onnx_inference_run(
         return false;
     }
     if (!lrc_ctc_onnx_model_input_info(onnx, &input_info)
-        || !lrc_ctc_model_input_validate_model_io(input,
-                                                  &input_info,
-                                                  &input_result)) {
+        || !lrc_ctc_onnx_validate_model_input(input,
+                                              &input_info,
+                                              &input_result)) {
         lrc_ctc_inference_result_set(
             result,
             LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
@@ -1222,6 +1588,15 @@ lrc_ctc_onnx_inference_run(
             -1
         );
         return false;
+    }
+
+    if (input->chunked && (input->chunk_count > 1)) {
+        return lrc_ctc_onnx_inference_run_chunked(onnx,
+                                                  input,
+                                                  emissions,
+                                                  values_kind,
+                                                  print_progress,
+                                                  result);
     }
 
     ort_tensor_init_empty(&input_tensor);
@@ -2173,6 +2548,67 @@ ctc_inference_test_progress_counts_chunks(void) {
 }
 
 static int32
+ctc_inference_test_onnx_chunk_output_shape(void) {
+    LrcCtcInferenceResult result;
+    OrtTensor output;
+    float values[12];
+    int64 chunk_emission_count;
+    int64 vocabulary_size;
+    int64 chunk_value_count;
+
+    lrc_ctc_inference_result_init(&result);
+    memset64(&output, 0, SIZEOF(output));
+    output.data = values;
+    output.data_len = LENGTH(values);
+    output.shape_len = 3;
+    output.shape[0] = 1;
+    output.shape[1] = 3;
+    output.shape[2] = 4;
+    if (!lrc_ctc_onnx_chunk_output_shape(&output,
+                                         0,
+                                         &chunk_emission_count,
+                                         &vocabulary_size,
+                                         &chunk_value_count,
+                                         &result)) {
+        return ctc_inference_test_fail("accept rank-3 chunk output");
+    }
+    ASSERT(chunk_emission_count == 3);
+    ASSERT(vocabulary_size == 4);
+    ASSERT(chunk_value_count == LENGTH(values));
+
+    output.shape_len = 2;
+    output.shape[0] = 6;
+    output.shape[1] = 2;
+    if (!lrc_ctc_onnx_chunk_output_shape(&output,
+                                         0,
+                                         &chunk_emission_count,
+                                         &vocabulary_size,
+                                         &chunk_value_count,
+                                         &result)) {
+        return ctc_inference_test_fail("accept rank-2 chunk output");
+    }
+    ASSERT(chunk_emission_count == 6);
+    ASSERT(vocabulary_size == 2);
+    ASSERT(chunk_value_count == LENGTH(values));
+
+    output.shape_len = 3;
+    output.shape[0] = 2;
+    output.shape[1] = 3;
+    output.shape[2] = 2;
+    if (lrc_ctc_onnx_chunk_output_shape(&output,
+                                        0,
+                                        &chunk_emission_count,
+                                        &vocabulary_size,
+                                        &chunk_value_count,
+                                        &result)) {
+        return ctc_inference_test_fail("multi-row chunk output accepted");
+    }
+    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT);
+
+    return 0;
+}
+
+static int32
 ctc_inference_test_rank3_rejects_mismatched_chunks(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
@@ -2564,6 +3000,9 @@ main(void) {
         exit(1);
     }
     if (ctc_inference_test_progress_counts_chunks() != 0) {
+        exit(1);
+    }
+    if (ctc_inference_test_onnx_chunk_output_shape() != 0) {
         exit(1);
     }
     if (ctc_inference_test_rank3_rejects_mismatched_chunks() != 0) {

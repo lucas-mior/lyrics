@@ -68,13 +68,17 @@ removing the final extension and appending `.lrc`. For example,
 `song.mp3` becomes `song.lrc`. The derived output is rejected when that file
 already exists.
 
-The model arguments are optional. If omitted, the executable uses the default
-relative paths compiled into `src/default_models.h`.
+The model arguments are optional. If omitted, development builds use the
+relative `models/` directory by default. Installed builds use the model
+directory below the configured installation prefix.
 
 ## Commands
 
 ```sh
 ./build.sh build         # build the executable
+./build.sh lib           # build the shared library
+./build.sh install       # install program, library, header, and models
+./build.sh uninstall     # remove installed program, library, header, models
 ./build.sh run [args]    # build and run the executable
 ./build.sh test [module] # build and run embedded module tests
 ./build.sh check         # run GCC and Clang static analyzers
@@ -100,6 +104,25 @@ models/UVR-MDX-NET-Voc_FT.onnx
 models/mms-onnx/onnx/model.onnx
 models/mms-onnx/tokens.txt
 ```
+
+During `./build.sh install`, the executable and shared library are rebuilt with
+the installed model directory as their compiled default:
+
+```text
+${PREFIX}/share/lyricsync/models/UVR-MDX-NET-Voc_FT.onnx
+${PREFIX}/share/lyricsync/models/mms-onnx/onnx/model.onnx
+${PREFIX}/share/lyricsync/models/mms-onnx/tokens.txt
+```
+
+The install target copies the repository `models/` tree to:
+
+```text
+${DESTDIR}${PREFIX}/share/lyricsync/models
+```
+
+`DESTDIR` is only a staging root and is not compiled into the binaries.
+Override `DEFAULT_MODEL_DIR` when building manually if a different compiled
+model directory is needed.
 
 Command-line options still override these defaults. The existing environment
 variables are still checked before falling back to the compiled defaults:

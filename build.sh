@@ -13,7 +13,7 @@ alias trace_on='set -x'
 alias trace_off='{ set +x; } 2>/dev/null'
 
 dir=$(dirname "$(readlink -f "$0")")
-program=$(basename "$(readlink -f "$(dirname "$0")")")
+program=lyricsync
 program_path="bin/$program"
 library_path="bin/$program.so"
 cd "$dir" || exit
@@ -27,6 +27,7 @@ target_arg=${1:-}
 DEFAULT_LDLIBS=${DEFAULT_LDLIBS:-"-lm"}
 PREFIX=${PREFIX:-/usr/local}
 DESTDIR=${DESTDIR:-}
+DEFAULT_MODEL_DIR=${DEFAULT_MODEL_DIR:-models}
 
 requested_cc=${CC:-}
 if { [ "$target" = "test" ] || [ "$target" = "debug" ]; } \
@@ -128,6 +129,7 @@ else
 fi
 
 pkg_config_flags=
+pkg_config_setup_done=0
 
 usage() {
     cat <<'USAGE'
@@ -148,6 +150,7 @@ environment:
     CC                   C compiler, default: cc or tcc for tests
     CFLAGS               extra compiler flags
     DEFAULT_LDLIBS       default libraries, default: -lm
+    DEFAULT_MODEL_DIR    compiled model directory, default: models
 USAGE
 }
 
@@ -161,6 +164,10 @@ pkg_config_add_flags() {
 }
 
 setup_pkg_config_flags() {
+    if [ "$pkg_config_setup_done" -ne 0 ]; then
+        return
+    fi
+
     if ! command -v pkg-config >/dev/null 2>&1; then
         echo "missing required command: pkg-config" >&2
         exit 1
@@ -177,16 +184,33 @@ setup_pkg_config_flags() {
 
     pkg_config_add_flags libonnxruntime
     pkg_config_add_flags fftw3f
+    pkg_config_setup_done=1
 }
 
 build_program() {
+    model_cppflags="-DLRC_DEFAULT_MODEL_DIR=\"$DEFAULT_MODEL_DIR\""
+
     setup_pkg_config_flags
     mkdir -p "$(dirname "$program_path")"
 
     trace_on
-    $CC $CPPFLAGS -DLRC_CTC_INFERENCE_ENABLE_ORT=1 $CFLAGS src/main.c \
-        $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
+    $CC $CPPFLAGS $model_cppflags -DLRC_CTC_INFERENCE_ENABLE_ORT=1 \
+        $CFLAGS src/main.c $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
         -o "$program_path"
+    trace_off
+}
+
+build_library() {
+    model_cppflags="-DLRC_DEFAULT_MODEL_DIR=\"$DEFAULT_MODEL_DIR\""
+
+    setup_pkg_config_flags
+    mkdir -p "$(dirname "$library_path")"
+
+    trace_on
+    $CC $CPPFLAGS $model_cppflags -DLRC_CTC_INFERENCE_ENABLE_ORT=1 \
+        $CFLAGS -DLYRICS_BUILD_SHARED=1 -fPIC -shared src/main.c \
+        $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
+        -o "$library_path"
     trace_off
 }
 
@@ -217,15 +241,7 @@ build|all)
     build_program
     ;;
 lib)
-    setup_pkg_config_flags
-    mkdir -p "$(dirname "$library_path")"
-
-    trace_on
-    $CC $CPPFLAGS -DLRC_CTC_INFERENCE_ENABLE_ORT=1 $CFLAGS \
-        -DLYRICS_BUILD_SHARED=1 -fPIC -shared src/main.c \
-        $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
-        -o "$library_path"
-    trace_off
+    build_library
     ;;
 run)
     build_program
@@ -239,6 +255,8 @@ uninstall)
     rm -f "${DESTDIR}${PREFIX}/bin/${program}"
     rm -f "${DESTDIR}${PREFIX}/lib/${program}.so"
     rm -f "${DESTDIR}${PREFIX}/include/${program}.h"
+    rm -rf "${DESTDIR}${PREFIX}/share/${program}/models"
+    rmdir "${DESTDIR}${PREFIX}/share/${program}" 2>/dev/null || true
     uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
     uninstall_opt "etc" "${DESTDIR}/etc/${program}"
     uninstall_opt \
@@ -251,16 +269,15 @@ uninstall)
 install)
     trace_on
 
-    if [ ! -f "$program_path" ]; then
-        "$0" build
-    fi
-    if [ ! -f "$library_path" ]; then
-        "$0" lib
-    fi
+    DEFAULT_MODEL_DIR="${PREFIX}/share/${program}/models"
+    build_program
+    build_library
 
     install -Dm755 "$program_path" "${DESTDIR}${PREFIX}/bin/${program}"
     install -Dm755 "$library_path" "${DESTDIR}${PREFIX}/lib/${program}.so"
     install -Dm644 src/${program}.h "${DESTDIR}${PREFIX}/include/${program}.h"
+    install_opt -dm755 "models" \
+        "${DESTDIR}${PREFIX}/share/${program}/models"
     install_opt \
         -Dm644 "${program}.1" \
         "${DESTDIR}${PREFIX}/man/man1/${program}.1"
