@@ -136,6 +136,7 @@ usage: ./build.sh [command] [args]
 commands:
     build    build the executable
     lib      build the shared library
+    install  install the executable, shared library, and public header
     run      build and run the executable with the remaining args
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
@@ -236,6 +237,8 @@ uninstall)
     trace_on
 
     rm -f "${DESTDIR}${PREFIX}/bin/${program}"
+    rm -f "${DESTDIR}${PREFIX}/lib/${program}.so"
+    rm -f "${DESTDIR}${PREFIX}/include/lyrics.h"
     uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
     uninstall_opt "etc" "${DESTDIR}/etc/${program}"
     uninstall_opt \
@@ -251,8 +254,13 @@ install)
     if [ ! -f "$program_path" ]; then
         "$0" build
     fi
+    if [ ! -f "$library_path" ]; then
+        "$0" lib
+    fi
 
     install -Dm755 "$program_path" "${DESTDIR}${PREFIX}/bin/${program}"
+    install -Dm755 "$library_path" "${DESTDIR}${PREFIX}/lib/${program}.so"
+    install -Dm644 src/lyrics.h "${DESTDIR}${PREFIX}/include/lyrics.h"
     install_opt \
         -Dm644 "${program}.1" \
         "${DESTDIR}${PREFIX}/man/man1/${program}.1"
