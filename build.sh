@@ -255,8 +255,10 @@ uninstall)
     rm -f "${DESTDIR}${PREFIX}/bin/${program}"
     rm -f "${DESTDIR}${PREFIX}/lib/${program}.so"
     rm -f "${DESTDIR}${PREFIX}/include/${program}.h"
+
     rm -rf "${DESTDIR}${PREFIX}/share/${program}/models"
     rmdir "${DESTDIR}${PREFIX}/share/${program}" 2>/dev/null || true
+
     uninstall_opt "${program}.1" "${DESTDIR}${PREFIX}/man/man1/${program}.1"
     uninstall_opt "etc" "${DESTDIR}/etc/${program}"
     uninstall_opt \
