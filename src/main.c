@@ -38,6 +38,7 @@ typedef struct MainOptions {
     bool output_lrc_defaulted;
     bool onnx_provider_set;
     bool onnx_device_set;
+    bool print_usage_on_error;
 } MainOptions;
 
 static void __attribute((noreturn))
@@ -823,6 +824,13 @@ main_default_lrc_path(MainOptions *options) {
     return true;
 }
 
+static void
+main_mark_usage_error(MainOptions *options) {
+    options->print_usage_on_error = true;
+
+    return;
+}
+
 static bool
 main_validate_options(MainOptions *options) {
     LrcPipelineConfig *config;
@@ -835,10 +843,12 @@ main_validate_options(MainOptions *options) {
     has_vocals = !main_path_missing(config->existing_vocals_path);
     if (has_song && has_vocals) {
         error2("--input-song and --input-vocals cannot both be passed\n");
+        main_mark_usage_error(options);
         return false;
     }
     if (!has_song && !has_vocals) {
         error2("missing required option: --input-song or --input-vocals\n");
+        main_mark_usage_error(options);
         return false;
     }
     if (!main_default_lyrics_text_path(options)) {
@@ -859,26 +869,32 @@ main_validate_options(MainOptions *options) {
     }
     if (has_lyrics && main_path_missing(config->output_lrc_path)) {
         error2("missing LRC output path\n");
+        main_mark_usage_error(options);
         return false;
     }
     if (has_song && main_path_missing(config->vocals_model_path)) {
         error2("missing required option: --model-vocal\n");
+        main_mark_usage_error(options);
         return false;
     }
     if (has_lyrics && main_path_missing(config->ctc_model_path)) {
         error2("missing required option: --model-ctc\n");
+        main_mark_usage_error(options);
         return false;
     }
     if (has_lyrics && main_path_missing(config->tokenizer_path)) {
         error2("missing required option: --tokenizer\n");
+        main_mark_usage_error(options);
         return false;
     }
     if (config->mdx_config.margin_seconds < 0) {
         error2("--margin-seconds must not be negative\n");
+        main_mark_usage_error(options);
         return false;
     }
     if (config->ort_session_config.device_id < 0) {
         error2("--onnx-device must not be negative\n");
+        main_mark_usage_error(options);
         return false;
     }
 
@@ -913,17 +929,21 @@ main_parse_args(MainOptions *options, int32 argc, char **argv) {
             continue;
         }
         if (parsed < 0) {
+            main_mark_usage_error(options);
             return false;
         }
         if (!main_option_needs_value(argv[i])) {
             error2("unknown option: %s\n", argv[i]);
+            main_mark_usage_error(options);
             return false;
         }
         if (i + 1 >= argc) {
             error2("%s requires a value\n", argv[i]);
+            main_mark_usage_error(options);
             return false;
         }
         if (!main_parse_value_option(options, argv[i], argv[i + 1])) {
+            main_mark_usage_error(options);
             return false;
         }
         i += 1;
@@ -1039,7 +1059,10 @@ lyrics_main(int32 argc, char **argv) {
     memset64(&options, 0, SIZEOF(options));
     lrc_pipeline_config_init(&options.config);
     if (!main_parse_args(&options, argc, argv)) {
-        main_print_usage(stderr);
+        if (options.print_usage_on_error) {
+            main_print_usage(stderr);
+        }
+        return EXIT_FAILURE;
     }
 
     has_lyrics = !main_path_missing(options.config.lyrics_text_path);
