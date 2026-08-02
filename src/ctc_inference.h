@@ -130,6 +130,7 @@ static void lrc_ctc_onnx_inference_destroy(LrcCtcOnnxInference *onnx);
 static bool lrc_ctc_onnx_inference_load(
     LrcCtcOnnxInference *onnx,
     char *model_path,
+    OrtSessionConfig *session_config,
     LrcCtcInferenceResult *result
 );
 static void lrc_ctc_onnx_inference_backend(

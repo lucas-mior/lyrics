@@ -163,6 +163,10 @@ lrc_pipeline_config_init(LrcPipelineConfig *config) {
     mdx_config_init(&config->mdx_config);
     lrc_ctc_model_config_init(&config->ctc_model_config);
     lrc_lyrics_preprocess_options_init(&config->lyrics_preprocess_options);
+    config->ort_session_config.execution_provider =
+        ORT_EXECUTION_PROVIDER_AUTO;
+    config->ort_session_config.device_id = 0;
+    config->ort_session_config.print_info = config->print_info;
     config->ctc_emission_values_kind = LRC_CTC_EMISSION_VALUES_LOGITS;
 
     return;
@@ -310,6 +314,7 @@ lrc_pipeline_vocals_request(
     request->container_format = pipeline->config.vocals_container_format;
     request->output_format = pipeline->config.vocals_output_format;
     request->mdx_config = pipeline->config.mdx_config;
+    request->ort_session_config = pipeline->config.ort_session_config;
     request->print_info = pipeline->config.print_info;
 
     return true;
@@ -1985,6 +1990,7 @@ lrc_pipeline_generate_lrc(
     LrcCtcModelInput input;
     LrcCtcOnnxInference onnx;
     LrcCtcInferenceBackend backend;
+    OrtSessionConfig ort_session_config;
     LrcCtcInferenceResult inference_result;
     LrcCtcEmissions emissions;
     LrcCtcAlignResult align_result;
@@ -2162,9 +2168,14 @@ lrc_pipeline_generate_lrc(
         }
         ok = false;
     }
-    if (ok && !lrc_ctc_onnx_inference_load(&onnx,
-                                           pipeline->ctc_assets.model_path,
-                                           &inference_result)) {
+    ort_session_config = pipeline->config.ort_session_config;
+    ort_session_config.print_info = pipeline->config.print_info;
+    if (ok && !lrc_ctc_onnx_inference_load(
+        &onnx,
+        pipeline->ctc_assets.model_path,
+        &ort_session_config,
+        &inference_result
+    )) {
         lrc_pipeline_generate_result_set(
             result,
             LRC_PIPELINE_GENERATE_ERROR_CTC_MODEL_LOAD_FAILED,
@@ -2703,10 +2714,12 @@ static bool
 lrc_ctc_onnx_inference_load(
     LrcCtcOnnxInference *onnx,
     char *model_path,
+    OrtSessionConfig *session_config,
     LrcCtcInferenceResult *result
 ) {
     (void)onnx;
     (void)model_path;
+    (void)session_config;
     (void)result;
 
     return false;
@@ -4087,6 +4100,8 @@ pipeline_test_vocals_request(void) {
     config.print_info = false;
     config.mdx_config.chunk_seconds = 3;
     config.mdx_config.margin_seconds = 1;
+    config.ort_session_config.execution_provider = ORT_EXECUTION_PROVIDER_CPU;
+    config.ort_session_config.device_id = 2;
 
     lrc_pipeline_init(&pipeline, &config);
     if (!lrc_pipeline_vocals_request(&pipeline, &request)) {
@@ -4099,6 +4114,9 @@ pipeline_test_vocals_request(void) {
     ASSERT(strequal(request.ffmpeg_path, "ffmpeg-custom"));
     ASSERT(strequal(request.container_format, "flac"));
     ASSERT(!request.print_info);
+    ASSERT(request.ort_session_config.execution_provider
+           == ORT_EXECUTION_PROVIDER_CPU);
+    ASSERT(request.ort_session_config.device_id == 2);
     ASSERT(request.mdx_config.chunk_seconds == 3);
     ASSERT(request.mdx_config.margin_seconds == 1);
 

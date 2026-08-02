@@ -10,11 +10,26 @@ enum OrtModelIoKind {
     ORT_MODEL_IO_OUTPUT,
 };
 
+enum OrtExecutionProvider {
+    ORT_EXECUTION_PROVIDER_AUTO,
+    ORT_EXECUTION_PROVIDER_CPU,
+    ORT_EXECUTION_PROVIDER_CUDA,
+};
+
+typedef struct OrtSessionConfig {
+    enum OrtExecutionProvider execution_provider;
+    int32 device_id;
+
+    bool print_info;
+} OrtSessionConfig;
+
 typedef struct OrtContext {
     void *api;
     void *environment;
     void *memory_info;
     void *allocator;
+
+    OrtSessionConfig session_config;
 } OrtContext;
 
 typedef struct OrtModelIoInfo {
@@ -50,7 +65,17 @@ typedef struct OrtTensor {
     int32 shape_len;
 } OrtTensor;
 
+static char *ort_execution_provider_str(enum OrtExecutionProvider provider);
+static bool ort_execution_provider_parse(
+    char *value,
+    enum OrtExecutionProvider *provider
+);
+static void ort_session_config_init(OrtSessionConfig *config);
 static void ort_context_init_empty(OrtContext *context);
+static void ort_context_session_config_set(
+    OrtContext *context,
+    OrtSessionConfig *config
+);
 static bool ort_context_init(OrtContext *context);
 static void ort_context_destroy(OrtContext *context);
 

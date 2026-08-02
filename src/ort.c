@@ -17,6 +17,59 @@
 #pragma clang diagnostic pop
 #endif
 
+static char *
+ort_execution_provider_str(enum OrtExecutionProvider provider) {
+    switch (provider) {
+    case ORT_EXECUTION_PROVIDER_AUTO:
+        return "auto";
+    case ORT_EXECUTION_PROVIDER_CPU:
+        return "cpu";
+    case ORT_EXECUTION_PROVIDER_CUDA:
+        return "cuda";
+    default:
+        break;
+    }
+
+    return "unknown";
+}
+
+static bool
+ort_execution_provider_parse(
+    char *value,
+    enum OrtExecutionProvider *provider
+) {
+    if ((value == NULL) || (provider == NULL)) {
+        return false;
+    }
+    if (strequal(value, "auto")) {
+        *provider = ORT_EXECUTION_PROVIDER_AUTO;
+        return true;
+    }
+    if (strequal(value, "cpu")) {
+        *provider = ORT_EXECUTION_PROVIDER_CPU;
+        return true;
+    }
+    if (strequal(value, "cuda")) {
+        *provider = ORT_EXECUTION_PROVIDER_CUDA;
+        return true;
+    }
+
+    return false;
+}
+
+static void
+ort_session_config_init(OrtSessionConfig *config) {
+    if (config == NULL) {
+        return;
+    }
+
+    config->execution_provider = ORT_EXECUTION_PROVIDER_AUTO;
+    config->device_id = 0;
+    config->print_info = false;
+
+    return;
+}
+
 static bool
 ort_check(OrtContext *context, OrtStatus *status, char *operation) {
     OrtApi *api;
@@ -30,6 +83,146 @@ ort_check(OrtContext *context, OrtStatus *status, char *operation) {
     api->ReleaseStatus(status);
 
     return false;
+}
+
+
+static bool
+ort_provider_check(
+    OrtContext *context,
+    OrtStatus *status,
+    char *operation,
+    bool required
+) {
+    OrtApi *api;
+
+    if (status == NULL) {
+        return true;
+    }
+
+    api = (OrtApi *)context->api;
+    if (required) {
+        error2("%s: %s\n", operation, api->GetErrorMessage(status));
+    } else {
+        error2("warning: %s: %s; using CPU ONNX provider\n",
+               operation,
+               api->GetErrorMessage(status));
+    }
+    api->ReleaseStatus(status);
+
+    return false;
+}
+
+static bool
+ort_session_options_append_cuda(
+    OrtContext *context,
+    OrtSessionOptions *options,
+    bool required
+) {
+    OrtApi *api;
+    OrtCUDAProviderOptionsV2 *cuda_options;
+    OrtStatus *status;
+    char device_id[32];
+    char *keys[1];
+    char *values[1];
+    int32 len;
+
+    if (context->session_config.device_id < 0) {
+        error2("ONNX CUDA device must not be negative: %d\n",
+               context->session_config.device_id);
+        return false;
+    }
+
+    api = (OrtApi *)context->api;
+    cuda_options = NULL;
+    status = api->CreateCUDAProviderOptions(&cuda_options);
+    if (!ort_provider_check(context,
+                            status,
+                            "creating ONNX CUDA provider options",
+                            required)) {
+        if (cuda_options) {
+            api->ReleaseCUDAProviderOptions(cuda_options);
+        }
+        return false;
+    }
+
+    len = snprintf2(device_id,
+                    SIZEOF(device_id),
+                    "%d",
+                    context->session_config.device_id);
+    if ((len <= 0) || (len >= SIZEOF(device_id))) {
+        api->ReleaseCUDAProviderOptions(cuda_options);
+        error2("ONNX CUDA device id is too long: %d\n",
+               context->session_config.device_id);
+        return false;
+    }
+
+    keys[0] = "device_id";
+    values[0] = device_id;
+    status = api->UpdateCUDAProviderOptions(
+        cuda_options,
+        (char const *const *)keys,
+        (char const *const *)values,
+        1
+    );
+    if (!ort_provider_check(context,
+                            status,
+                            "configuring ONNX CUDA provider",
+                            required)) {
+        api->ReleaseCUDAProviderOptions(cuda_options);
+        return false;
+    }
+
+    status = api->SessionOptionsAppendExecutionProvider_CUDA_V2(
+        options,
+        cuda_options
+    );
+    api->ReleaseCUDAProviderOptions(cuda_options);
+    if (!ort_provider_check(context,
+                            status,
+                            "enabling ONNX CUDA provider",
+                            required)) {
+        return false;
+    }
+
+    if (context->session_config.print_info) {
+        error2("ONNX Runtime provider: CUDA device %d\n",
+               context->session_config.device_id);
+    }
+
+    return true;
+}
+
+static bool
+ort_session_options_configure_provider(
+    OrtContext *context,
+    OrtSessionOptions *options
+) {
+    bool required;
+
+    if ((context == NULL) || (options == NULL)) {
+        return false;
+    }
+
+    switch (context->session_config.execution_provider) {
+    case ORT_EXECUTION_PROVIDER_AUTO:
+        required = false;
+        if (!ort_session_options_append_cuda(context, options, required)) {
+            return true;
+        }
+        return true;
+    case ORT_EXECUTION_PROVIDER_CPU:
+        if (context->session_config.print_info) {
+            error2("ONNX Runtime provider: CPU\n");
+        }
+        return true;
+    case ORT_EXECUTION_PROVIDER_CUDA:
+        required = true;
+        return ort_session_options_append_cuda(context, options, required);
+    default:
+        error2("unknown ONNX provider: %d\n",
+               context->session_config.execution_provider);
+        return false;
+    }
 }
 
 static bool
@@ -187,6 +380,25 @@ ort_context_init_empty(OrtContext *context) {
     context->environment = NULL;
     context->memory_info = NULL;
     context->allocator = NULL;
+    ort_session_config_init(&context->session_config);
+
+    return;
+}
+
+static void
+ort_context_session_config_set(
+    OrtContext *context,
+    OrtSessionConfig *config
+) {
+    if (context == NULL) {
+        return;
+    }
+    if (config == NULL) {
+        ort_session_config_init(&context->session_config);
+        return;
+    }
+
+    context->session_config = *config;
 
     return;
 }
@@ -291,6 +503,11 @@ ort_model_load(OrtContext *context, OrtModel *model, char *model_path) {
 
     status = api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL);
     if (!ort_check(context, status, "configuring ONNX Runtime optimizations")) {
+        api->ReleaseSessionOptions(options);
+        return false;
+    }
+
+    if (!ort_session_options_configure_provider(context, options)) {
         api->ReleaseSessionOptions(options);
         return false;
     }
@@ -706,6 +923,10 @@ ort_test_empty_initializers(void) {
     ASSERT(context.environment == NULL);
     ASSERT(context.memory_info == NULL);
     ASSERT(context.allocator == NULL);
+    ASSERT(context.session_config.execution_provider
+           == ORT_EXECUTION_PROVIDER_AUTO);
+    ASSERT(context.session_config.device_id == 0);
+    ASSERT(!context.session_config.print_info);
 
     ASSERT(model.session == NULL);
     ASSERT(model.input_name == NULL);
@@ -761,6 +982,36 @@ ort_test_model_io_info_copy(void) {
     ASSERT(info.shape_len == 2);
     ASSERT(info.shape[0] == 1);
     ASSERT(info.shape[1] == 3);
+
+    return 0;
+}
+
+
+static int32
+ort_test_execution_provider_parse(void) {
+    enum OrtExecutionProvider provider;
+
+    if (!ort_execution_provider_parse("auto", &provider)) {
+        return ort_test_fail("parse auto provider");
+    }
+    ASSERT(provider == ORT_EXECUTION_PROVIDER_AUTO);
+    ASSERT(strequal(ort_execution_provider_str(provider), "auto"));
+
+    if (!ort_execution_provider_parse("cpu", &provider)) {
+        return ort_test_fail("parse cpu provider");
+    }
+    ASSERT(provider == ORT_EXECUTION_PROVIDER_CPU);
+    ASSERT(strequal(ort_execution_provider_str(provider), "cpu"));
+
+    if (!ort_execution_provider_parse("cuda", &provider)) {
+        return ort_test_fail("parse cuda provider");
+    }
+    ASSERT(provider == ORT_EXECUTION_PROVIDER_CUDA);
+    ASSERT(strequal(ort_execution_provider_str(provider), "cuda"));
+
+    if (ort_execution_provider_parse("gpu", &provider)) {
+        return ort_test_fail("parse invalid provider");
+    }
 
     return 0;
 }
@@ -957,6 +1208,9 @@ main(void) {
         exit(1);
     }
     if (ort_test_model_io_info_copy() != 0) {
+        exit(1);
+    }
+    if (ort_test_execution_provider_parse() != 0) {
         exit(1);
     }
     if (ort_test_tensor_shape_element_count() != 0) {

@@ -95,7 +95,14 @@ Canonical model-related command-line options are:
 --model-vocal
 --model-ctc
 --tokenizer
+--onnx-provider
+--onnx-device
 ```
+
+`--onnx-provider` accepts `auto`, `cpu`, or `cuda`. The default is `auto`,
+which tries CUDA first and falls back to CPU when the CUDA execution provider
+cannot be enabled. Use `--onnx-provider cuda` to require CUDA, and
+`--onnx-device N` to choose the CUDA device id.
 
 The command-line model options are optional. The compiled defaults are:
 
@@ -131,6 +138,8 @@ variables are still checked before falling back to the compiled defaults:
 LRC_VOCALS_MODEL
 LRC_CTC_MODEL
 LRC_CTC_TOKENIZER
+LRC_ONNX_PROVIDER
+LRC_ONNX_DEVICE
 ```
 
 ## ONNX Runtime pkg-config

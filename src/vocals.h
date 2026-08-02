@@ -39,6 +39,7 @@ typedef struct LrcVocalsExtractRequest {
 
     AudioIoFormat output_format;
     MdxConfig mdx_config;
+    OrtSessionConfig ort_session_config;
 
     bool print_info;
 } LrcVocalsExtractRequest;

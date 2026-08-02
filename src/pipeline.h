@@ -89,6 +89,7 @@ typedef struct LrcPipelineConfig {
     MdxConfig mdx_config;
     LrcCtcModelConfig ctc_model_config;
     LrcLyricsPreprocessOptions lyrics_preprocess_options;
+    OrtSessionConfig ort_session_config;
 
     enum LrcCtcEmissionValuesKind ctc_emission_values_kind;
 

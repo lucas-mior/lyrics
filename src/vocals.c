@@ -14,6 +14,7 @@ typedef struct VocalsExtractionConfig {
     char *ffmpeg_path;
 
     MdxConfig mdx_config;
+    OrtSessionConfig ort_session_config;
 
     bool print_info;
 } VocalsExtractionConfig;
@@ -65,6 +66,10 @@ lrc_vocals_extract_request_init(LrcVocalsExtractRequest *request) {
 
     audio_io_format_init(&request->output_format);
     mdx_config_init(&request->mdx_config);
+    request->ort_session_config.execution_provider =
+        ORT_EXECUTION_PROVIDER_AUTO;
+    request->ort_session_config.device_id = 0;
+    request->ort_session_config.print_info = false;
 
     return;
 }
@@ -77,6 +82,7 @@ vocals_extraction_config_from_request(
     config->model_path = request->model_path;
     config->ffmpeg_path = request->ffmpeg_path;
     config->mdx_config = request->mdx_config;
+    config->ort_session_config = request->ort_session_config;
     config->print_info = request->print_info;
 
     return;
@@ -262,6 +268,8 @@ vocals_prepare_runtime(
         );
         return false;
     }
+    config->ort_session_config.print_info = config->print_info;
+    ort_context_session_config_set(ort_context, &config->ort_session_config);
 
     if (!ort_model_load(ort_context, ort_model, config->model_path)) {
         vocals_extract_result_set(
@@ -515,6 +523,10 @@ vocals_test_request_defaults(void) {
     ASSERT(strequal(request.ffmpeg_path, "ffmpeg"));
     ASSERT(strequal(request.container_format, "wav"));
     ASSERT(request.print_info);
+    ASSERT(request.ort_session_config.execution_provider
+           == ORT_EXECUTION_PROVIDER_AUTO);
+    ASSERT(request.ort_session_config.device_id == 0);
+    ASSERT(!request.ort_session_config.print_info);
     ASSERT(request.output_format.sample_rate == 44100);
     ASSERT(request.output_format.channel_count == 2);
     ASSERT(request.mdx_config.sample_rate == 44100);

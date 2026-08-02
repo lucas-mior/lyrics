@@ -35,6 +35,8 @@ typedef struct MainOptions {
     char output_lrc_path[PATH_MAX];
 
     bool output_lrc_defaulted;
+    bool onnx_provider_set;
+    bool onnx_device_set;
 } MainOptions;
 
 static void __attribute((noreturn))
@@ -59,6 +61,8 @@ main_print_usage(FILE *stream) {
         "    --tokenizer PATH           CTC tokenizer tokens file\n"
         "                                 ["
         LRC_DEFAULT_CTC_TOKENIZER_PATH "]\n"
+        "    --onnx-provider KIND      auto|cpu|cuda [auto]\n"
+        "    --onnx-device N           CUDA device id [0]\n"
         "\n"
         "audio options:\n"
         "    --ffmpeg PATH              ffmpeg executable [ffmpeg]\n"
@@ -203,6 +207,21 @@ main_parse_emissions(LrcPipelineConfig *config, char *value) {
     return false;
 }
 
+
+static bool
+main_parse_onnx_provider(LrcPipelineConfig *config, char *value) {
+    enum OrtExecutionProvider provider;
+
+    if (ort_execution_provider_parse(value, &provider)) {
+        config->ort_session_config.execution_provider = provider;
+        return true;
+    }
+
+    error2("--onnx-provider must be auto, cpu, or cuda\n");
+
+    return false;
+}
+
 static bool
 main_parse_vocals_format(LrcPipelineConfig *config, char *value) {
     if (strequal(value, "wav")
@@ -333,6 +352,16 @@ main_parse_value_option(MainOptions *options, char *option, char *value) {
     if (strequal(option, "--tokenizer")) {
         config->tokenizer_path = value;
         return true;
+    }
+    if (strequal(option, "--onnx-provider")) {
+        options->onnx_provider_set = true;
+        return main_parse_onnx_provider(config, value);
+    }
+    if (strequal(option, "--onnx-device")) {
+        options->onnx_device_set = true;
+        return main_parse_int32(value,
+                                option,
+                                &config->ort_session_config.device_id);
     }
     if (strequal(option, "--ffmpeg")) {
         config->ffmpeg_path = value;
@@ -477,6 +506,14 @@ main_parse_long_value(MainOptions *options, char *arg) {
     if (parsed != 0) {
         return parsed;
     }
+    parsed = main_parse_long_value_option(options, arg, "--onnx-provider");
+    if (parsed != 0) {
+        return parsed;
+    }
+    parsed = main_parse_long_value_option(options, arg, "--onnx-device");
+    if (parsed != 0) {
+        return parsed;
+    }
     parsed = main_parse_long_value_option(options, arg, "--ffmpeg");
     if (parsed != 0) {
         return parsed;
@@ -572,6 +609,8 @@ main_option_needs_value(char *option) {
            || strequal(option, "--model-vocal")
            || strequal(option, "--model-ctc")
            || strequal(option, "--tokenizer")
+           || strequal(option, "--onnx-provider")
+           || strequal(option, "--onnx-device")
            || strequal(option, "--ffmpeg")
            || strequal(option, "--temp-dir")
            || strequal(option, "--vocals-format")
@@ -591,6 +630,48 @@ main_option_needs_value(char *option) {
            || strequal(option, "--romanization")
            || strequal(option, "--language")
            || strequal(option, "--emissions");
+}
+
+
+static void
+main_apply_onnx_provider_env(LrcPipelineConfig *config) {
+    enum OrtExecutionProvider provider;
+    char *env;
+
+    env = getenv("LRC_ONNX_PROVIDER");
+    if ((env == NULL) || (env[0] == '\0')) {
+        return;
+    }
+    if (!ort_execution_provider_parse(env, &provider)) {
+        error2("warning: LRC_ONNX_PROVIDER must be auto, cpu, or cuda\n");
+        return;
+    }
+    if (config->ort_session_config.execution_provider
+        == ORT_EXECUTION_PROVIDER_AUTO) {
+        config->ort_session_config.execution_provider = provider;
+    }
+
+    return;
+}
+
+static void
+main_apply_onnx_device_env(LrcPipelineConfig *config) {
+    char *env;
+    int32 device_id;
+
+    env = getenv("LRC_ONNX_DEVICE");
+    if ((env == NULL) || (env[0] == '\0')) {
+        return;
+    }
+    if (!main_parse_int32(env, "LRC_ONNX_DEVICE", &device_id)) {
+        error2("warning: ignoring invalid LRC_ONNX_DEVICE\n");
+        return;
+    }
+    if (config->ort_session_config.device_id == 0) {
+        config->ort_session_config.device_id = device_id;
+    }
+
+    return;
 }
 
 static void
@@ -626,6 +707,9 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
     if (config->tokenizer_path == NULL) {
         config->tokenizer_path = LRC_DEFAULT_CTC_TOKENIZER_PATH;
     }
+
+    main_apply_onnx_provider_env(config);
+    main_apply_onnx_device_env(config);
 
     return;
 }
@@ -739,12 +823,18 @@ main_validate_options(MainOptions *options) {
         error2("--margin-seconds must not be negative\n");
         return false;
     }
+    if (config->ort_session_config.device_id < 0) {
+        error2("--onnx-device must not be negative\n");
+        return false;
+    }
 
     return true;
 }
 
 static bool
 main_parse_args(MainOptions *options, int32 argc, char **argv) {
+    enum OrtExecutionProvider provider;
+    int32 device_id;
     int32 parsed;
 
     for (int32 i = 1; i < argc; i += 1) {
@@ -785,7 +875,15 @@ main_parse_args(MainOptions *options, int32 argc, char **argv) {
         i += 1;
     }
 
+    provider = options->config.ort_session_config.execution_provider;
+    device_id = options->config.ort_session_config.device_id;
     main_apply_model_defaults(&options->config);
+    if (options->onnx_provider_set) {
+        options->config.ort_session_config.execution_provider = provider;
+    }
+    if (options->onnx_device_set) {
+        options->config.ort_session_config.device_id = device_id;
+    }
 
     return main_validate_options(options);
 }

@@ -1241,6 +1241,7 @@ static bool
 lrc_ctc_onnx_inference_load(
     LrcCtcOnnxInference *onnx,
     char *model_path,
+    OrtSessionConfig *session_config,
     LrcCtcInferenceResult *result
 ) {
     if (result) {
@@ -1267,6 +1268,8 @@ lrc_ctc_onnx_inference_load(
         );
         return false;
     }
+    ort_context_session_config_set(&onnx->context, session_config);
+
     if (!ort_model_load(&onnx->context, &onnx->model, model_path)) {
         lrc_ctc_inference_result_set(
             result,
@@ -1284,6 +1287,7 @@ lrc_ctc_onnx_inference_load(
 #else
     (void)onnx;
     (void)model_path;
+    (void)session_config;
     lrc_ctc_inference_result_set(
         result,
         LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
@@ -2936,7 +2940,10 @@ ctc_inference_test_optional_onnx_backend(void) {
     lrc_ctc_onnx_inference_init(&onnx);
     lrc_ctc_emissions_init(&emissions);
     ctc_inference_make_input(&input);
-    if (!lrc_ctc_onnx_inference_load(&onnx, model_path, &result)) {
+    if (!lrc_ctc_onnx_inference_load(&onnx,
+                                      model_path,
+                                      NULL,
+                                      &result)) {
         return ctc_inference_test_fail("load optional ONNX CTC model");
     }
     lrc_ctc_onnx_inference_backend(&onnx, &backend);
@@ -2955,7 +2962,10 @@ ctc_inference_test_optional_onnx_backend(void) {
     LrcCtcOnnxInference onnx;
 
     lrc_ctc_onnx_inference_init(&onnx);
-    if (lrc_ctc_onnx_inference_load(&onnx, "missing.onnx", &result)) {
+    if (lrc_ctc_onnx_inference_load(&onnx,
+                                     "missing.onnx",
+                                     NULL,
+                                     &result)) {
         return ctc_inference_test_fail("disabled ONNX backend loaded");
     }
     ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE);
