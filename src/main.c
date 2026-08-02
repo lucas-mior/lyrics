@@ -33,6 +33,7 @@ typedef struct MainOptions {
     LrcPipelineConfig config;
 
     char output_lrc_path[PATH_MAX];
+    char lyrics_text_path[PATH_MAX];
 
     bool output_lrc_defaulted;
     bool onnx_provider_set;
@@ -49,6 +50,7 @@ main_print_usage(FILE *stream) {
         "    --input-vocals PATH        already extracted vocals to use\n"
         "    --output-vocals PATH       save extracted vocals at PATH\n"
         "    --input-lyrics PATH        plain-text lyrics to align\n"
+        "                                 [derived from input prefix]\n"
         "    --output-lrc PATH          synced lyrics output path\n"
         "\n"
         "model options:\n"
@@ -715,7 +717,13 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
 }
 
 static bool
-main_default_lrc_path(MainOptions *options) {
+main_input_prefix_path(
+    MainOptions *options,
+    char *output_path,
+    int64 output_size,
+    char *extension,
+    char *description
+) {
     LrcPipelineConfig *config;
     char *input_path;
     int32 input_len;
@@ -730,7 +738,8 @@ main_default_lrc_path(MainOptions *options) {
         input_path = config->existing_vocals_path;
     }
     if (main_path_missing(input_path)) {
-        error2("could not derive default LRC path without an input path\n");
+        error2("could not derive %s path without an input path\n",
+               description);
         return false;
     }
 
@@ -752,13 +761,59 @@ main_default_lrc_path(MainOptions *options) {
     if (dot_index > slash_index + 1) {
         prefix_len = dot_index;
     }
-    len = snprintf2(options->output_lrc_path,
-                    SIZEOF(options->output_lrc_path),
-                    "%.*s.lrc",
+    len = snprintf2(output_path,
+                    output_size,
+                    "%.*s.%s",
                     prefix_len,
-                    input_path);
-    if ((len <= 0) || (len >= SIZEOF(options->output_lrc_path))) {
-        error2("default LRC output path is too long: %s\n", input_path);
+                    input_path,
+                    extension);
+    if ((len <= 0) || (len >= output_size)) {
+        error2("default %s path is too long: %s\n",
+               description,
+               input_path);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+main_default_lyrics_text_path(MainOptions *options) {
+    LrcPipelineConfig *config;
+
+    config = &options->config;
+    if (!main_path_missing(config->lyrics_text_path)) {
+        return true;
+    }
+    if (!main_input_prefix_path(options,
+                                options->lyrics_text_path,
+                                SIZEOF(options->lyrics_text_path),
+                                "txt",
+                                "lyrics text")) {
+        return false;
+    }
+    if (!util_file_exists(options->lyrics_text_path)) {
+        error2("missing --input-lyrics and default lyrics file does not "
+               "exist: %s\n",
+               options->lyrics_text_path);
+        return false;
+    }
+
+    config->lyrics_text_path = options->lyrics_text_path;
+
+    return true;
+}
+
+static bool
+main_default_lrc_path(MainOptions *options) {
+    LrcPipelineConfig *config;
+
+    config = &options->config;
+    if (!main_input_prefix_path(options,
+                                options->output_lrc_path,
+                                SIZEOF(options->output_lrc_path),
+                                "lrc",
+                                "LRC output")) {
         return false;
     }
 
@@ -778,8 +833,6 @@ main_validate_options(MainOptions *options) {
     config = &options->config;
     has_song = !main_path_missing(config->song_path);
     has_vocals = !main_path_missing(config->existing_vocals_path);
-    has_lyrics = !main_path_missing(config->lyrics_text_path);
-
     if (has_song && has_vocals) {
         error2("--input-song and --input-vocals cannot both be passed\n");
         return false;
@@ -788,10 +841,11 @@ main_validate_options(MainOptions *options) {
         error2("missing required option: --input-song or --input-vocals\n");
         return false;
     }
-    if (!has_lyrics && main_path_missing(config->vocals_path)) {
-        error2("missing --input-lyrics and --output-vocals; nothing to do\n");
+    if (!main_default_lyrics_text_path(options)) {
         return false;
     }
+
+    has_lyrics = !main_path_missing(config->lyrics_text_path);
     if (has_lyrics && main_path_missing(config->output_lrc_path)) {
         if (!main_default_lrc_path(options)) {
             return false;
@@ -886,44 +940,6 @@ main_parse_args(MainOptions *options, int32 argc, char **argv) {
     }
 
     return main_validate_options(options);
-}
-
-static int32
-main_extract_vocals(LrcPipelineConfig *config) {
-    LrcPipeline pipeline;
-    LrcVocalsExtractResult result;
-    int32 exit_status;
-
-    lrc_pipeline_init(&pipeline, config);
-    exit_status = EXIT_FAILURE;
-    if (lrc_pipeline_extract_vocals(&pipeline, &result)) {
-        exit_status = EXIT_SUCCESS;
-    } else {
-        error2("vocals extraction failed: %s", result.message);
-        if (result.path) {
-            error2(": %s", result.path);
-        }
-        error2("\n");
-    }
-
-    lrc_pipeline_cleanup(&pipeline);
-
-    return exit_status;
-}
-
-static int32
-main_copy_existing_vocals(LrcPipelineConfig *config) {
-    error2("warning: --input-lyrics not provided; no LRC will be written\n");
-    if (strequal(config->existing_vocals_path, config->vocals_path)) {
-        return EXIT_SUCCESS;
-    }
-    if (util_copy_file_sync(config->vocals_path,
-                            config->existing_vocals_path) != 0) {
-        return EXIT_FAILURE;
-    }
-    error2("wrote vocals copy: %s\n", config->vocals_path);
-
-    return EXIT_SUCCESS;
 }
 
 static int32
@@ -1028,12 +1044,8 @@ lyrics_main(int32 argc, char **argv) {
 
     has_lyrics = !main_path_missing(options.config.lyrics_text_path);
     if (!has_lyrics) {
-        if (!main_path_missing(options.config.song_path)) {
-            error2("warning: --input-lyrics not provided; extracting vocals "
-                   "only\n");
-            return main_extract_vocals(&options.config);
-        }
-        return main_copy_existing_vocals(&options.config);
+        error2("internal error: lyrics path missing after validation\n");
+        return EXIT_FAILURE;
     }
 
     if (!main_path_missing(options.config.existing_vocals_path)

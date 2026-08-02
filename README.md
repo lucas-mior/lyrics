@@ -7,8 +7,9 @@ selected by the input arguments:
 
 - `--input-song PATH` extracts vocals from the original song.
 - `--input-vocals PATH` skips extraction and uses an existing vocals file.
-- `--input-lyrics PATH` enables LRC generation.
-- Omitting `--input-lyrics` runs vocals-output mode only.
+- `--input-lyrics PATH` selects the plain-text lyrics to align.
+- Omitting `--input-lyrics` derives lyrics from the input prefix. For example,
+  `--input-song song.mp3` looks for `song.txt`.
 
 Passing both `--input-song` and `--input-vocals` is an error.
 
@@ -38,12 +39,6 @@ Build the executable:
 ./build.sh build
 ```
 
-Run extraction only:
-
-```sh
-./build.sh run --input-song song.mp3 --output-vocals vocals.opus
-```
-
 Extract vocals and generate synced lyrics:
 
 ```sh
@@ -62,6 +57,10 @@ Generate synced lyrics from already extracted vocals:
     --input-lyrics full_lyrics.txt \
     --output-lrc synced_lyrics.lrc
 ```
+
+If `--input-lyrics` is omitted, the executable derives it from the input path by
+removing the final extension and appending `.txt`. For example, `song.mp3`
+uses `song.txt`. The derived lyrics file must exist.
 
 If `--output-lrc` is omitted, the executable derives it from the input path by
 removing the final extension and appending `.lrc`. For example,
