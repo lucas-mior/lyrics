@@ -13,6 +13,8 @@
 #define LRC_PROGRESS_MAX_LINE_WIDTH 80
 #define LRC_PROGRESS_MIN_BAR_WIDTH 4
 
+static bool lrc_progress_line_open;
+
 static int64
 lrc_progress_clamp_current(int64 current, int64 total) {
     if (current < 0) {
@@ -61,6 +63,11 @@ lrc_progress_decimal_digits(int64 value) {
     return digits;
 }
 
+static bool
+lrc_progress_stderr_is_terminal(void) {
+    return isatty(STDERR_FILENO);
+}
+
 static int32
 lrc_progress_terminal_columns(void) {
     int32 columns = LRC_PROGRESS_MAX_LINE_WIDTH;
@@ -68,10 +75,9 @@ lrc_progress_terminal_columns(void) {
 #if OS_UNIX && defined(TIOCGWINSZ)
     struct winsize size;
 
-    if (isatty(STDERR_FILENO)
+    if (lrc_progress_stderr_is_terminal()
         && (ioctl(STDERR_FILENO, TIOCGWINSZ, &size) == 0)
-        && (size.ws_col > 0)
-        && (size.ws_col <= LRC_PROGRESS_MAX_LINE_WIDTH)) {
+        && (size.ws_col > 0)) {
         columns = (int32)size.ws_col;
     }
 #endif
@@ -86,15 +92,13 @@ lrc_progress_terminal_columns(void) {
 static int32
 lrc_progress_bar_width(LrcProgress *progress) {
     int32 columns;
-    int32 current_digits;
     int32 total_digits;
     int32 overhead;
     int32 width;
 
     columns = lrc_progress_terminal_columns();
-    current_digits = lrc_progress_decimal_digits(progress->current);
     total_digits = lrc_progress_decimal_digits(progress->total);
-    overhead = LRC_PROGRESS_LABEL_WIDTH + 10 + current_digits + total_digits;
+    overhead = LRC_PROGRESS_LABEL_WIDTH + 10 + 2*total_digits;
     width = columns - overhead;
     if (width < LRC_PROGRESS_MIN_BAR_WIDTH) {
         width = LRC_PROGRESS_MIN_BAR_WIDTH;
@@ -123,25 +127,11 @@ lrc_progress_filled_width(LrcProgress *progress) {
 }
 
 static void
-lrc_progress_render(LrcProgress *progress) {
-    int32 filled;
-    int32 percent;
+lrc_progress_write_bar(LrcProgress *progress, int32 percent, int32 filled) {
+    int32 total_digits;
     char *label;
 
-    if ((progress == NULL) || !progress->enabled) {
-        return;
-    }
-
-    progress->current = lrc_progress_clamp_current(progress->current,
-                                                   progress->total);
-    percent = lrc_progress_percent(progress->current, progress->total);
-    if ((percent == progress->last_percent)
-        && (progress->current < progress->total)) {
-        return;
-    }
-
-    progress->width = lrc_progress_bar_width(progress);
-    filled = lrc_progress_filled_width(progress);
+    total_digits = lrc_progress_decimal_digits(progress->total);
     label = progress->label;
     if (label == NULL) {
         label = "progress";
@@ -159,14 +149,58 @@ lrc_progress_render(LrcProgress *progress) {
         }
     }
     fprintf(stderr,
-            "] %3d%% %lld/%lld\n",
+            "] %3d%% %*lld/%lld",
             percent,
+            total_digits,
             progress->current,
             progress->total);
+
+    return;
+}
+
+static void
+lrc_progress_render(LrcProgress *progress, bool end_line) {
+    int32 filled;
+    int32 percent;
+    bool changed;
+    bool terminal;
+
+    if ((progress == NULL) || !progress->enabled) {
+        return;
+    }
+
+    progress->current = lrc_progress_clamp_current(progress->current,
+                                                   progress->total);
+    percent = lrc_progress_percent(progress->current, progress->total);
+    changed = (percent != progress->last_percent)
+              || (progress->current != progress->last_current);
+    if (!changed) {
+        if (end_line) {
+            lrc_progress_end_line();
+        }
+        return;
+    }
+
+    progress->width = lrc_progress_bar_width(progress);
+    filled = lrc_progress_filled_width(progress);
+    terminal = lrc_progress_stderr_is_terminal();
+
+    if (terminal) {
+        fputc('\r', stderr);
+        fputs("\033[2K", stderr);
+    }
+    lrc_progress_write_bar(progress, percent, filled);
+    if (terminal && !end_line) {
+        lrc_progress_line_open = true;
+    } else {
+        fputc('\n', stderr);
+        lrc_progress_line_open = false;
+    }
     fflush(stderr);
 
     progress->rendered = true;
     progress->last_percent = percent;
+    progress->last_current = progress->current;
 
     return;
 }
@@ -190,6 +224,7 @@ lrc_progress_init(
     }
     progress->width = LRC_PROGRESS_MIN_BAR_WIDTH;
     progress->last_percent = -1;
+    progress->last_current = -1;
     progress->enabled = enabled;
     progress->rendered = false;
     progress->finished = false;
@@ -204,7 +239,7 @@ lrc_progress_begin(LrcProgress *progress) {
     }
 
     progress->current = 0;
-    lrc_progress_render(progress);
+    lrc_progress_render(progress, false);
 
     return;
 }
@@ -219,7 +254,7 @@ lrc_progress_update(LrcProgress *progress, int64 current) {
     }
 
     progress->current = current;
-    lrc_progress_render(progress);
+    lrc_progress_render(progress, false);
 
     return;
 }
@@ -234,7 +269,7 @@ lrc_progress_finish(LrcProgress *progress) {
     }
 
     progress->current = progress->total;
-    lrc_progress_render(progress);
+    lrc_progress_render(progress, true);
     progress->finished = true;
 
     return;
@@ -249,7 +284,21 @@ lrc_progress_cancel(LrcProgress *progress) {
         return;
     }
 
+    lrc_progress_end_line();
     progress->finished = true;
+
+    return;
+}
+
+static void
+lrc_progress_end_line(void) {
+    if (!lrc_progress_line_open) {
+        return;
+    }
+
+    fputc('\n', stderr);
+    fflush(stderr);
+    lrc_progress_line_open = false;
 
     return;
 }

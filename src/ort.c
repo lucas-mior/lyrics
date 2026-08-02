@@ -4,6 +4,7 @@
 #endif
 
 #include "cbase.h"
+#include "progress.c"
 #include "ort.h"
 
 #if CC_CLANG
@@ -86,6 +87,7 @@ ort_check(OrtContext *context, OrtStatus *status, char *operation) {
     }
 
     api = (OrtApi *)context->api;
+    lrc_progress_end_line();
     error2("%s: %s\n", operation, api->GetErrorMessage(status));
     api->ReleaseStatus(status);
 
@@ -111,6 +113,7 @@ ort_cuda_preload_cudnn_library(
     handle = dlopen(name, RTLD_NOW | RTLD_GLOBAL);
     if (handle) {
         if (context->session_config.print_info) {
+            lrc_progress_end_line();
             error2("ONNX Runtime preloaded: %s\n", name);
         }
         return true;
@@ -121,6 +124,7 @@ ort_cuda_preload_cudnn_library(
         message = "unknown dynamic loader error";
     }
     if (required || context->session_config.print_info) {
+        lrc_progress_end_line();
         error2("warning: preloading ONNX CUDA dependency %s: %s; "
                "trying CUDA provider anyway\n",
                name,
@@ -151,6 +155,7 @@ ort_provider_check(
     }
 
     api = (OrtApi *)context->api;
+    lrc_progress_end_line();
     if (required) {
         error2("%s: %s\n", operation, api->GetErrorMessage(status));
     } else {
@@ -178,12 +183,17 @@ ort_session_options_append_cuda(
     int32 len;
 
     if (context->session_config.device_id < 0) {
+        lrc_progress_end_line();
         error2("ONNX CUDA device must not be negative: %d\n",
                context->session_config.device_id);
         return false;
     }
 
-    ort_cuda_preload_cudnn_library(context, "libcudnn_cnn.so.9", required);
+    ort_cuda_preload_cudnn_library(
+        context,
+        "libcudnn_cnn.so.9",
+        required
+    );
 
     api = (OrtApi *)context->api;
     cuda_options = NULL;
@@ -204,6 +214,7 @@ ort_session_options_append_cuda(
                     context->session_config.device_id);
     if ((len <= 0) || (len >= SIZEOF(device_id))) {
         api->ReleaseCUDAProviderOptions(cuda_options);
+        lrc_progress_end_line();
         error2("ONNX CUDA device id is too long: %d\n",
                context->session_config.device_id);
         return false;
@@ -238,6 +249,7 @@ ort_session_options_append_cuda(
     }
 
     if (context->session_config.print_info) {
+        lrc_progress_end_line();
         error2("ONNX Runtime provider: CUDA device %d\n",
                context->session_config.device_id);
     }
@@ -265,6 +277,7 @@ ort_session_options_configure_provider(
         return true;
     case ORT_EXECUTION_PROVIDER_CPU:
         if (context->session_config.print_info) {
+            lrc_progress_end_line();
             error2("ONNX Runtime provider: CPU\n");
         }
         return true;
@@ -272,6 +285,7 @@ ort_session_options_configure_provider(
         required = true;
         return ort_session_options_append_cuda(context, options, required);
     default:
+        lrc_progress_end_line();
         error2("unknown ONNX provider: %d\n",
                context->session_config.execution_provider);
         return false;

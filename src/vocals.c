@@ -331,6 +331,7 @@ vocals_read_input_audio(
         return false;
     }
 
+    lrc_progress_end_line();
     error2(
         "decoded audio: sample_rate=%d channels=%d frames=%lld\n",
         input_audio->sample_rate,
