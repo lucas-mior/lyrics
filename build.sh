@@ -15,6 +15,7 @@ alias trace_off='{ set +x; } 2>/dev/null'
 dir=$(dirname "$(readlink -f "$0")")
 program=$(basename "$(readlink -f "$(dirname "$0")")")
 program_path="bin/$program"
+library_path="bin/$program.so"
 cd "$dir" || exit
 
 target=${1:-build}
@@ -100,7 +101,7 @@ clang|*/clang)
 esac
 
 case "$target" in
-build|all|run)
+build|all|run|lib)
     CFLAGS="$CFLAGS $GNUSOURCE -O2 -g"
     ;;
 debug)
@@ -134,6 +135,7 @@ usage: ./build.sh [command] [args]
 
 commands:
     build    build the executable
+    lib      build the shared library
     run      build and run the executable with the remaining args
     test     build and run embedded module tests
     debug    build with debug flags and UBSan
@@ -212,6 +214,17 @@ uninstall_opt () {
 case "$target" in
 build|all)
     build_program
+    ;;
+lib)
+    setup_pkg_config_flags
+    mkdir -p "$(dirname "$library_path")"
+
+    trace_on
+    $CC $CPPFLAGS -DLRC_CTC_INFERENCE_ENABLE_ORT=1 $CFLAGS \
+        -fPIC -shared src/main.c \
+        $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
+        -o "$library_path"
+    trace_off
     ;;
 run)
     build_program
