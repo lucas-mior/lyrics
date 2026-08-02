@@ -155,13 +155,6 @@ available apps:
 USAGE
 }
 
-require_command() {
-    if ! command -v "$1" >/dev/null 2>&1; then
-        echo "missing required command: $1" >&2
-        exit 1
-    fi
-}
-
 pkg_config_add_flags() {
     pkg="$1"
     trace_on
@@ -185,7 +178,12 @@ pkg_config_add_optional_flags() {
     fi
 }
 
-pkg_config_add_optional_icu_flags() {
+setup_pkg_config_flags() {
+    if ! command -v pkg-config >/dev/null 2>&1; then
+        echo "missing required command: pkg-config" >&2
+        exit 1
+    fi
+
     if pkg-config --exists icu-i18n icu-uc; then
         trace_on
         flags=$(pkg-config --cflags --libs icu-i18n icu-uc)
@@ -194,70 +192,36 @@ pkg_config_add_optional_icu_flags() {
         CPPFLAGS="$CPPFLAGS -DLRC_UNICODE_ENABLE_ICU=1"
         pkg_config_flags="$pkg_config_flags $flags"
     fi
-}
 
-setup_pkg_config_flags() {
-    require_command pkg-config
-
-    pkg_config_add_optional_icu_flags
     pkg_config_add_flags libonnxruntime
     pkg_config_add_flags fftw3f
 }
 
-app_source() {
-    case "$1" in
-    get_voice)
-        printf '%s\n' src/main_get_voice.c
-        ;;
-    gen_lrc_raw)
-        printf '%s\n' src/main_gen_lrc_raw.c
-        ;;
-    gen_lrc)
-        printf '%s\n' src/main_gen_lrc.c
-        ;;
-    *)
-        echo "unknown app: $1" >&2
-        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
-        exit 1
-        ;;
-    esac
-}
-
-app_program() {
-    case "$1" in
-    get_voice)
-        printf '%s\n' "$GET_VOICE_PROGRAM"
-        ;;
-    gen_lrc_raw)
-        printf '%s\n' "$GEN_LRC_RAW_PROGRAM"
-        ;;
-    gen_lrc)
-        printf '%s\n' "$GEN_LRC_PROGRAM"
-        ;;
-    *)
-        echo "unknown app: $1" >&2
-        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
-        exit 1
-        ;;
-    esac
-}
-
-app_cppflags() {
-    case "$1" in
-    gen_lrc_raw|gen_lrc)
-        printf '%s\n' "-DLRC_CTC_INFERENCE_ENABLE_ORT=1"
-        ;;
-    *)
-        printf '%s\n' ""
-        ;;
-    esac
-}
-
 build_app() {
     app="$1"
-    source=$(app_source "$app")
-    output=$(app_program "$app")
-    app_cppflags=$(app_cppflags "$app")
+
+    case "$app" in
+    get_voice)
+        source=src/main_get_voice.c
+        output="$GET_VOICE_PROGRAM"
+        app_cppflags=
+        ;;
+    gen_lrc_raw)
+        source=src/main_gen_lrc_raw.c
+        output="$GEN_LRC_RAW_PROGRAM"
+        app_cppflags="-DLRC_CTC_INFERENCE_ENABLE_ORT=1"
+        ;;
+    gen_lrc)
+        source=src/main_gen_lrc.c
+        output="$GEN_LRC_PROGRAM"
+        app_cppflags="-DLRC_CTC_INFERENCE_ENABLE_ORT=1"
+        ;;
+    *)
+        echo "unknown app: $app" >&2
+        echo "available apps: all get_voice gen_lrc_raw gen_lrc" >&2
+        exit 1
+        ;;
+    esac
 
     mkdir -p "$(dirname "$output")"
 
@@ -286,71 +250,6 @@ build_program() {
         exit 1
         ;;
     esac
-}
-
-module_test_name() {
-    basename "$1" | sed 's/\.c$//'
-}
-
-module_test_flags() {
-    awk '/\/\/ flags:/ { $1=$2=""; print $0 }' "$1"
-}
-
-run_check() {
-    if [ -n "$target_arg" ]; then
-        CC=gcc CFLAGS="-fanalyzer" "$0" build "$target_arg"
-    else
-        CC=gcc CFLAGS="-fanalyzer" "$0" build
-    fi
-
-    analyzer_flags="--analyze -Xanalyzer -analyzer-output=text"
-    analyzer_flags="$analyzer_flags -Xanalyzer -analyzer-werror"
-    analyzer_flags="$analyzer_flags -Xanalyzer -analyzer-opt-analyze-headers"
-    analyzer_flags="$analyzer_flags -Wno-unused-command-line-argument"
-
-    if [ -n "$target_arg" ]; then
-        CC=clang CFLAGS="$analyzer_flags" "$0" build "$target_arg"
-    else
-        CC=clang CFLAGS="$analyzer_flags" "$0" build
-    fi
-}
-
-run_tests() {
-    setup_pkg_config_flags
-
-    find src -iname "*.c" | grep -v '/main[^/]*\.c$' | sort \
-        | while read -r module; do
-        name=$(module_test_name "$module")
-        test_exe="/tmp/${name}_test"
-
-        if [ -n "$target_arg" ] \
-           && [ "$target_arg" != "$name" ] \
-           && [ "$target_arg" != "${name}.c" ]; then
-            continue
-        fi
-
-        printf '\nTesting %s ...\n' "$module"
-
-        flags=$(module_test_flags "$module")
-
-        trace_on
-        if $CC $CPPFLAGS $CFLAGS \
-              "-DTESTING_$name=1" -DTESTING=1 "$module" \
-              $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS $flags \
-              -o "$test_exe"; then
-            if ! "$test_exe"; then
-                if command -v gdb >/dev/null 2>&1; then
-                    gdb --quiet \
-                        -ex run -ex backtrace -ex quit \
-                        "$test_exe" 2>&1 | $xsel
-                fi
-                exit 1
-            fi
-        else
-            exit 1
-        fi
-        trace_off
-    done
 }
 
 install_opt () {
@@ -409,13 +308,62 @@ build|all)
     exit
     ;;
 test)
-    run_tests
+    setup_pkg_config_flags
+
+    find src -iname "*.c" | grep -v '/main[^/]*\.c$' | sort \
+        | while read -r module; do
+        name=$(basename "$module" | sed 's/\.c$//')
+        test_exe="/tmp/${name}_test"
+
+        if [ -n "$target_arg" ] \
+           && [ "$target_arg" != "$name" ] \
+           && [ "$target_arg" != "${name}.c" ]; then
+            continue
+        fi
+
+        printf '\nTesting %s ...\n' "$module"
+
+        flags=$(awk '/\/\/ flags:/ { $1=$2=""; print $0 }' "$module")
+
+        trace_on
+        if $CC $CPPFLAGS $CFLAGS \
+              "-DTESTING_$name=1" -DTESTING=1 "$module" \
+              $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS $flags \
+              -o "$test_exe"; then
+            if ! "$test_exe"; then
+                if command -v gdb >/dev/null 2>&1; then
+                    gdb --quiet \
+                        -ex run -ex backtrace -ex quit \
+                        "$test_exe" 2>&1 | $xsel
+                fi
+                exit 1
+            fi
+        else
+            exit 1
+        fi
+        trace_off
+    done
     ;;
 debug)
     build_program
     ;;
 check)
-    run_check
+    if [ -n "$target_arg" ]; then
+        CC=gcc CFLAGS="-fanalyzer" "$0" build "$target_arg"
+    else
+        CC=gcc CFLAGS="-fanalyzer" "$0" build
+    fi
+
+    analyzer_flags="--analyze -Xanalyzer -analyzer-output=text"
+    analyzer_flags="$analyzer_flags -Xanalyzer -analyzer-werror"
+    analyzer_flags="$analyzer_flags -Xanalyzer -analyzer-opt-analyze-headers"
+    analyzer_flags="$analyzer_flags -Wno-unused-command-line-argument"
+
+    if [ -n "$target_arg" ]; then
+        CC=clang CFLAGS="$analyzer_flags" "$0" build "$target_arg"
+    else
+        CC=clang CFLAGS="$analyzer_flags" "$0" build
+    fi
     ;;
 clean)
     rm -rf bin
