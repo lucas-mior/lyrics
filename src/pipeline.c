@@ -1,5 +1,3 @@
-#include "cbase.h"
-
 #if !defined(TESTING_pipeline)
 #define TESTING_pipeline 0
 #endif
@@ -8,6 +6,8 @@
 #define LRC_PIPELINE_ENABLE_GENERATE TESTING_pipeline
 #endif
 
+#include "lyrics.h"
+#include "cbase.h"
 #include "pipeline.h"
 
 static void

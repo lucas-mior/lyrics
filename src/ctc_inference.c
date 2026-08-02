@@ -1,3 +1,4 @@
+#include "lyrics.h"
 #include "ctc_inference.h"
 
 #include "cbase.h"

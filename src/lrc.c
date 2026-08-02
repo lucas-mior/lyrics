@@ -1,3 +1,4 @@
+#include "lyrics.h"
 #include "lrc.h"
 
 #include "cbase.h"

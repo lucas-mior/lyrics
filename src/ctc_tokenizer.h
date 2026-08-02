@@ -2,7 +2,7 @@
 #define CTC_TOKENIZER_H
 
 #include "cbase.h"
-#include "lyrics.h"
+#include "lyrics_file.h"
 
 
 

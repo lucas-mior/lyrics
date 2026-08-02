@@ -1,3 +1,4 @@
+#include "lyrics.h"
 #include "cbase.h"
 #include "cli.h"
 #include "default_models.h"

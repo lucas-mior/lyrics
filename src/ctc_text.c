@@ -1,5 +1,6 @@
-#include "ctc_text.h"
 #include "lyrics.h"
+#include "ctc_text.h"
+#include "lyrics_file.h"
 #include "unicode_norm.h"
 
 #include "cbase.h"

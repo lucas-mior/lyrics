@@ -1,3 +1,4 @@
+#include "lyrics.h"
 #include "unicode_norm.h"
 
 #include "cbase.h"

@@ -8,7 +8,7 @@
 #include "cbase.h"
 
 #define LRC_PIPELINE_ENABLE_GENERATE 1
-#include "pipeline.h"
+#include "lyrics.h"
 #include "default_models.h"
 
 #include "fftw.c"
@@ -851,12 +851,76 @@ main_generate_lrc(LrcPipelineConfig *config) {
     return exit_status;
 }
 
-int32
-main(int32 argc, char **argv) {
+LYRICS_API void
+lyrics_config_init(LrcPipelineConfig *config) {
+    if (config == NULL) {
+        return;
+    }
+
+    lrc_pipeline_config_init(config);
+    main_apply_model_defaults(config);
+
+    return;
+}
+
+LYRICS_API bool
+lyrics_extract_vocals(
+    LrcPipelineConfig *config,
+    LrcVocalsExtractResult *result
+) {
+    LrcPipeline pipeline;
+    bool ok;
+
+    if (config == NULL) {
+        lrc_vocals_extract_result_init(result);
+        if (result != NULL) {
+            result->error = LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT;
+            result->message = "missing pipeline config";
+        }
+        return false;
+    }
+
+    main_apply_model_defaults(config);
+    lrc_pipeline_init(&pipeline, config);
+    ok = lrc_pipeline_extract_vocals(&pipeline, result);
+    lrc_pipeline_cleanup(&pipeline);
+
+    return ok;
+}
+
+LYRICS_API bool
+lyrics_generate_lrc(
+    LrcPipelineConfig *config,
+    LrcPipelineGenerateResult *result
+) {
+    LrcPipeline pipeline;
+    bool ok;
+
+    if (config == NULL) {
+        lrc_pipeline_generate_result_init(result);
+        if (result != NULL) {
+            result->error = LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT;
+            result->message = "missing pipeline config";
+        }
+        return false;
+    }
+
+    main_apply_model_defaults(config);
+    lrc_pipeline_init(&pipeline, config);
+    ok = lrc_pipeline_generate_lrc(&pipeline, result);
+    lrc_pipeline_cleanup(&pipeline);
+
+    return ok;
+}
+
+LYRICS_API int32
+lyrics_main(int32 argc, char **argv) {
     MainOptions options;
     bool has_lyrics;
 
-    program = argv[0];
+    if ((argc > 0) && (argv != NULL)) {
+        program = argv[0];
+    }
 
     memset64(&options, 0, SIZEOF(options));
     lrc_pipeline_config_init(&options.config);
@@ -869,9 +933,9 @@ main(int32 argc, char **argv) {
         if (!main_path_missing(options.config.song_path)) {
             error2("warning: --input-lyrics not provided; extracting vocals "
                    "only\n");
-            exit(main_extract_vocals(&options.config));
+            return main_extract_vocals(&options.config);
         }
-        exit(main_copy_existing_vocals(&options.config));
+        return main_copy_existing_vocals(&options.config);
     }
 
     if (!main_path_missing(options.config.existing_vocals_path)
@@ -880,5 +944,12 @@ main(int32 argc, char **argv) {
                "used\n");
     }
 
-    exit(main_generate_lrc(&options.config));
+    return main_generate_lrc(&options.config);
 }
+
+#if !defined(LYRICS_BUILD_SHARED) || !LYRICS_BUILD_SHARED
+int32
+main(int32 argc, char **argv) {
+    exit(lyrics_main(argc, argv));
+}
+#endif

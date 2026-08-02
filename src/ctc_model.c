@@ -1,3 +1,4 @@
+#include "lyrics.h"
 #include "ctc_model.h"
 
 #include "cbase.h"

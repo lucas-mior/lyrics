@@ -221,7 +221,7 @@ lib)
 
     trace_on
     $CC $CPPFLAGS -DLRC_CTC_INFERENCE_ENABLE_ORT=1 $CFLAGS \
-        -fPIC -shared src/main.c \
+        -DLYRICS_BUILD_SHARED=1 -fPIC -shared src/main.c \
         $LDFLAGS $pkg_config_flags $DEFAULT_LDLIBS \
         -o "$library_path"
     trace_off

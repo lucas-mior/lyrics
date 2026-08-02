@@ -1,4 +1,5 @@
 #include "lyrics.h"
+#include "lyrics_file.h"
 
 #include "cbase.h"
 

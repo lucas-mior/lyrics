@@ -1,3 +1,4 @@
+#include "lyrics.h"
 #include "cbase.h"
 #include "mdx.h"
 #include "progress.c"

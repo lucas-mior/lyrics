@@ -1,3 +1,4 @@
+#include "lyrics.h"
 #if !defined(TESTING_ort)
 #define TESTING_ort 0
 #endif

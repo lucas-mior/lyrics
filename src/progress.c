@@ -2,6 +2,7 @@
 #define LRC_PROGRESS_IMPLEMENTED
 
 #include "cbase.h"
+#include "lyrics.h"
 #include "progress.h"
 
 #if !defined(TESTING_progress)
@@ -190,6 +191,9 @@ lrc_progress_cancel(LrcProgress *progress) {
 }
 
 #if TESTING_progress
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
 int32
 main(void) {
     LrcProgress progress;
