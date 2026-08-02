@@ -13,6 +13,13 @@
 
 #include <onnxruntime_c_api.h>
 
+#if OS_LINUX
+#include <dlfcn.h>
+#define ORT_CUDA_PRELOAD_CUDNN 1
+#else
+#define ORT_CUDA_PRELOAD_CUDNN 0
+#endif
+
 #if CC_CLANG
 #pragma clang diagnostic pop
 #endif
@@ -87,6 +94,50 @@ ort_check(OrtContext *context, OrtStatus *status, char *operation) {
 
 
 static bool
+ort_cuda_preload_cudnn_library(
+    OrtContext *context,
+    char *name,
+    bool required
+) {
+#if ORT_CUDA_PRELOAD_CUDNN
+    static void *handle;
+    char *message;
+
+    if (handle) {
+        return true;
+    }
+
+    dlerror();
+    handle = dlopen(name, RTLD_NOW | RTLD_GLOBAL);
+    if (handle) {
+        if (context->session_config.print_info) {
+            error2("ONNX Runtime preloaded: %s\n", name);
+        }
+        return true;
+    }
+
+    message = dlerror();
+    if (message == NULL) {
+        message = "unknown dynamic loader error";
+    }
+    if (required || context->session_config.print_info) {
+        error2("warning: preloading ONNX CUDA dependency %s: %s; "
+               "trying CUDA provider anyway\n",
+               name,
+               message);
+    }
+
+    return false;
+#else
+    (void)context;
+    (void)name;
+    (void)required;
+
+    return true;
+#endif
+}
+
+static bool
 ort_provider_check(
     OrtContext *context,
     OrtStatus *status,
@@ -131,6 +182,8 @@ ort_session_options_append_cuda(
                context->session_config.device_id);
         return false;
     }
+
+    ort_cuda_preload_cudnn_library(context, "libcudnn_cnn.so.9", required);
 
     api = (OrtApi *)context->api;
     cuda_options = NULL;
