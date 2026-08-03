@@ -286,8 +286,7 @@ ort_session_options_configure_provider(
         return ort_session_options_append_cuda(context, options, required);
     default:
         lrc_progress_end_line();
-        error2("unknown ONNX provider: %d\n",
-               context->session_config.execution_provider);
+        error2("unknown ONNX provider.\n");
         return false;
     }
 }
