@@ -653,7 +653,6 @@ main_apply_flag_option(
     switch (kind) {
     case MAIN_FLAG_OPTION_HELP:
         main_print_usage(stdout);
-        break;
     case MAIN_FLAG_OPTION_KEEP_TEMP_FILES:
         options->config.keep_temp_files = true;
         break;
