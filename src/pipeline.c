@@ -2069,6 +2069,70 @@ lrc_pipeline_next_timestamped_line(
 }
 
 static bool
+lrc_pipeline_line_timestamps_correct_ends_from_audio(
+    LrcCtcLineTimestamps *timestamps,
+    LrcPipelineLineTimingAudio *audio,
+    LrcPipelineGenerateResult *result
+) {
+    if ((timestamps == NULL) || (audio == NULL) || (audio->samples == NULL)
+        || (audio->sample_count <= 0) || (audio->sample_rate <= 0)) {
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT,
+            "line timing audio correction arguments are invalid",
+            NULL
+        );
+        return false;
+    }
+
+    for (int64 i = 0; i < timestamps->line_count; i += 1) {
+        LrcCtcLineTimestamp *current;
+        LrcCtcLineTimestamp *next;
+        float gap_seconds;
+        float silence_start_seconds;
+
+        current = timestamps->lines + i;
+        if (current->kind != LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED) {
+            continue;
+        }
+        if (current->end_seconds <= current->start_seconds) {
+            continue;
+        }
+
+        next = lrc_pipeline_next_timestamped_line(timestamps, i + 1);
+        if (next == NULL) {
+            continue;
+        }
+
+        gap_seconds = next->start_seconds - current->end_seconds;
+        if (gap_seconds < LRC_PIPELINE_CLEAR_SILENCE_SECONDS) {
+            continue;
+        }
+
+        silence_start_seconds = 0.0f;
+        if (!lrc_pipeline_audio_find_silence_start(
+            audio->samples,
+            audio->sample_count,
+            audio->sample_rate,
+            current->end_seconds,
+            next->start_seconds,
+            6.0f,
+            0.25f,
+            &silence_start_seconds
+        )) {
+            continue;
+        }
+
+        if ((silence_start_seconds >= current->end_seconds)
+            && (silence_start_seconds <= next->start_seconds)) {
+            current->end_seconds = silence_start_seconds;
+        }
+    }
+
+    return true;
+}
+
+static bool
 lrc_pipeline_timestamp_needs_clear_line(
     LrcCtcLineTimestamps *timestamps,
     int64 timestamp_index
@@ -2775,6 +2839,13 @@ lrc_pipeline_generate_lrc(
     if (ok && !lrc_pipeline_line_timing_audio_from_ctc_audio(&line_audio,
                                                              &audio,
                                                              result)) {
+        ok = false;
+    }
+    if (ok && !lrc_pipeline_line_timestamps_correct_ends_from_audio(
+        &line_timestamps,
+        &line_audio,
+        result
+    )) {
         ok = false;
     }
     if (ok) {
@@ -3855,6 +3926,118 @@ pipeline_test_audio_silence_detector_scaled(void) {
             || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
             return pipeline_test_fail("silence detector scaled amplitude");
         }
+    }
+
+    return 0;
+}
+
+static void
+pipeline_test_make_two_line_timestamps(
+    LrcCtcLineTimestamps *timestamps,
+    LrcCtcLineTimestamp *lines,
+    float first_start_seconds,
+    float first_end_seconds,
+    float second_start_seconds
+) {
+    lrc_ctc_line_timestamps_init(timestamps);
+    memset64(lines, 0, 2*SIZEOF(*lines));
+
+    timestamps->lines = lines;
+    timestamps->line_count = 2;
+    timestamps->line_cap = 2;
+    timestamps->timestamped_line_count = 2;
+
+    lines[0].line_index = 0;
+    lines[0].start_seconds = first_start_seconds;
+    lines[0].end_seconds = first_end_seconds;
+    lines[0].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    lines[1].line_index = 1;
+    lines[1].start_seconds = second_start_seconds;
+    lines[1].end_seconds = second_start_seconds + 1.0f;
+    lines[1].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    return;
+}
+
+static void
+pipeline_test_line_timing_audio_set(
+    LrcPipelineLineTimingAudio *audio,
+    float *samples,
+    int64 sample_count,
+    int32 sample_rate
+) {
+    lrc_pipeline_line_timing_audio_init(audio);
+
+    audio->samples = samples;
+    audio->sample_count = sample_count;
+    audio->sample_rate = sample_rate;
+
+    return;
+}
+
+static int32
+pipeline_test_line_timing_audio_correction(void) {
+    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamp lines[2];
+    LrcPipelineLineTimingAudio audio;
+    LrcPipelineGenerateResult result;
+    float samples[12000];
+
+    lrc_pipeline_generate_result_init(&result);
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 6500, 5500, 0.0f);
+    pipeline_test_line_timing_audio_set(&audio,
+                                        samples,
+                                        LENGTH(samples),
+                                        1000);
+    pipeline_test_make_two_line_timestamps(&timestamps,
+                                           lines,
+                                           2.0f,
+                                           5.0f,
+                                           10.0f);
+    if (!lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
+                                                              &audio,
+                                                              &result)) {
+        return pipeline_test_fail("line audio correction failed");
+    }
+    if (!pipeline_test_float_near(lines[0].end_seconds, 6.50f, 0.011f)) {
+        return pipeline_test_fail("line audio correction moves end");
+    }
+    if (!pipeline_test_float_near(lines[1].start_seconds, 10.0f, 0.001f)) {
+        return pipeline_test_fail("line audio correction preserves next");
+    }
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 5000, 7000, 0.0f);
+    pipeline_test_make_two_line_timestamps(&timestamps,
+                                           lines,
+                                           2.0f,
+                                           5.0f,
+                                           10.0f);
+    if (!lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
+                                                              &audio,
+                                                              &result)) {
+        return pipeline_test_fail("line audio immediate silence failed");
+    }
+    if (!pipeline_test_float_near(lines[0].end_seconds, 5.0f, 0.011f)) {
+        return pipeline_test_fail("line audio immediate silence end");
+    }
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_make_two_line_timestamps(&timestamps,
+                                           lines,
+                                           2.0f,
+                                           5.0f,
+                                           10.0f);
+    if (!lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
+                                                              &audio,
+                                                              &result)) {
+        return pipeline_test_fail("line audio no silence failed");
+    }
+    if (!pipeline_test_float_near(lines[0].end_seconds, 5.0f, 0.001f)) {
+        return pipeline_test_fail("line audio no silence keeps end");
     }
 
     return 0;
@@ -5443,6 +5626,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_audio_silence_detector_scaled() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_line_timing_audio_correction() != 0) {
         exit(1);
     }
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
