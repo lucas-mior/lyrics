@@ -1711,13 +1711,94 @@ lrc_pipeline_path_to_padded_token_spans(
 }
 
 static bool
+lrc_pipeline_output_line_set_timestamped(
+    LrcOutputLine *line,
+    char *text,
+    int32 text_len,
+    float seconds,
+    LrcPipelineGenerateResult *result
+) {
+    LrcFormatResult format_result;
+    int32 hundredths;
+
+    if (!lrc_timestamp_hundredths_from_seconds(seconds,
+                                               &hundredths,
+                                               &format_result)) {
+        lrc_pipeline_generate_result_set(
+            result,
+            LRC_PIPELINE_GENERATE_ERROR_OUTPUT_LINES_FAILED,
+            "could not format LRC timestamp",
+            NULL
+        );
+        return false;
+    }
+
+    line->text = text;
+    line->text_len = text_len;
+    line->timestamp_hundredths = hundredths;
+    line->kind = LRC_OUTPUT_LINE_KIND_TIMESTAMPED;
+
+    return true;
+}
+
+static LrcCtcLineTimestamp *
+lrc_pipeline_next_timestamped_line(
+    LrcCtcLineTimestamps *timestamps,
+    int64 start_index
+) {
+    for (int64 i = start_index; i < timestamps->line_count; i += 1) {
+        LrcCtcLineTimestamp *timestamp;
+
+        timestamp = timestamps->lines + i;
+        if (timestamp->kind == LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED) {
+            return timestamp;
+        }
+    }
+
+    return NULL;
+}
+
+static bool
+lrc_pipeline_timestamp_needs_clear_line(
+    LrcCtcLineTimestamps *timestamps,
+    int64 timestamp_index
+) {
+    LrcCtcLineTimestamp *current;
+    LrcCtcLineTimestamp *next;
+    float gap_seconds;
+
+    current = timestamps->lines + timestamp_index;
+    if (current->kind != LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED) {
+        return false;
+    }
+
+    next = lrc_pipeline_next_timestamped_line(timestamps,
+                                              timestamp_index + 1);
+    if (next == NULL) {
+        return false;
+    }
+
+    gap_seconds = next->start_seconds - current->end_seconds;
+
+    return gap_seconds >= 1.0f;
+}
+
+static bool
 lrc_pipeline_output_lines_from_timestamps(
     LrcLyrics *lyrics,
     LrcCtcLineTimestamps *timestamps,
     LrcOutputLine *lines,
+    int64 line_cap,
+    int32 *line_count,
     LrcPipelineGenerateResult *result
 ) {
-    if ((lyrics == NULL) || (timestamps == NULL) || (lines == NULL)) {
+    int64 out_index;
+
+    if (line_count) {
+        *line_count = 0;
+    }
+    if ((lyrics == NULL) || (timestamps == NULL) || (lines == NULL)
+        || (line_count == NULL)) {
         lrc_pipeline_generate_result_set(
             result,
             LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT,
@@ -1727,7 +1808,9 @@ lrc_pipeline_output_lines_from_timestamps(
         return false;
     }
     if ((timestamps->line_count < 0)
-        || (timestamps->line_count > INT32_MAX)) {
+        || (timestamps->line_count > INT32_MAX)
+        || (line_cap < timestamps->line_count)
+        || (line_cap > INT32_MAX)) {
         lrc_pipeline_generate_result_set(
             result,
             LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
@@ -1737,11 +1820,10 @@ lrc_pipeline_output_lines_from_timestamps(
         return false;
     }
 
+    out_index = 0;
     for (int64 i = 0; i < timestamps->line_count; i += 1) {
         LrcCtcLineTimestamp *timestamp;
         LrcLyricsLine *lyrics_line;
-        LrcFormatResult format_result;
-        int32 hundredths;
 
         timestamp = timestamps->lines + i;
         if ((timestamp->line_index < 0)
@@ -1757,32 +1839,58 @@ lrc_pipeline_output_lines_from_timestamps(
             }
             return false;
         }
+        if (out_index >= line_cap) {
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                "too many LRC output lines",
+                NULL
+            );
+            return false;
+        }
 
         lyrics_line = lyrics->lines + timestamp->line_index;
-        lines[i].text = lyrics_line->text;
-        lines[i].text_len = lyrics_line->text_len;
-        lines[i].timestamp_hundredths = -1;
-
         switch (timestamp->kind) {
         case LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED:
-            if (!lrc_timestamp_hundredths_from_seconds(
+            if (!lrc_pipeline_output_line_set_timestamped(
+                lines + out_index,
+                lyrics_line->text,
+                lyrics_line->text_len,
                 timestamp->start_seconds,
-                &hundredths,
-                &format_result
+                result
             )) {
+                return false;
+            }
+            out_index += 1;
+            if (!lrc_pipeline_timestamp_needs_clear_line(timestamps, i)) {
+                break;
+            }
+            if (out_index >= line_cap) {
                 lrc_pipeline_generate_result_set(
                     result,
-                    LRC_PIPELINE_GENERATE_ERROR_OUTPUT_LINES_FAILED,
-                    "could not format LRC timestamp",
+                    LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                    "too many LRC output lines",
                     NULL
                 );
                 return false;
             }
-            lines[i].kind = LRC_OUTPUT_LINE_KIND_TIMESTAMPED;
-            lines[i].timestamp_hundredths = hundredths;
+            if (!lrc_pipeline_output_line_set_timestamped(
+                lines + out_index,
+                "",
+                0,
+                timestamp->end_seconds,
+                result
+            )) {
+                return false;
+            }
+            out_index += 1;
             break;
         case LRC_CTC_LINE_TIMESTAMP_KIND_BLANK:
-            lines[i].kind = LRC_OUTPUT_LINE_KIND_BLANK;
+            lines[out_index].text = lyrics_line->text;
+            lines[out_index].text_len = lyrics_line->text_len;
+            lines[out_index].timestamp_hundredths = -1;
+            lines[out_index].kind = LRC_OUTPUT_LINE_KIND_BLANK;
+            out_index += 1;
             break;
         default:
             lrc_pipeline_generate_result_set(
@@ -1794,6 +1902,8 @@ lrc_pipeline_output_lines_from_timestamps(
             return false;
         }
     }
+
+    *line_count = (int32)out_index;
 
     return true;
 }
@@ -2005,6 +2115,8 @@ lrc_pipeline_generate_lrc(
     int32 *target_token_ids;
     bool *target_segment_starts;
     int64 target_token_count;
+    int64 output_line_cap;
+    int32 output_line_count;
     int32 star_token_id;
     float frame_duration_seconds;
     bool ok;
@@ -2059,6 +2171,8 @@ lrc_pipeline_generate_lrc(
     target_token_ids = NULL;
     target_segment_starts = NULL;
     target_token_count = 0;
+    output_line_cap = 0;
+    output_line_count = 0;
     star_token_id = -1;
     ok = true;
 
@@ -2343,29 +2457,34 @@ lrc_pipeline_generate_lrc(
         );
         ok = false;
     }
-    if (ok && (line_timestamps.line_count > INT64_MAX/SIZEOF(*output_lines))) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
-            "LRC output line allocation is too large",
-            NULL
-        );
-        ok = false;
+    if (ok) {
+        output_line_cap = 2*line_timestamps.line_count;
+        if ((line_timestamps.line_count < 0)
+            || (line_timestamps.line_count > INT32_MAX/2)
+            || (output_line_cap > INT64_MAX/SIZEOF(*output_lines))) {
+            lrc_pipeline_generate_result_set(
+                result,
+                LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                "LRC output line allocation is too large",
+                NULL
+            );
+            ok = false;
+        }
     }
     if (ok) {
-        output_lines = malloc2(
-            line_timestamps.line_count*SIZEOF(*output_lines)
-        );
+        output_lines = malloc2(output_line_cap*SIZEOF(*output_lines));
         if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
                                                        &line_timestamps,
                                                        output_lines,
+                                                       output_line_cap,
+                                                       &output_line_count,
                                                        result)) {
             ok = false;
         }
     }
     if (ok && !lrc_write_output_file(pipeline->config.output_lrc_path,
                                      output_lines,
-                                     (int32)line_timestamps.line_count,
+                                     output_line_count,
                                      &write_result)) {
         lrc_pipeline_generate_result_set(
             result,
@@ -2408,8 +2527,7 @@ lrc_pipeline_generate_lrc(
     }
 
     if (output_lines) {
-        free2(output_lines,
-              line_timestamps.line_count*SIZEOF(*output_lines));
+        free2(output_lines, output_line_cap*SIZEOF(*output_lines));
     }
     if (target_token_ids) {
         free2(target_token_ids,
@@ -3272,6 +3390,7 @@ pipeline_test_line_timestamp_end_writes_clear_line(void) {
     LrcCtcLineTimestamp timestamp_lines[2];
     LrcOutputLine output_lines[3];
     LrcPipelineGenerateResult result;
+    int32 output_line_count;
     char first[] = "First";
     char second[] = "Second";
 
@@ -3281,6 +3400,7 @@ pipeline_test_line_timestamp_end_writes_clear_line(void) {
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
     memset64(output_lines, 0, SIZEOF(output_lines));
+    output_line_count = 0;
 
     lyrics.lines = lyric_lines;
     lyrics.line_count = LENGTH(lyric_lines);
@@ -3308,8 +3428,13 @@ pipeline_test_line_timestamp_end_writes_clear_line(void) {
     if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
                                                    &timestamps,
                                                    output_lines,
+                                                   LENGTH(output_lines),
+                                                   &output_line_count,
                                                    &result)) {
         return pipeline_test_fail("line timestamp conversion failed");
+    }
+    if (output_line_count != LENGTH(output_lines)) {
+        return pipeline_test_fail("line timestamp output count");
     }
     if ((output_lines[0].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
         || (output_lines[0].timestamp_hundredths != 100)
