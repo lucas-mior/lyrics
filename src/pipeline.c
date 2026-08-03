@@ -5025,73 +5025,73 @@ pipeline_test_optional_maxwell_config(void) {
 int32
 main(void) {
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_line_timestamp_clear_gap_edges() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_line_timestamp_clear_keeps_blank_line() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_cafe_vocals_clear_before_sombras() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_preprocess_option_parsers() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_debug_dump_escape() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_debug_dump_text_and_tokens() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_debug_dump_audio_model() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_debug_dump_path_segments() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_debug_dump_word_spans() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_config_defaults() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_explicit_vocals_path() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_owned_temp_cleanup() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_keep_temp_files() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_vocals_request() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_existing_vocals_path() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_assets_config() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_assets_validate() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_assets_missing_path() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_ctc_assets_missing_file() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_generate_requires_lyrics_and_output() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_generate_from_song_requires_full_config() != 0) {
-        exit(1);
+        fatal(1);
     }
     if (pipeline_test_optional_maxwell_config() != 0) {
-        exit(1);
+        fatal(1);
     }
 
     return 0;

@@ -2993,8 +2993,6 @@ lrc_ctc_pad_token_intervals_with_blanks(
     LrcCtcAlignedTokenIntervals *intervals,
     LrcCtcAlignResult *result
 ) {
-    LrcCtcPathSegment *path_segments;
-
     if (result) {
         lrc_ctc_align_result_init(result);
     }
@@ -3004,18 +3002,6 @@ lrc_ctc_pad_token_intervals_with_blanks(
         intervals,
         result
     )) {
-        return false;
-    }
-
-    path_segments = segments->segments;
-    if (path_segments == NULL) {
-        lrc_ctc_align_result_set(
-            result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
-            "CTC path segments are empty",
-            -1,
-            -1
-        );
         return false;
     }
 
@@ -3032,7 +3018,7 @@ lrc_ctc_pad_token_intervals_with_blanks(
 
         previous = NULL;
         if (interval->segment_start_index > 0) {
-            previous = path_segments + interval->segment_start_index - 1;
+            previous = segments->segments + interval->segment_start_index - 1;
         }
         if ((previous != NULL) && previous->is_blank) {
             if (i == 0) {
@@ -3044,7 +3030,7 @@ lrc_ctc_pad_token_intervals_with_blanks(
 
         next = NULL;
         if (interval->segment_end_index < segments->segment_count) {
-            next = path_segments + interval->segment_end_index;
+            next = segments->segments + interval->segment_end_index;
         }
         if ((next != NULL) && next->is_blank) {
             if (i == intervals->interval_count - 1) {
@@ -3269,20 +3255,12 @@ static float
 lrc_ctc_token_span_start_seconds(LrcCtcTokenSpan *span) {
     ASSERT(span != NULL);
 
-    if (lrc_ctc_token_span_has_padded_timing(span)) {
-        return span->padded_start_seconds;
-    }
-
     return span->start_seconds;
 }
 
 static float
 lrc_ctc_token_span_end_seconds(LrcCtcTokenSpan *span) {
     ASSERT(span != NULL);
-
-    if (lrc_ctc_token_span_has_padded_timing(span)) {
-        return span->padded_end_seconds;
-    }
 
     return span->end_seconds;
 }
@@ -7433,7 +7411,7 @@ ctc_align_test_padded_token_spans_use_blank_boundaries(void) {
 
 
 static int32
-ctc_align_test_synthetic_lrc_uses_padded_blank_midpoints(void) {
+ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
     LrcCtcTokenizer tokenizer;
@@ -7450,7 +7428,7 @@ ctc_align_test_synthetic_lrc_uses_padded_blank_midpoints(void) {
     char temp_dir[PATH_MAX];
     char lrc_path[PATH_MAX];
     char text[] = "a\nb\nc\n";
-    char expected_lrc[] = "[00:00.00]a\n[00:00.50]b\n[00:00.95]c\n";
+    char expected_lrc[] = "[00:00.10]a\n[00:00.90]b\n[00:01.00]c\n";
     char *written_lrc;
     int32 written_lrc_len;
     int32 target_token_ids[3];
@@ -7599,24 +7577,33 @@ ctc_align_test_synthetic_lrc_uses_padded_blank_midpoints(void) {
 
         ASSERT(word_spans.span_count == 3);
         ASSERT(ctc_align_float_close(word_spans.spans[0].start_seconds,
-                                     0.0f,
+                                     0.10f,
                                      0.00001f));
         ASSERT(ctc_align_float_close(word_spans.spans[1].start_seconds,
-                                     0.50f,
+                                     0.90f,
                                      0.00001f));
         ASSERT(ctc_align_float_close(word_spans.spans[2].start_seconds,
-                                     0.95f,
+                                     1.00f,
                                      0.00001f));
 
         ASSERT(line_timestamps.line_count == 3);
         ASSERT(ctc_align_float_close(line_timestamps.lines[0].start_seconds,
-                                     0.0f,
+                                     0.10f,
+                                     0.00001f));
+        ASSERT(ctc_align_float_close(line_timestamps.lines[0].end_seconds,
+                                     0.11f,
                                      0.00001f));
         ASSERT(ctc_align_float_close(line_timestamps.lines[1].start_seconds,
-                                     0.50f,
+                                     0.90f,
+                                     0.00001f));
+        ASSERT(ctc_align_float_close(line_timestamps.lines[1].end_seconds,
+                                     0.91f,
                                      0.00001f));
         ASSERT(ctc_align_float_close(line_timestamps.lines[2].start_seconds,
-                                     0.95f,
+                                     1.00f,
+                                     0.00001f));
+        ASSERT(ctc_align_float_close(line_timestamps.lines[2].end_seconds,
+                                     1.01f,
                                      0.00001f));
     }
 
@@ -7658,14 +7645,14 @@ ctc_align_test_synthetic_lrc_uses_padded_blank_midpoints(void) {
     test_remove_tree(temp_dir);
 
     if (!ok) {
-        return ctc_align_test_fail("synthetic padded lrc midpoint timing");
+        return ctc_align_test_fail("synthetic active lrc timing");
     }
 
     return 0;
 }
 
 static int32
-ctc_align_test_word_spans_use_padded_token_boundaries(void) {
+ctc_align_test_word_spans_use_active_token_boundaries(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
     LrcCtcTokenizer tokenizer;
@@ -7683,13 +7670,13 @@ ctc_align_test_word_spans_use_padded_token_boundaries(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load padded word lyrics");
+        return ctc_align_test_fail("load active word lyrics");
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make padded word token spans");
+        return ctc_align_test_fail("make active word token spans");
     }
 
     ASSERT(tokens.token_count == 5);
@@ -7705,7 +7692,7 @@ ctc_align_test_word_spans_use_padded_token_boundaries(void) {
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert padded word spans");
+        return ctc_align_test_fail("convert active word spans");
     }
 
     ASSERT(word_spans.span_count == 2);
@@ -7716,16 +7703,16 @@ ctc_align_test_word_spans_use_padded_token_boundaries(void) {
                                word_spans.spans + 1,
                                STRLIT("cd"));
     ASSERT(ctc_align_float_close(word_spans.spans[0].start_seconds,
-                                 0.03f,
+                                 0.0f,
                                  0.00001f));
     ASSERT(ctc_align_float_close(word_spans.spans[0].end_seconds,
-                                 0.33f,
+                                 0.20f,
                                  0.00001f));
     ASSERT(ctc_align_float_close(word_spans.spans[1].start_seconds,
-                                 0.44f,
+                                 0.30f,
                                  0.00001f));
     ASSERT(ctc_align_float_close(word_spans.spans[1].end_seconds,
-                                 0.78f,
+                                 0.50f,
                                  0.00001f));
 
     lrc_ctc_word_spans_destroy(&word_spans);
@@ -7739,7 +7726,7 @@ ctc_align_test_word_spans_use_padded_token_boundaries(void) {
 }
 
 static int32
-ctc_align_test_segment_word_spans_use_padded_token_boundaries(void) {
+ctc_align_test_segment_word_spans_use_active_token_boundaries(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
     LrcLyricsPreprocessOptions options;
@@ -7757,28 +7744,28 @@ ctc_align_test_segment_word_spans_use_padded_token_boundaries(void) {
     lrc_ctc_token_spans_init(&token_spans);
     lrc_ctc_word_spans_init(&word_spans);
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
-        return ctc_align_test_fail("load padded segment lyrics");
+        return ctc_align_test_fail("load active segment lyrics");
     }
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
-        return ctc_align_test_fail("normalize padded segment lyrics");
+        return ctc_align_test_fail("normalize active segment lyrics");
     }
     if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load padded segment tokenizer");
+        return ctc_align_test_fail("load active segment tokenizer");
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize padded segment lyrics");
+        return ctc_align_test_fail("tokenize active segment lyrics");
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make padded segment token spans");
+        return ctc_align_test_fail("make active segment token spans");
     }
 
     ASSERT(tokens.token_count == 11);
@@ -7798,7 +7785,7 @@ ctc_align_test_segment_word_spans_use_padded_token_boundaries(void) {
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert padded segment word spans");
+        return ctc_align_test_fail("convert active segment word spans");
     }
 
     ASSERT(word_spans.span_count == 2);
@@ -7809,16 +7796,16 @@ ctc_align_test_segment_word_spans_use_padded_token_boundaries(void) {
                                word_spans.spans + 1,
                                STRLIT("stop"));
     ASSERT(ctc_align_float_close(word_spans.spans[0].start_seconds,
-                                 0.02f,
+                                 0.0f,
                                  0.00001f));
     ASSERT(ctc_align_float_close(word_spans.spans[0].end_seconds,
-                                 0.88f,
+                                 0.70f,
                                  0.00001f));
     ASSERT(ctc_align_float_close(word_spans.spans[1].start_seconds,
-                                 0.91f,
+                                 0.70f,
                                  0.00001f));
     ASSERT(ctc_align_float_close(word_spans.spans[1].end_seconds,
-                                 1.42f,
+                                 1.10f,
                                  0.00001f));
 
     lrc_ctc_word_spans_destroy(&word_spans);
@@ -9131,7 +9118,7 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     char wav_path[PATH_MAX];
     char lrc_path[PATH_MAX];
     char lyrics_text[] = "ab cd\n\nef\n";
-    char expected_lrc[] = "[00:00.00]ab cd\n\n[00:00.07]ef\n";
+    char expected_lrc[] = "[00:00.01]ab cd\n\n[00:00.07]ef\n";
     char *written_lrc;
     int32 written_lrc_len;
     int32 *target_token_ids;
@@ -10105,13 +10092,13 @@ main(void) {
     if (ctc_align_test_padded_token_spans_use_blank_boundaries() != 0) {
         exit(1);
     }
-    if (ctc_align_test_synthetic_lrc_uses_padded_blank_midpoints() != 0) {
+    if (ctc_align_test_synthetic_lrc_uses_active_token_boundaries() != 0) {
         exit(1);
     }
-    if (ctc_align_test_word_spans_use_padded_token_boundaries() != 0) {
+    if (ctc_align_test_word_spans_use_active_token_boundaries() != 0) {
         exit(1);
     }
-    if (ctc_align_test_segment_word_spans_use_padded_token_boundaries() != 0) {
+    if (ctc_align_test_segment_word_spans_use_active_token_boundaries() != 0) {
         exit(1);
     }
     if (ctc_align_test_word_spans_group_generated_words() != 0) {
