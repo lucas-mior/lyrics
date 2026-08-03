@@ -1520,68 +1520,68 @@ main(void) {
     mono_format.sample_rate = 16000;
     mono_format.channel_count = 1;
     if (audio.left || audio.right) {
-        exit(audio_test_fail("buffer pointers"));
+        fatal(audio_test_fail("buffer pointers"));
     }
     if (audio.frame_count != 0) {
-        exit(audio_test_fail("frame count"));
+        fatal(audio_test_fail("frame count"));
     }
     if ((default_format.sample_rate != 44100)
         || (default_format.channel_count != 2)) {
-        exit(audio_test_fail("default audio io format"));
+        fatal(audio_test_fail("default audio io format"));
     }
     if (!audio_io_format_valid(&mono_format)) {
-        exit(audio_test_fail("mono audio io format"));
+        fatal(audio_test_fail("mono audio io format"));
     }
     audio_buffer_destroy(&audio);
 
     if (audio_test_compare_helpers() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (audio_test_generated_wave_helpers() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     if (audio_check_ffmpeg("/definitely/missing/ffmpeg")) {
-        exit(audio_test_fail("missing ffmpeg accepted"));
+        fatal(audio_test_fail("missing ffmpeg accepted"));
     }
     if (audio_can_decode_file("missing.wav",
                               "/definitely/missing/ffmpeg")) {
-        exit(audio_test_fail("missing ffmpeg decode accepted"));
+        fatal(audio_test_fail("missing ffmpeg decode accepted"));
     }
 
     if (SNPRINTF(script,
                  "/tmp/uvr_fake_ffmpeg_%lld",
                  (int64)getpid()) < 0) {
-        exit(audio_test_fail("fake ffmpeg path"));
+        fatal(audio_test_fail("fake ffmpeg path"));
     }
     if (SNPRINTF(output,
                  "/tmp/uvr_fake_audio_%lld",
                  (int64)getpid()) < 0) {
-        exit(audio_test_fail("fake output path"));
+        fatal(audio_test_fail("fake output path"));
     }
     fd = open(script, O_WRONLY|O_CREAT|O_EXCL, 0700);
     if (fd < 0) {
-        exit(audio_test_fail("fake ffmpeg file"));
+        fatal(audio_test_fail("fake ffmpeg file"));
     }
     if (write64(fd, script_text, SIZEOF(script_text) - 1)
         != SIZEOF(script_text) - 1) {
         close(fd);
         unlink(script);
-        exit(audio_test_fail("fake ffmpeg write"));
+        fatal(audio_test_fail("fake ffmpeg write"));
     }
     close(fd);
     if (chmod(script, 0700) != 0) {
         unlink(script);
-        exit(audio_test_fail("fake ffmpeg chmod"));
+        fatal(audio_test_fail("fake ffmpeg chmod"));
     }
 
     if (!audio_check_ffmpeg(script)) {
         unlink(script);
-        exit(audio_test_fail("fake ffmpeg version"));
+        fatal(audio_test_fail("fake ffmpeg version"));
     }
     if (!audio_can_decode_file("input.mp3", script)) {
         unlink(script);
-        exit(audio_test_fail("fake ffmpeg decode check"));
+        fatal(audio_test_fail("fake ffmpeg decode check"));
     }
     audio_compare_options_init(&compare_options);
     if (!audio_compare_files(&compare_result,
@@ -1591,50 +1591,50 @@ main(void) {
                              script)) {
         audio_compare_result_print(&compare_result, "file compare");
         unlink(script);
-        exit(audio_test_fail("compare fake audio files"));
+        fatal(audio_test_fail("compare fake audio files"));
     }
     if (compare_result.expected_frames != 2) {
         audio_compare_result_print(&compare_result, "file compare frames");
         unlink(script);
-        exit(audio_test_fail("compare fake audio frames"));
+        fatal(audio_test_fail("compare fake audio frames"));
     }
     if (!audio_read_file(&audio, "input.mp3", script)) {
         unlink(script);
-        exit(audio_test_fail("read fake audio"));
+        fatal(audio_test_fail("read fake audio"));
     }
 
     if (audio.sample_rate != 44100) {
         audio_buffer_destroy(&audio);
-        exit(audio_test_fail("sample rate"));
+        fatal(audio_test_fail("sample rate"));
     }
     if (audio.channel_count != 2) {
         audio_buffer_destroy(&audio);
-        exit(audio_test_fail("channels"));
+        fatal(audio_test_fail("channels"));
     }
     if (audio.frame_count != 2) {
         audio_buffer_destroy(&audio);
-        exit(audio_test_fail("decoded frame count"));
+        fatal(audio_test_fail("decoded frame count"));
     }
     if ((audio.left[0] != 1.0f) || (audio.right[0] != -2.0f)) {
         audio_buffer_destroy(&audio);
-        exit(audio_test_fail("decoded first frame"));
+        fatal(audio_test_fail("decoded first frame"));
     }
     if ((audio.left[1] != 3.5f) || (audio.right[1] != -4.25f)) {
         audio_buffer_destroy(&audio);
-        exit(audio_test_fail("decoded second frame"));
+        fatal(audio_test_fail("decoded second frame"));
     }
 
     unlink(output);
     if (!audio_write_file(&audio, output, "wav", script)) {
         audio_buffer_destroy(&audio);
         unlink(script);
-        exit(audio_test_fail("write fake audio"));
+        fatal(audio_test_fail("write fake audio"));
     }
     fd = open(output, O_RDONLY);
     if (fd < 0) {
         audio_buffer_destroy(&audio);
         unlink(script);
-        exit(audio_test_fail("open fake output"));
+        fatal(audio_test_fail("open fake output"));
     }
     if (read64(fd, output_raw, SIZEOF(output_raw))
         != SIZEOF(output_raw)) {
@@ -1642,7 +1642,7 @@ main(void) {
         audio_buffer_destroy(&audio);
         unlink(script);
         unlink(output);
-        exit(audio_test_fail("read fake output"));
+        fatal(audio_test_fail("read fake output"));
     }
     close(fd);
     for (int32 i = 0; i < (int32)SIZEOF(output_raw); i += 1) {
@@ -1650,7 +1650,7 @@ main(void) {
             audio_buffer_destroy(&audio);
             unlink(script);
             unlink(output);
-            exit(audio_test_fail("output interleaving"));
+            fatal(audio_test_fail("output interleaving"));
         }
     }
 
@@ -1661,38 +1661,38 @@ main(void) {
                                 script)) {
         unlink(script);
         unlink(output);
-        exit(audio_test_fail("read fake mono audio"));
+        fatal(audio_test_fail("read fake mono audio"));
     }
     if (audio.sample_rate != 16000) {
         audio_buffer_destroy(&audio);
         unlink(script);
         unlink(output);
-        exit(audio_test_fail("mono sample rate"));
+        fatal(audio_test_fail("mono sample rate"));
     }
     if (audio.channel_count != 1) {
         audio_buffer_destroy(&audio);
         unlink(script);
         unlink(output);
-        exit(audio_test_fail("mono channels"));
+        fatal(audio_test_fail("mono channels"));
     }
     if (audio.frame_count != 4) {
         audio_buffer_destroy(&audio);
         unlink(script);
         unlink(output);
-        exit(audio_test_fail("mono decoded frame count"));
+        fatal(audio_test_fail("mono decoded frame count"));
     }
     if (audio.right) {
         audio_buffer_destroy(&audio);
         unlink(script);
         unlink(output);
-        exit(audio_test_fail("mono right channel"));
+        fatal(audio_test_fail("mono right channel"));
     }
     if ((audio.left[0] != 1.0f) || (audio.left[1] != -2.0f)
         || (audio.left[2] != 3.5f) || (audio.left[3] != -4.25f)) {
         audio_buffer_destroy(&audio);
         unlink(script);
         unlink(output);
-        exit(audio_test_fail("mono decoded samples"));
+        fatal(audio_test_fail("mono decoded samples"));
     }
 
     unlink(output);
@@ -1703,7 +1703,7 @@ main(void) {
                                  script)) {
         audio_buffer_destroy(&audio);
         unlink(script);
-        exit(audio_test_fail("write fake mono audio"));
+        fatal(audio_test_fail("write fake mono audio"));
     }
 
     audio_buffer_destroy(&audio);

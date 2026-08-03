@@ -9979,175 +9979,175 @@ ctc_align_test_prepare_rejects_invalid_emissions(void) {
 int32
 main(void) {
     if (ctc_align_test_empty_initializers() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_graph_build_layout() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_graph_build_edge_stars() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_graph_build_segment_stars() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_graph_rejects_bad_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_graph_transition_rules() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_required_frame_count_for_tokens() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_score_rejects_too_few_repeated_frames() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_allocate_initializes_to_negative_infinity() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_rejects_invalid_dimensions() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_prepare_initializes_start_state() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_prepare_rejects_invalid_emissions() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_trellis_uses_graph_states() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_forward_scores_ctc_skip_transition() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_best_final_state_selection() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_forward_scores_simple_path() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_forward_prefers_blank_stay() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_forward_rejects_bad_targets() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_backtracks_simple_path() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_backtracks_repeated_tokens() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_backtracks_edge_stars() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_backtracks_segment_stars() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_edge_stars_reject_bad_star_token() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_backtrack_rejects_impossible_alignment() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_backtrack_rejects_invalid_trellis() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_path_segments_merge_blanks_and_tokens() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_path_segments_split_repeated_token_after_blank() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_path_segments_keep_stars() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_aligned_intervals_keep_edge_star_order() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_aligned_intervals_keep_segment_star_order() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_pad_intervals_distributes_blank_frames() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_pad_intervals_counts_initial_star() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_token_spans_from_backtracked_path() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_token_spans_preserve_repeated_tokens() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_token_spans_collapse_contiguous_steps() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_token_spans_reject_bad_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_token_spans_reject_out_of_order_targets() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_padded_token_spans_use_blank_boundaries() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_synthetic_lrc_uses_active_token_boundaries() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_word_spans_use_active_token_boundaries() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_segment_word_spans_use_active_token_boundaries() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_word_spans_group_generated_words() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_word_spans_use_skipped_space_gaps() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_word_spans_handle_removed_punctuation() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_word_spans_follow_reference_segments() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_word_spans_keep_repeated_token_positions() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_word_spans_reject_bad_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_line_timestamps_from_generated_words() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_line_timestamps_reject_bad_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_line_timestamps_repeated_boundary_alignment() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_maxwell_line_timestamp_comparison() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_full_synthetic_alignment_pipeline() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_full_synthetic_lrc_pipeline() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_rank3_trimmed_fake_inference_pipeline() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_maxwell_fixture_lrc_pipeline() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_maxwell_fake_token_timing() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_align_test_maxwell_word_line_mapping() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     exit(0);

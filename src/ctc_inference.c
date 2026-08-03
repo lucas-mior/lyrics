@@ -2977,67 +2977,67 @@ ctc_inference_test_optional_onnx_backend(void) {
 int32
 main(void) {
     if (ctc_inference_test_empty_initializers() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_fake_rank2() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_fake_rank3() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_extension_truncated() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_logits_converted_after_trim() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_probability_trim_before_convert() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_accepts_short_actual_model_length() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_accepts_wav2vec_actual_chunk_length() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_python_slicing_vectors() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_repeated_boundary_frames() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_progress_disabled_is_silent() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_progress_counts_chunks() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_onnx_chunk_output_shape() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rank3_rejects_mismatched_chunks() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rejects_invalid_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rejects_bad_shapes() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_log_probability_bypass() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_logits_to_log_probabilities() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_probabilities_to_log_probabilities() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_rejects_invalid_probability_conversion() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_inference_test_optional_onnx_backend() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     exit(0);

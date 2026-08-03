@@ -1271,19 +1271,19 @@ ort_test_optional_identity_model(void) {
 int32
 main(void) {
     if (ort_test_empty_initializers() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ort_test_model_io_info_copy() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ort_test_execution_provider_parse() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ort_test_tensor_shape_element_count() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ort_test_optional_identity_model() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     exit(0);

@@ -758,22 +758,22 @@ cli_test_reject_invalid_value(void) {
 int
 main(void) {
     if (cli_test_successful_parse() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (cli_test_default_parse() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (cli_test_reject_missing_required() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (cli_test_reject_empty_model_vocal_path() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (cli_test_reject_invalid_value() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (cli_test_reject_old_model_names() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     exit(0);

@@ -510,24 +510,24 @@ ctc_audio_test_maxwell_vocals(void) {
 int
 main(void) {
     if (ctc_audio_test_defaults_and_invalid_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_audio_test_generated_decode(48000,
                                         2,
                                         0.125,
                                         16000,
                                         "ctc_audio_stereo") != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_audio_test_generated_decode(22050,
                                         1,
                                         0.20,
                                         8000,
                                         "ctc_audio_mono") != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_audio_test_maxwell_vocals() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     exit(0);

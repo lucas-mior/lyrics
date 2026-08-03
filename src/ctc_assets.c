@@ -370,25 +370,25 @@ ctc_assets_test_invalid_arguments(void) {
 int32
 main(void) {
     if (ctc_assets_test_config_defaults() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_assets_test_valid_generated_files() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_assets_test_missing_model_path() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_assets_test_missing_tokenizer_path() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_assets_test_missing_model_file() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_assets_test_missing_tokenizer_file() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_assets_test_invalid_arguments() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     return 0;

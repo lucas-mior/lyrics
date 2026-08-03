@@ -911,31 +911,31 @@ lyrics_test_optional_maxwell_txt(void) {
 int32
 main(void) {
     if (lyrics_test_crlf_and_trailing_newline() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_bom_unicode_and_blank_lines() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_reject_empty() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_reject_invalid_utf8() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_normalize_punctuation_sections_and_mapping() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_normalize_unicode_and_blank_lines() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_normalized_ranges_blank_punctuation_repeated() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_preprocess_option_defaults_preserve_normalization() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lyrics_test_optional_maxwell_txt() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     return 0;

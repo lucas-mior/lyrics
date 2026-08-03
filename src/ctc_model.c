@@ -1381,31 +1381,31 @@ ctc_model_test_prepares_maxwell_shaped_input(void) {
 int32
 main(void) {
     if (ctc_model_test_defaults_and_invalid_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_prepares_short_input() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_prepares_chunked_input() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_emission_frame_conversion() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_chunk_metadata_three_chunks() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_chunk_metadata_partial_stride() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_rejects_unaligned_window_or_context() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_validates_model_io() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_model_test_prepares_maxwell_shaped_input() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     exit(0);

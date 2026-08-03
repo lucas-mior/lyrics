@@ -863,7 +863,7 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     do { \
         if (!(CONDITION)) { \
             error2("mdx test failed: %s\n", NAME); \
-            exit(EXIT_FAILURE); \
+            fatal(EXIT_FAILURE); \
         } \
     } while (0)
 

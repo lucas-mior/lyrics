@@ -698,16 +698,16 @@ vocals_test_optional_real_extraction(void) {
 int32
 main(void) {
     if (vocals_test_request_defaults() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (vocals_test_request_validation() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (vocals_test_missing_external_resources() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (vocals_test_optional_real_extraction() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     return 0;

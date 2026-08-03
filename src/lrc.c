@@ -1866,55 +1866,55 @@ lrc_test_optional_maxwell_lrc(void) {
 int32
 main(void) {
     if (lrc_test_parse_timestamped_and_blank_lines() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_parse_crlf_and_space_blank_line() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_reject_malformed_timestamps() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_reject_untimed_text() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_duplicate_timestamps_are_preserved() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_format_timestamp_hundredths() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_format_timestamp_seconds_rounding() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_format_timestamped_line_preserves_text() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_format_timestamped_empty_line() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_format_reject_bad_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_write_generated_file() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_write_timestamped_empty_line() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_write_overwrites_existing_file() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_write_rejects_bad_inputs() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_optional_maxwell_formatting() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_optional_maxwell_write_structure() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (lrc_test_optional_maxwell_lrc() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     return 0;

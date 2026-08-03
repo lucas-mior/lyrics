@@ -1842,41 +1842,41 @@ ctc_tokenizer_test_missing_path(void) {
 int32
 main(void) {
     if (ctc_tokenizer_test_load_minimal_vocabulary() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_rejects_duplicate_tokens() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_requires_blank_token() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_rejects_empty_token_line() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_rejects_invalid_utf8() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_missing_path() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_tokenizes_normalized_text() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_rejects_unsupported_normalized_token() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_unknown_token_covers_one_utf8_rune() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_word_target_prevents_multi_character_match()
         != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_marks_segment_starts() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
     if (ctc_tokenizer_test_skips_unmatched_spaces() != 0) {
-        exit(1);
+        fatal(EXIT_FAILURE);
     }
 
     return 0;
