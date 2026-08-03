@@ -3627,6 +3627,163 @@ pipeline_test_line_timestamp_clear_keeps_blank_line(void) {
 }
 
 static int32
+pipeline_test_cafe_vocals_clear_before_sombras(void) {
+    LrcLyrics lyrics;
+    LrcLyricsLine lyric_lines[8];
+    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamp timestamp_lines[8];
+    LrcOutputLine output_lines[9];
+    LrcPipelineGenerateResult result;
+    char *sample_path;
+    char *sample_text;
+    int32 sample_text_len;
+    int32 output_line_count;
+    char colonia[] = "Colônia!";
+    char filhos[] = "Teus filhos já estão de pé";
+    char inicia[] = "Mais um dia se inicia na colheita do café";
+    char fardo[] = "Pesado é o fardo";
+    char amargo[] = "e o gosto amargo";
+    char blank[] = "";
+    char sombras[] = "Sombras do passado pairam sobre o cafezal";
+    char vastos[] = "vastos campos, vilas e aldeias";
+
+    sample_path = "samples/cafe-vocals.txt";
+    if (!util_file_exists(sample_path)) {
+        sample_path = "../samples/cafe-vocals.txt";
+    }
+    if (!util_file_exists(sample_path)) {
+        return pipeline_test_fail("missing cafe-vocals sample");
+    }
+
+    sample_text = read_entire_file(sample_path, &sample_text_len);
+    if (memmem64(sample_text,
+                 sample_text_len,
+                 STRLIT("e o gosto amargo\n\n"
+                        "Sombras do passado pairam sobre o cafezal"))
+        == NULL) {
+        free2(sample_text,
+              ((int64)sample_text_len + 1)*SIZEOF(*sample_text));
+        return pipeline_test_fail("cafe-vocals sample pause missing");
+    }
+    free2(sample_text, ((int64)sample_text_len + 1)*SIZEOF(*sample_text));
+
+    lrc_lyrics_init(&lyrics);
+    lrc_ctc_line_timestamps_init(&timestamps);
+    lrc_pipeline_generate_result_init(&result);
+    memset64(lyric_lines, 0, SIZEOF(lyric_lines));
+    memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
+    memset64(output_lines, 0, SIZEOF(output_lines));
+    output_line_count = 0;
+
+    lyrics.lines = lyric_lines;
+    lyrics.line_count = LENGTH(lyric_lines);
+
+    lyric_lines[0].text = colonia;
+    lyric_lines[0].text_len = strlen32(colonia);
+    lyric_lines[1].text = filhos;
+    lyric_lines[1].text_len = strlen32(filhos);
+    lyric_lines[2].text = inicia;
+    lyric_lines[2].text_len = strlen32(inicia);
+    lyric_lines[3].text = fardo;
+    lyric_lines[3].text_len = strlen32(fardo);
+    lyric_lines[4].text = amargo;
+    lyric_lines[4].text_len = strlen32(amargo);
+    lyric_lines[5].text = blank;
+    lyric_lines[5].text_len = 0;
+    lyric_lines[6].text = sombras;
+    lyric_lines[6].text_len = strlen32(sombras);
+    lyric_lines[7].text = vastos;
+    lyric_lines[7].text_len = strlen32(vastos);
+
+    timestamps.lines = timestamp_lines;
+    timestamps.line_count = LENGTH(timestamp_lines);
+    timestamps.line_cap = LENGTH(timestamp_lines);
+    timestamps.timestamped_line_count = 7;
+    timestamps.blank_line_count = 1;
+
+    timestamp_lines[0].line_index = 0;
+    timestamp_lines[0].start_seconds = 2.30f;
+    timestamp_lines[0].end_seconds = 7.00f;
+    timestamp_lines[0].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[1].line_index = 1;
+    timestamp_lines[1].start_seconds = 7.58f;
+    timestamp_lines[1].end_seconds = 14.00f;
+    timestamp_lines[1].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[2].line_index = 2;
+    timestamp_lines[2].start_seconds = 14.72f;
+    timestamp_lines[2].end_seconds = 23.00f;
+    timestamp_lines[2].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[3].line_index = 3;
+    timestamp_lines[3].start_seconds = 23.78f;
+    timestamp_lines[3].end_seconds = 29.50f;
+    timestamp_lines[3].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[4].line_index = 4;
+    timestamp_lines[4].start_seconds = 30.24f;
+    timestamp_lines[4].end_seconds = 33.80f;
+    timestamp_lines[4].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[5].line_index = 5;
+    timestamp_lines[5].kind = LRC_CTC_LINE_TIMESTAMP_KIND_BLANK;
+
+    timestamp_lines[6].line_index = 6;
+    timestamp_lines[6].start_seconds = 48.62f;
+    timestamp_lines[6].end_seconds = 65.70f;
+    timestamp_lines[6].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[7].line_index = 7;
+    timestamp_lines[7].start_seconds = 66.32f;
+    timestamp_lines[7].end_seconds = 70.00f;
+    timestamp_lines[7].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
+                                                   &timestamps,
+                                                   output_lines,
+                                                   LENGTH(output_lines),
+                                                   &output_line_count,
+                                                   &result)) {
+        return pipeline_test_fail("cafe-vocals timestamp conversion failed");
+    }
+    if (output_line_count != LENGTH(output_lines)) {
+        return pipeline_test_fail("cafe-vocals output count");
+    }
+    if ((output_lines[4].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[4].timestamp_hundredths != 3024)
+        || !pipeline_test_output_text_equal(output_lines + 4,
+                                            STRLIT("e o gosto amargo"))) {
+        return pipeline_test_fail("cafe-vocals previous lyric output");
+    }
+    if ((output_lines[5].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[5].timestamp_hundredths != 3380)
+        || (output_lines[5].text_len != 0)) {
+        return pipeline_test_fail("cafe-vocals clear output");
+    }
+    if ((output_lines[6].kind != LRC_OUTPUT_LINE_KIND_BLANK)
+        || (output_lines[6].timestamp_hundredths != -1)
+        || (output_lines[6].text_len != 0)) {
+        return pipeline_test_fail("cafe-vocals blank output");
+    }
+    if ((output_lines[7].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[7].timestamp_hundredths != 4862)
+        || !pipeline_test_output_text_equal(output_lines + 7,
+                                            STRLIT("Sombras do passado "
+                                                   "pairam sobre o "
+                                                   "cafezal"))) {
+        return pipeline_test_fail("cafe-vocals next lyric output");
+    }
+    if (output_lines[7].timestamp_hundredths
+        - output_lines[5].timestamp_hundredths < 100) {
+        return pipeline_test_fail("cafe-vocals clear gap too short");
+    }
+
+    return 0;
+}
+
+
+static int32
 pipeline_test_line_timestamp_end_writes_clear_line(void) {
     LrcLyrics lyrics;
     LrcLyricsLine lyric_lines[2];
@@ -4867,6 +5024,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_line_timestamp_clear_keeps_blank_line() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_cafe_vocals_clear_before_sombras() != 0) {
         exit(1);
     }
     if (pipeline_test_preprocess_option_parsers() != 0) {
