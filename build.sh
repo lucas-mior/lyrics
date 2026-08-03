@@ -18,7 +18,7 @@ program_path="bin/$program"
 library_path="bin/$program.so"
 cd "$dir" || exit
 
-target=${1:-build}
+target=${1:-debug}
 if [ "$#" -gt 0 ]; then
     shift
 fi
