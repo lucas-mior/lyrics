@@ -1760,6 +1760,160 @@ lrc_pipeline_line_timing_audio_from_ctc_audio(
     return true;
 }
 
+static int64
+lrc_pipeline_audio_second_to_sample(
+    float seconds,
+    int32 sample_rate
+) {
+    double sample;
+
+    if ((seconds <= 0.0f) || (sample_rate <= 0)) {
+        return 0;
+    }
+
+    sample = (double)seconds*(double)sample_rate;
+    if (sample >= (double)INT64_MAX) {
+        return INT64_MAX;
+    }
+
+    return (int64)sample;
+}
+
+static int64
+lrc_pipeline_audio_second_to_sample_count(
+    float seconds,
+    int32 sample_rate
+) {
+    double sample_count;
+
+    if ((seconds <= 0.0f) || (sample_rate <= 0)) {
+        return 0;
+    }
+
+    sample_count = (double)seconds*(double)sample_rate + 0.5;
+    if (sample_count >= (double)INT64_MAX) {
+        return INT64_MAX;
+    }
+
+    return (int64)sample_count;
+}
+
+static float
+lrc_pipeline_audio_window_rms(
+    float *samples,
+    int64 start_index,
+    int64 sample_count
+) {
+    double sum;
+
+    sum = 0.0;
+    for (int64 i = 0; i < sample_count; i += 1) {
+        double sample;
+
+        sample = (double)samples[start_index + i];
+        sum += sample*sample;
+    }
+
+    return (float)sqrt(sum/(double)sample_count);
+}
+
+static bool
+lrc_pipeline_audio_find_silence_start(
+    float *samples,
+    int64 sample_count,
+    int32 sample_rate,
+    float search_start_seconds,
+    float search_end_seconds,
+    float silence_rms_threshold,
+    float sustained_silence_seconds,
+    float *silence_start_seconds
+) {
+    int64 search_start;
+    int64 search_end;
+    int64 window_count;
+    int64 hop_count;
+    int64 sustained_count;
+    int64 silent_run_start;
+    double duration_seconds;
+
+    if (silence_start_seconds) {
+        *silence_start_seconds = 0.0f;
+    }
+    if ((samples == NULL) || (sample_count <= 0) || (sample_rate <= 0)
+        || !isfinite(search_start_seconds)
+        || !isfinite(search_end_seconds)
+        || !isfinite(silence_rms_threshold)
+        || !isfinite(sustained_silence_seconds)
+        || (silence_rms_threshold < 0.0f)
+        || (sustained_silence_seconds <= 0.0f)
+        || (silence_start_seconds == NULL)) {
+        return false;
+    }
+
+    duration_seconds = (double)sample_count/(double)sample_rate;
+    if (search_start_seconds < 0.0f) {
+        search_start_seconds = 0.0f;
+    }
+    if (search_end_seconds < 0.0f) {
+        return false;
+    }
+    if ((double)search_end_seconds > duration_seconds) {
+        search_end_seconds = (float)duration_seconds;
+    }
+    if (search_end_seconds <= search_start_seconds) {
+        return false;
+    }
+
+    search_start = lrc_pipeline_audio_second_to_sample(search_start_seconds,
+                                                       sample_rate);
+    search_end = lrc_pipeline_audio_second_to_sample(search_end_seconds,
+                                                     sample_rate);
+    if (search_start < 0) {
+        search_start = 0;
+    }
+    if (search_end > sample_count) {
+        search_end = sample_count;
+    }
+    if (search_end <= search_start) {
+        return false;
+    }
+
+    window_count = lrc_pipeline_audio_second_to_sample_count(0.040f,
+                                                             sample_rate);
+    hop_count = lrc_pipeline_audio_second_to_sample_count(0.010f,
+                                                          sample_rate);
+    sustained_count = lrc_pipeline_audio_second_to_sample_count(
+        sustained_silence_seconds,
+        sample_rate
+    );
+    if ((window_count <= 0) || (hop_count <= 0) || (sustained_count <= 0)
+        || (window_count > search_end - search_start)) {
+        return false;
+    }
+
+    silent_run_start = -1;
+    for (int64 i = search_start; i + window_count <= search_end;
+         i += hop_count) {
+        float rms;
+
+        rms = lrc_pipeline_audio_window_rms(samples, i, window_count);
+        if (rms <= silence_rms_threshold) {
+            if (silent_run_start < 0) {
+                silent_run_start = i;
+            }
+            if (i + window_count - silent_run_start >= sustained_count) {
+                *silence_start_seconds = (float)((double)silent_run_start
+                                                 /(double)sample_rate);
+                return true;
+            }
+        } else {
+            silent_run_start = -1;
+        }
+    }
+
+    return false;
+}
+
 static bool
 lrc_pipeline_output_line_set_timestamped(
     LrcOutputLine *line,
@@ -3447,6 +3601,123 @@ pipeline_test_output_text_equal(LrcOutputLine *line, char *text, int32 len) {
     return strequal2(line->text, line->text_len, text, len);
 }
 
+static void
+pipeline_test_audio_fill(
+    float *samples,
+    int64 sample_count,
+    float value
+) {
+    for (int64 i = 0; i < sample_count; i += 1) {
+        samples[i] = value;
+    }
+
+    return;
+}
+
+static bool
+pipeline_test_float_near(
+    float a,
+    float b,
+    float epsilon
+) {
+    return fabsf(a - b) <= epsilon;
+}
+
+static int32
+pipeline_test_audio_silence_detector(void) {
+    float samples[2000];
+    float silence_start;
+    bool found;
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 1000, 1000, 0.0f);
+    silence_start = -1.0f;
+    found = lrc_pipeline_audio_find_silence_start(samples,
+                                                  LENGTH(samples),
+                                                  1000,
+                                                  0.0f,
+                                                  2.0f,
+                                                  0.05f,
+                                                  0.25f,
+                                                  &silence_start);
+    if (!found || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
+        return pipeline_test_fail("silence detector tone then silence");
+    }
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.0f);
+    silence_start = -1.0f;
+    found = lrc_pipeline_audio_find_silence_start(samples,
+                                                  LENGTH(samples),
+                                                  1000,
+                                                  0.25f,
+                                                  1.50f,
+                                                  0.05f,
+                                                  0.25f,
+                                                  &silence_start);
+    if (!found || !pipeline_test_float_near(silence_start, 0.25f, 0.011f)) {
+        return pipeline_test_fail("silence detector already silent");
+    }
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    silence_start = -1.0f;
+    found = lrc_pipeline_audio_find_silence_start(samples,
+                                                  LENGTH(samples),
+                                                  1000,
+                                                  0.0f,
+                                                  2.0f,
+                                                  0.05f,
+                                                  0.25f,
+                                                  &silence_start);
+    if (found) {
+        return pipeline_test_fail("silence detector no silence");
+    }
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 1000, 100, 0.0f);
+    silence_start = -1.0f;
+    found = lrc_pipeline_audio_find_silence_start(samples,
+                                                  LENGTH(samples),
+                                                  1000,
+                                                  0.0f,
+                                                  2.0f,
+                                                  0.05f,
+                                                  0.25f,
+                                                  &silence_start);
+    if (found) {
+        return pipeline_test_fail("silence detector short silence");
+    }
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 1000, 1000, 0.0f);
+    silence_start = -1.0f;
+    found = lrc_pipeline_audio_find_silence_start(samples,
+                                                  LENGTH(samples),
+                                                  1000,
+                                                  -1.0f,
+                                                  3.0f,
+                                                  0.05f,
+                                                  0.25f,
+                                                  &silence_start);
+    if (!found || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
+        return pipeline_test_fail("silence detector out of bounds search");
+    }
+
+    silence_start = -1.0f;
+    found = lrc_pipeline_audio_find_silence_start(samples,
+                                                  LENGTH(samples),
+                                                  1000,
+                                                  2.50f,
+                                                  3.0f,
+                                                  0.05f,
+                                                  0.25f,
+                                                  &silence_start);
+    if (found) {
+        return pipeline_test_fail("silence detector empty clamped range");
+    }
+
+    return 0;
+}
+
 static int32
 pipeline_test_line_timing_audio_available(void) {
     LrcCtcAudio audio;
@@ -5024,6 +5295,9 @@ pipeline_test_optional_maxwell_config(void) {
 int32
 main(void) {
     if (pipeline_test_line_timing_audio_available() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_audio_silence_detector() != 0) {
         exit(1);
     }
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
