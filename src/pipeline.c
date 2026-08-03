@@ -721,52 +721,147 @@ lrc_ctc_debug_dump_write_key_double(
     return;
 }
 
+static char
+lrc_pipeline_ascii_lower(char c) {
+    if ((c >= 'A') && (c <= 'Z')) {
+        return (char)(c - 'A' + 'a');
+    }
+
+    return c;
+}
+
+static bool
+lrc_pipeline_enum_prefix_matches(char *name, char *prefix) {
+    int32 prefix_len;
+
+    if ((name == NULL) || (prefix == NULL)) {
+        return false;
+    }
+
+    prefix_len = strlen32(prefix);
+    if (strlen32(name) < prefix_len) {
+        return false;
+    }
+
+    return STREQUAL(name, prefix_len, prefix, prefix_len);
+}
+
+static char *
+lrc_pipeline_enum_lower_suffix(
+    char *name,
+    char *prefix,
+    char *buffer,
+    int32 buffer_cap
+) {
+    int32 prefix_len;
+    int32 suffix_len;
+    char *suffix;
+
+    if ((buffer == NULL) || (buffer_cap <= 0)) {
+        return "invalid";
+    }
+    if (!lrc_pipeline_enum_prefix_matches(name, prefix)) {
+        return "invalid";
+    }
+
+    prefix_len = strlen32(prefix);
+    suffix = name + prefix_len;
+    suffix_len = strlen32(suffix);
+    if ((suffix_len <= 0) || (suffix_len >= buffer_cap)) {
+        return "invalid";
+    }
+
+    for (int32 i = 0; i < suffix_len; i += 1) {
+        buffer[i] = lrc_pipeline_ascii_lower(suffix[i]);
+    }
+    buffer[suffix_len] = '\0';
+
+    return buffer;
+}
+
+static bool
+lrc_pipeline_enum_value_matches(
+    char *name,
+    char *prefix,
+    char *value
+) {
+    int32 prefix_len;
+    char *suffix;
+
+    if (value == NULL) {
+        return false;
+    }
+    if (!lrc_pipeline_enum_prefix_matches(name, prefix)) {
+        return false;
+    }
+
+    prefix_len = strlen32(prefix);
+    suffix = name + prefix_len;
+    for (int32 i = 0; ; i += 1) {
+        if (value[i] == '\0') {
+            return suffix[i] == '\0';
+        }
+        if (suffix[i] == '\0') {
+            return false;
+        }
+        if (lrc_pipeline_ascii_lower(suffix[i]) != value[i]) {
+            return false;
+        }
+    }
+}
+
 static char *
 lrc_pipeline_preprocess_split_size_name(
     enum LrcLyricsPreprocessSplitSize split_size
 ) {
-    switch (split_size) {
-    case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT:
-        return "current";
-    case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD:
-        return "word";
-    case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR:
-        return "char";
-    case LRC_LYRICS_PREPROCESS_SPLIT_SIZE_SENTENCE:
-        return "sentence";
-    default:
+    static char buffer[32];
+
+    if (split_size >= LRC_LYRICS_PREPROCESS_SPLIT_SIZE_LAST) {
         return "invalid";
     }
+
+    return lrc_pipeline_enum_lower_suffix(
+        LRC_LYRICS_PREPROCESS_SPLIT_SIZE_str(split_size),
+        QUOTE(LRC_LYRICS_PREPROCESS_SPLIT_SIZE_),
+        buffer,
+        SIZEOF(buffer)
+    );
 }
 
 static char *
 lrc_pipeline_preprocess_star_frequency_name(
     enum LrcLyricsPreprocessStarFrequency star_frequency
 ) {
-    switch (star_frequency) {
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE:
-        return "none";
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES:
-        return "edges";
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT:
-        return "segment";
-    default:
+    static char buffer[32];
+
+    if (star_frequency >= LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST) {
         return "invalid";
     }
+
+    return lrc_pipeline_enum_lower_suffix(
+        LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_str(star_frequency),
+        QUOTE(LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_),
+        buffer,
+        SIZEOF(buffer)
+    );
 }
 
 static char *
 lrc_pipeline_preprocess_romanization_name(
     enum LrcLyricsPreprocessRomanization romanization
 ) {
-    switch (romanization) {
-    case LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF:
-        return "off";
-    case LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU:
-        return "icu";
-    default:
+    static char buffer[32];
+
+    if (romanization >= LRC_LYRICS_PREPROCESS_ROMANIZATION_LAST) {
         return "invalid";
     }
+
+    return lrc_pipeline_enum_lower_suffix(
+        LRC_LYRICS_PREPROCESS_ROMANIZATION_str(romanization),
+        QUOTE(LRC_LYRICS_PREPROCESS_ROMANIZATION_),
+        buffer,
+        SIZEOF(buffer)
+    );
 }
 
 static bool
@@ -778,25 +873,18 @@ lrc_pipeline_parse_preprocess_split_size(
         return false;
     }
 
-    if (strequal(value, "current")) {
-        config->lyrics_preprocess_options.split_size =
-            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CURRENT;
-        return true;
-    }
-    if (strequal(value, "word")) {
-        config->lyrics_preprocess_options.split_size =
-            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
-        return true;
-    }
-    if (strequal(value, "char")) {
-        config->lyrics_preprocess_options.split_size =
-            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR;
-        return true;
-    }
-    if (strequal(value, "sentence")) {
-        config->lyrics_preprocess_options.split_size =
-            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_SENTENCE;
-        return true;
+    for (uint32 i = 0; i < LRC_LYRICS_PREPROCESS_SPLIT_SIZE_LAST; i += 1) {
+        enum LrcLyricsPreprocessSplitSize split_size;
+
+        split_size = (enum LrcLyricsPreprocessSplitSize)i;
+        if (lrc_pipeline_enum_value_matches(
+            LRC_LYRICS_PREPROCESS_SPLIT_SIZE_str(split_size),
+            QUOTE(LRC_LYRICS_PREPROCESS_SPLIT_SIZE_),
+            value
+        )) {
+            config->lyrics_preprocess_options.split_size = split_size;
+            return true;
+        }
     }
 
     error2("--split-size must be current, word, char, or sentence\n");
@@ -813,20 +901,19 @@ lrc_pipeline_parse_preprocess_star_frequency(
         return false;
     }
 
-    if (strequal(value, "none")) {
-        config->lyrics_preprocess_options.star_frequency =
-            LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE;
-        return true;
-    }
-    if (strequal(value, "edges")) {
-        config->lyrics_preprocess_options.star_frequency =
-            LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES;
-        return true;
-    }
-    if (strequal(value, "segment")) {
-        config->lyrics_preprocess_options.star_frequency =
-            LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT;
-        return true;
+    for (uint32 i = 0; i < LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST;
+         i += 1) {
+        enum LrcLyricsPreprocessStarFrequency star_frequency;
+
+        star_frequency = (enum LrcLyricsPreprocessStarFrequency)i;
+        if (lrc_pipeline_enum_value_matches(
+            LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_str(star_frequency),
+            QUOTE(LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_),
+            value
+        )) {
+            config->lyrics_preprocess_options.star_frequency = star_frequency;
+            return true;
+        }
     }
 
     error2("--star-frequency must be none, edges, or segment\n");
@@ -843,15 +930,19 @@ lrc_pipeline_parse_preprocess_romanization(
         return false;
     }
 
-    if (strequal(value, "off")) {
-        config->lyrics_preprocess_options.romanization =
-            LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
-        return true;
-    }
-    if (strequal(value, "icu")) {
-        config->lyrics_preprocess_options.romanization =
-            LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
-        return true;
+    for (uint32 i = 0; i < LRC_LYRICS_PREPROCESS_ROMANIZATION_LAST;
+         i += 1) {
+        enum LrcLyricsPreprocessRomanization romanization;
+
+        romanization = (enum LrcLyricsPreprocessRomanization)i;
+        if (lrc_pipeline_enum_value_matches(
+            LRC_LYRICS_PREPROCESS_ROMANIZATION_str(romanization),
+            QUOTE(LRC_LYRICS_PREPROCESS_ROMANIZATION_),
+            value
+        )) {
+            config->lyrics_preprocess_options.romanization = romanization;
+            return true;
+        }
     }
 
     error2("--romanization must be off or icu\n");
@@ -1558,6 +1649,7 @@ lrc_pipeline_trellis_score_forward(
             align_result
         );
         break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST:
     default:
         lrc_pipeline_generate_result_set(
             result,
@@ -1634,6 +1726,7 @@ lrc_pipeline_trellis_backtrack(
             align_result
         );
         break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST:
     default:
         lrc_pipeline_generate_result_set(
             result,
@@ -1712,6 +1805,7 @@ lrc_pipeline_path_to_padded_token_spans(
             align_result
         );
         break;
+    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST:
     default:
         lrc_pipeline_generate_result_set(
             result,
