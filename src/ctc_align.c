@@ -103,7 +103,7 @@ lrc_ctc_align_segment_star_count(
     int64 *star_count,
     LrcCtcAlignResult *result
 ) {
-    ASSERT(star_count != NULL);
+    ASSERT(star_count);
     *star_count = 0;
 
     if (target_segment_starts == NULL) {
@@ -1369,20 +1369,20 @@ lrc_ctc_trellis_prepare_for_graph(
     }
 
     cell = lrc_ctc_trellis_cell(trellis, 0, 0);
-    ASSERT(cell != NULL);
+    ASSERT(cell);
     *cell = emissions->values[blank_token_id];
     for (int64 frame = 1; frame < trellis->frame_count; frame += 1) {
         float previous;
         float blank_score;
 
         cell = lrc_ctc_trellis_cell(trellis, frame - 1, 0);
-        ASSERT(cell != NULL);
+        ASSERT(cell);
         previous = *cell;
         blank_score = emissions->values[frame*emissions->vocabulary_size
                                         + blank_token_id];
 
         cell = lrc_ctc_trellis_cell(trellis, frame, 0);
-        ASSERT(cell != NULL);
+        ASSERT(cell);
         *cell = previous + blank_score;
 
         *lrc_ctc_trellis_previous_state_cell(trellis, frame, 0) = 0;
@@ -1428,20 +1428,20 @@ lrc_ctc_trellis_prepare(
     }
 
     cell = lrc_ctc_trellis_cell(trellis, 0, 0);
-    ASSERT(cell != NULL);
+    ASSERT(cell);
     *cell = emissions->values[blank_token_id];
     for (int64 frame = 1; frame < trellis->frame_count; frame += 1) {
         float previous;
         float blank_score;
 
         cell = lrc_ctc_trellis_cell(trellis, frame - 1, 0);
-        ASSERT(cell != NULL);
+        ASSERT(cell);
         previous = *cell;
         blank_score = emissions->values[frame*emissions->vocabulary_size
                                         + blank_token_id];
 
         cell = lrc_ctc_trellis_cell(trellis, frame, 0);
-        ASSERT(cell != NULL);
+        ASSERT(cell);
         *cell = previous + blank_score;
 
         *lrc_ctc_trellis_previous_state_cell(trellis, frame, 0) = 0;
@@ -1458,8 +1458,8 @@ lrc_ctc_emission_value(
 ) {
     int64 index;
 
-    ASSERT(emissions != NULL);
-    ASSERT(emissions->values != NULL);
+    ASSERT(emissions);
+    ASSERT(emissions->values);
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < emissions->frame_count);
     ASSERT(token_id >= 0);
@@ -1623,10 +1623,10 @@ lrc_ctc_trellis_try_candidate(
     float *previous_cell;
     float candidate;
 
-    ASSERT(trellis != NULL);
-    ASSERT(graph != NULL);
-    ASSERT(best_score != NULL);
-    ASSERT(best_previous_state != NULL);
+    ASSERT(trellis);
+    ASSERT(graph);
+    ASSERT(best_score);
+    ASSERT(best_previous_state);
 
     if (!lrc_ctc_align_graph_transition_allowed(graph,
                                                  previous_state,
@@ -1635,7 +1635,7 @@ lrc_ctc_trellis_try_candidate(
     }
 
     previous_cell = lrc_ctc_trellis_cell(trellis, frame - 1, previous_state);
-    ASSERT(previous_cell != NULL);
+    ASSERT(previous_cell);
     if (!isfinite(*previous_cell)) {
         return;
     }
@@ -1733,7 +1733,7 @@ lrc_ctc_trellis_score_forward_for_mode(
     }
 
     cell = lrc_ctc_trellis_cell(trellis, 0, 1);
-    ASSERT(cell != NULL);
+    ASSERT(cell);
     *cell = lrc_ctc_emission_value(
         emissions,
         0,
@@ -1780,7 +1780,7 @@ lrc_ctc_trellis_score_forward_for_mode(
                                           &best_previous_state);
 
             cell = lrc_ctc_trellis_cell(trellis, frame, state);
-            ASSERT(cell != NULL);
+            ASSERT(cell);
             *cell = best_score;
 
             previous_state_cell = lrc_ctc_trellis_previous_state_cell(
@@ -1788,7 +1788,7 @@ lrc_ctc_trellis_score_forward_for_mode(
                 frame,
                 state
             );
-            ASSERT(previous_state_cell != NULL);
+            ASSERT(previous_state_cell);
             *previous_state_cell = best_previous_state;
         }
     }
@@ -1958,8 +1958,8 @@ lrc_ctc_path_set_blank_step(
     int64 state_index,
     int32 blank_token_id
 ) {
-    ASSERT(path != NULL);
-    ASSERT(path->steps != NULL);
+    ASSERT(path);
+    ASSERT(path->steps);
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < path->step_count);
     ASSERT(state_index >= 0);
@@ -1981,8 +1981,8 @@ lrc_ctc_path_set_star_step(
     int64 state_index,
     int32 star_token_id
 ) {
-    ASSERT(path != NULL);
-    ASSERT(path->steps != NULL);
+    ASSERT(path);
+    ASSERT(path->steps);
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < path->step_count);
     ASSERT(state_index >= 0);
@@ -2006,8 +2006,8 @@ lrc_ctc_path_set_token_step(
     int64 token_index,
     int32 token_id
 ) {
-    ASSERT(path != NULL);
-    ASSERT(path->steps != NULL);
+    ASSERT(path);
+    ASSERT(path->steps);
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < path->step_count);
     ASSERT(state_index >= 0);
@@ -2033,8 +2033,8 @@ lrc_ctc_path_set_graph_state_step(
 ) {
     LrcCtcAlignState *state;
 
-    ASSERT(path != NULL);
-    ASSERT(path->steps != NULL);
+    ASSERT(path);
+    ASSERT(path->steps);
     ASSERT(lrc_ctc_align_graph_state_valid(graph, state_index));
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < path->step_count);
@@ -2077,9 +2077,9 @@ lrc_ctc_trellis_best_final_state(
     float *blank_cell;
     float *token_cell;
 
-    ASSERT(trellis != NULL);
-    ASSERT(trellis->scores != NULL);
-    ASSERT(final_state != NULL);
+    ASSERT(trellis);
+    ASSERT(trellis->scores);
+    ASSERT(final_state);
 
     final_blank_state = trellis->state_count - 1;
     final_token_state = trellis->state_count - 2;
@@ -2090,8 +2090,8 @@ lrc_ctc_trellis_best_final_state(
     token_cell = lrc_ctc_trellis_cell(trellis,
                                       trellis->frame_count - 1,
                                       final_token_state);
-    ASSERT(blank_cell != NULL);
-    ASSERT(token_cell != NULL);
+    ASSERT(blank_cell);
+    ASSERT(token_cell);
 
     if (!isfinite(*blank_cell) && !isfinite(*token_cell)) {
         lrc_ctc_align_result_set(
@@ -2193,7 +2193,7 @@ lrc_ctc_trellis_backtrack_for_mode(
         previous_state_cell = lrc_ctc_trellis_previous_state_cell(trellis,
                                                                   frame,
                                                                   state);
-        ASSERT(previous_state_cell != NULL);
+        ASSERT(previous_state_cell);
         previous_state = *previous_state_cell;
         if (!lrc_ctc_align_graph_transition_allowed(&graph,
                                                      previous_state,
@@ -2420,8 +2420,8 @@ lrc_ctc_path_steps_share_label(
     LrcCtcPathStep *a,
     LrcCtcPathStep *b
 ) {
-    ASSERT(a != NULL);
-    ASSERT(b != NULL);
+    ASSERT(a);
+    ASSERT(b);
 
     if (a->is_blank && b->is_blank) {
         return true;
@@ -2440,8 +2440,8 @@ static int64
 lrc_ctc_path_count_segments(LrcCtcPath *path) {
     int64 count;
 
-    ASSERT(path != NULL);
-    ASSERT(path->steps != NULL);
+    ASSERT(path);
+    ASSERT(path->steps);
     ASSERT(path->step_count > 0);
 
     count = 1;
@@ -2462,9 +2462,9 @@ lrc_ctc_path_step_score(
     float *score,
     LrcCtcAlignResult *result
 ) {
-    ASSERT(step != NULL);
-    ASSERT(emissions != NULL);
-    ASSERT(score != NULL);
+    ASSERT(step);
+    ASSERT(emissions);
+    ASSERT(score);
 
     if (step->token_id < 0) {
         lrc_ctc_align_result_set(
@@ -2503,7 +2503,7 @@ lrc_ctc_path_segment_finish(
     float score_sum,
     float frame_duration_seconds
 ) {
-    ASSERT(segment != NULL);
+    ASSERT(segment);
     ASSERT(segment->start_frame >= 0);
     ASSERT(segment->end_frame > segment->start_frame);
     ASSERT(score_count > 0);
@@ -2575,7 +2575,7 @@ lrc_ctc_path_to_segments(
             score_sum = 0.0f;
         }
 
-        ASSERT(segment != NULL);
+        ASSERT(segment);
         if (step->frame_index + 1 > segment->end_frame) {
             segment->end_frame = step->frame_index + 1;
         }
@@ -2978,7 +2978,7 @@ lrc_ctc_aligned_token_intervals_ready_for_padding(
 
 static int64
 lrc_ctc_blank_midpoint_frame(LrcCtcPathSegment *segment) {
-    ASSERT(segment != NULL);
+    ASSERT(segment);
     ASSERT(segment->is_blank);
     ASSERT(segment->start_frame >= 0);
     ASSERT(segment->end_frame > segment->start_frame);
@@ -3086,8 +3086,8 @@ lrc_ctc_path_step_starts_span(
     LrcCtcPathStep *step;
     LrcCtcPathStep *previous;
 
-    ASSERT(path != NULL);
-    ASSERT(path->steps != NULL);
+    ASSERT(path);
+    ASSERT(path->steps);
     ASSERT(step_index >= 0);
     ASSERT(step_index < path->step_count);
 
@@ -3111,8 +3111,8 @@ static int64
 lrc_ctc_path_count_token_spans(LrcCtcPath *path) {
     int64 count;
 
-    ASSERT(path != NULL);
-    ASSERT(path->steps != NULL);
+    ASSERT(path);
+    ASSERT(path->steps);
 
     count = 0;
     for (int64 i = 0; i < path->step_count; i += 1) {
@@ -3131,7 +3131,7 @@ lrc_ctc_token_span_finish(
     float score_sum,
     float frame_duration_seconds
 ) {
-    ASSERT(span != NULL);
+    ASSERT(span);
     ASSERT(span->start_frame >= 0);
     ASSERT(span->end_frame > span->start_frame);
     ASSERT(score_count > 0);
@@ -3231,7 +3231,7 @@ lrc_ctc_path_to_token_spans(
             score_sum = 0.0f;
         }
 
-        ASSERT(span != NULL);
+        ASSERT(span);
         if (step->frame_index + 1 > span->end_frame) {
             span->end_frame = step->frame_index + 1;
         }
@@ -3256,7 +3256,7 @@ lrc_ctc_path_to_token_spans(
 
 static bool
 lrc_ctc_token_span_has_padded_timing(LrcCtcTokenSpan *span) {
-    ASSERT(span != NULL);
+    ASSERT(span);
 
     if ((span->padded_start_frame < 0) && (span->padded_end_frame < 0)) {
         return false;
@@ -3267,14 +3267,14 @@ lrc_ctc_token_span_has_padded_timing(LrcCtcTokenSpan *span) {
 
 static float
 lrc_ctc_token_span_start_seconds(LrcCtcTokenSpan *span) {
-    ASSERT(span != NULL);
+    ASSERT(span);
 
     return span->start_seconds;
 }
 
 static float
 lrc_ctc_token_span_end_seconds(LrcCtcTokenSpan *span) {
-    ASSERT(span != NULL);
+    ASSERT(span);
 
     return span->end_seconds;
 }
@@ -3758,7 +3758,7 @@ lrc_ctc_token_span_resolve_token(
 ) {
     LrcCtcTextToken *token;
 
-    ASSERT(token_out != NULL);
+    ASSERT(token_out);
     *token_out = NULL;
 
     if ((span->token_index < 0)
@@ -3832,8 +3832,8 @@ lrc_ctc_normalized_range_is_space(
     int32 start,
     int32 end
 ) {
-    ASSERT(normalized != NULL);
-    ASSERT(normalized->text != NULL);
+    ASSERT(normalized);
+    ASSERT(normalized->text);
     ASSERT(start >= 0);
     ASSERT(end > start);
     ASSERT(end <= normalized->text_len);
@@ -3853,8 +3853,8 @@ lrc_ctc_normalized_range_has_space(
     int32 start,
     int32 end
 ) {
-    ASSERT(normalized != NULL);
-    ASSERT(normalized->text != NULL);
+    ASSERT(normalized);
+    ASSERT(normalized->text);
     ASSERT(start >= 0);
     ASSERT(end > start);
     ASSERT(end <= normalized->text_len);
@@ -3902,7 +3902,7 @@ lrc_ctc_token_segment_valid(
 ) {
     CtcTextSegment *segment;
 
-    ASSERT(segment_out != NULL);
+    ASSERT(segment_out);
     *segment_out = NULL;
 
     if ((token->segment_index < 0)
@@ -3979,7 +3979,7 @@ lrc_ctc_segment_word_count(
     int64 previous_token_index;
     int32 previous_segment_index;
 
-    ASSERT(word_count != NULL);
+    ASSERT(word_count);
 
     *word_count = 0;
     previous_token_index = -1;
@@ -4216,7 +4216,7 @@ lrc_ctc_word_count(
     int64 previous_token_index;
     int32 previous_end;
 
-    ASSERT(word_count != NULL);
+    ASSERT(word_count);
 
     if (lrc_ctc_tokenized_text_uses_segments(tokens, normalized)) {
         return lrc_ctc_segment_word_count(token_spans,
@@ -4785,7 +4785,7 @@ lrc_ctc_line_timestamp_set_blank(
 ) {
     LrcCtcLineTimestamp *line;
 
-    ASSERT(timestamps != NULL);
+    ASSERT(timestamps);
     ASSERT(index >= 0);
     ASSERT(index < timestamps->line_count);
 
@@ -4816,7 +4816,7 @@ lrc_ctc_line_timestamp_set_timed(
     LrcCtcWordSpan *last;
     float score_sum;
 
-    ASSERT(timestamps != NULL);
+    ASSERT(timestamps);
     ASSERT(index >= 0);
     ASSERT(index < timestamps->line_count);
     ASSERT(first_word_index >= 0);
@@ -5002,8 +5002,8 @@ ctc_align_set_path_segment(
 ) {
     LrcCtcPathSegment *segment;
 
-    ASSERT(segments != NULL);
-    ASSERT(segments->segments != NULL);
+    ASSERT(segments);
+    ASSERT(segments->segments);
     ASSERT(segment_index >= 0);
     ASSERT(segment_index < segments->segment_count);
 
@@ -5230,9 +5230,9 @@ ctc_align_parse_lrc_file(
 ) {
     LrcParseResult result;
 
-    ASSERT(parsed != NULL);
-    ASSERT(file_text != NULL);
-    ASSERT(file_text_len != NULL);
+    ASSERT(parsed);
+    ASSERT(file_text);
+    ASSERT(file_text_len);
 
     *file_text = NULL;
     *file_text_len = 0;
@@ -5257,8 +5257,8 @@ ctc_align_expected_line_timestamp(
     int32 source_line_index,
     float *timestamp_seconds
 ) {
-    ASSERT(parsed != NULL);
-    ASSERT(timestamp_seconds != NULL);
+    ASSERT(parsed);
+    ASSERT(timestamp_seconds);
 
     for (int32 i = 0; i < parsed->line_count; i += 1) {
         LrcParsedLine *line = parsed->lines + i;
@@ -10164,7 +10164,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_ctc_align */

@@ -1868,7 +1868,7 @@ ctc_inference_stderr_capture_end(
 
     fflush(stderr);
     len = (int64)lseek(capture->fd, 0, SEEK_END);
-    if ((buffer != NULL) && (buffer_len > 0)) {
+    if (buffer && (buffer_len > 0)) {
         int64 read_limit;
         int64 read_len;
 
@@ -2544,7 +2544,7 @@ ctc_inference_test_progress_counts_chunks(void) {
         return ctc_inference_test_fail("run chunk progress backend");
     }
 
-    ASSERT(strstr(output, "2/2") != NULL);
+    ASSERT(strstr(output, "2/2"));
     ASSERT(strstr(output, "4/4") == NULL);
     lrc_ctc_emissions_destroy(&emissions);
 
@@ -3040,7 +3040,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_ctc_inference */

@@ -1470,7 +1470,7 @@ audio_test_generated_wave_helpers(void) {
     return 0;
 }
 
-int
+int32
 main(void) {
     AudioBuffer audio;
     AudioCompareOptions compare_options;
@@ -1710,7 +1710,7 @@ main(void) {
     unlink(script);
     unlink(output);
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_audio */

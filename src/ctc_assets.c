@@ -391,7 +391,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_ctc_assets */

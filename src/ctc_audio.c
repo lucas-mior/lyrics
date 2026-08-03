@@ -507,7 +507,7 @@ ctc_audio_test_maxwell_vocals(void) {
     return 0;
 }
 
-int
+int32
 main(void) {
     if (ctc_audio_test_defaults_and_invalid_inputs() != 0) {
         fatal(EXIT_FAILURE);
@@ -530,7 +530,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_ctc_audio */

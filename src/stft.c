@@ -251,7 +251,7 @@ stft_float_close(float a, float b) {
     return fabsf(a - b) < 0.001f;
 }
 
-int
+int32
 main(void) {
     StftPlan plan;
     float input[16];
@@ -357,12 +357,12 @@ main(void) {
     }
 
     stft_plan_destroy(&plan);
-    if ((plan.window) || (plan.frame) || (plan.real)
-        || (plan.imag) || (plan.inverse)) {
+    if (plan.window || plan.frame || plan.real
+        || plan.imag || plan.inverse) {
         fatal(stft_test_fail("destroy reset"));
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_stft */

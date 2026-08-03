@@ -3522,7 +3522,7 @@ ctc_text_test_current_normalization_mapping(void) {
     return 0;
 }
 
-int
+int32
 main(void) {
     int32 status;
 
@@ -3544,6 +3544,6 @@ main(void) {
     status += ctc_text_test_icu_char_romanization();
 #endif
 
-    return status;
+    exit(status);
 }
 #endif /* TESTING_ctc_text */

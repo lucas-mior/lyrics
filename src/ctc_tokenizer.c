@@ -1307,18 +1307,18 @@ ctc_tokenizer_test_load_minimal_vocabulary(void) {
     ASSERT(!lrc_ctc_tokenizer_token_id(&tokenizer, "z", 1, &id));
 
     token = lrc_ctc_tokenizer_id_to_token(&tokenizer, 0);
-    ASSERT(token != NULL);
+    ASSERT(token);
     ASSERT(token->is_blank);
     ASSERT(token->text_len == 0);
 
     token = lrc_ctc_tokenizer_id_to_token(&tokenizer, 1);
-    ASSERT(token != NULL);
+    ASSERT(token);
     ASSERT(!token->is_blank);
     ASSERT(token->text_len == 1);
     ASSERT(token->text[0] == ' ');
 
     token = lrc_ctc_tokenizer_id_to_token(&tokenizer, 5);
-    ASSERT(token != NULL);
+    ASSERT(token);
     ASSERT(token->is_unknown);
     ASSERT(strequal(token->text, "<unk>"));
 
@@ -1879,7 +1879,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_ctc_tokenizer */

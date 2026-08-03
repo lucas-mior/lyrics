@@ -321,7 +321,7 @@ main(void) {
     lrc_progress_update(&progress, 1);
     lrc_progress_finish(&progress);
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
 #endif
 

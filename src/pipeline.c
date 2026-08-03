@@ -413,7 +413,7 @@ lrc_pipeline_extract_vocals(
     );
 
     if (!lrc_pipeline_vocals_request(pipeline, &request)) {
-        if (pipeline != NULL) {
+        if (pipeline) {
             lrc_pipeline_vocals_result_set(
                 result,
                 LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
@@ -1016,6 +1016,7 @@ lrc_ctc_debug_dump_write_target_tokens(
     for (int32 i = 0; i < tokens->token_count; i += 1) {
         LrcCtcTextToken *text_token;
         LrcCtcToken *token;
+        int32 starts_segment;
 
         text_token = tokens->tokens + i;
         token = lrc_pipeline_debug_dump_token(tokenizer,
@@ -1032,11 +1033,15 @@ lrc_ctc_debug_dump_write_target_tokens(
             lrc_ctc_debug_dump_write_escaped_text(writer,
                                                   STRLIT("<invalid>"));
         }
+        starts_segment = 0;
+        if (text_token->starts_segment) {
+            starts_segment = 1;
+        }
         lrc_ctc_debug_dump_printf(writer,
                                   "\t%d\t%d\t%d\t%d\t%d\n",
                                   text_token->line_index,
                                   text_token->segment_index,
-                                  text_token->starts_segment ? 1 : 0,
+                                  starts_segment,
                                   text_token->normalized_start,
                                   text_token->normalized_end);
     }
@@ -3818,7 +3823,10 @@ pipeline_test_file_contains(
     bool found;
 
     text = read_entire_file(path, &text_len);
-    found = memmem64(text, text_len, needle, needle_len) != NULL;
+    found = false;
+    if (memmem64(text, text_len, needle, needle_len)) {
+        found = true;
+    }
     free2(text, text_len + 1);
 
     return found;
@@ -6144,7 +6152,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_pipeline */

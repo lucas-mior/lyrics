@@ -56,7 +56,7 @@ ctc_unicode_norm_reserve(
     if (needed < 0) {
         return false;
     }
-    if ((result->text != NULL) && ((needed + 1) <= result->text_cap)) {
+    if (result->text && ((needed + 1) <= result->text_cap)) {
         return true;
     }
 
@@ -682,7 +682,7 @@ unicode_norm_test_icu_transliterate_latin(void) {
 }
 #endif
 
-int
+int32
 main(void) {
     int32 status;
 
@@ -694,6 +694,6 @@ main(void) {
     status += unicode_norm_test_icu_transliterate_latin();
 #endif
 
-    return status;
+    exit(status);
 }
 #endif /* TESTING_unicode_norm */

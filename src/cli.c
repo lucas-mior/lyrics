@@ -755,7 +755,7 @@ cli_test_reject_invalid_value(void) {
     return 0;
 }
 
-int
+int32
 main(void) {
     if (cli_test_successful_parse() != 0) {
         fatal(EXIT_FAILURE);
@@ -776,7 +776,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_cli */

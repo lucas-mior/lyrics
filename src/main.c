@@ -267,7 +267,7 @@ main_infer_vocals_format(LrcPipelineConfig *config, char *path) {
     if ((extension == NULL) || (extension[0] == '\0')) {
         return;
     }
-    if ((last_slash != NULL) && (extension <= last_slash + 1)) {
+    if (last_slash && (extension <= last_slash + 1)) {
         return;
     }
     if (strequal(extension, "wav")
@@ -683,7 +683,7 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
 
     env = getenv("LRC_VOCALS_MODEL");
     if ((config->vocals_model_path == NULL)
-        && (env != NULL)
+        && env
         && (env[0] != '\0')) {
         config->vocals_model_path = env;
     }
@@ -693,7 +693,7 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
 
     env = getenv("LRC_CTC_MODEL");
     if ((config->ctc_model_path == NULL)
-        && (env != NULL)
+        && env
         && (env[0] != '\0')) {
         config->ctc_model_path = env;
     }
@@ -703,7 +703,7 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
 
     env = getenv("LRC_CTC_TOKENIZER");
     if ((config->tokenizer_path == NULL)
-        && (env != NULL)
+        && env
         && (env[0] != '\0')) {
         config->tokenizer_path = env;
     }
@@ -1021,7 +1021,7 @@ lyrics_extract_vocals(
 
     if (config == NULL) {
         lrc_vocals_extract_result_init(result);
-        if (result != NULL) {
+        if (result) {
             result->error = LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT;
             result->message = "missing pipeline config";
         }
@@ -1046,7 +1046,7 @@ lyrics_generate_lrc(
 
     if (config == NULL) {
         lrc_pipeline_generate_result_init(result);
-        if (result != NULL) {
+        if (result) {
             result->error = LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT;
             result->message = "missing pipeline config";
         }
@@ -1066,7 +1066,7 @@ lyrics_main(int32 argc, char **argv) {
     MainOptions options;
     bool has_lyrics;
 
-    if ((argc > 0) && (argv != NULL)) {
+    if ((argc > 0) && argv) {
         program = argv[0];
     }
 

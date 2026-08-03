@@ -1117,7 +1117,7 @@ ort_test_write_identity_model(char *path, char *temp_dir) {
     char script_path[PATH_MAX];
     char *script;
     int32 len;
-    int exit_status;
+    int32 exit_status;
     bool ok;
 
     if (!test_command_exists("python3")) {
@@ -1286,7 +1286,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_ort */

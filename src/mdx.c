@@ -915,7 +915,7 @@ mdx_float_close(float a, float b) {
     return fabsf(a - b) < 0.001f;
 }
 
-int
+int32
 main(void) {
     AudioBuffer empty_input;
     AudioBuffer empty_output;
@@ -1222,7 +1222,7 @@ main(void) {
     audio_buffer_destroy(&empty_input);
     stft_plan_destroy(&stft_plan);
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_mdx */

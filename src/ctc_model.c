@@ -936,7 +936,7 @@ ctc_model_test_prepares_short_input(void) {
     ASSERT(input.extension_emission_count == 0);
     ASSERT(input.raw_chunk_emission_count == 1);
     ASSERT(input.kept_emission_count == 1);
-    ASSERT(input.chunks != NULL);
+    ASSERT(input.chunks);
     ASSERT(input.chunks[0].source_start_frame == 0);
     ASSERT(input.chunks[0].source_frame_count == LENGTH(samples));
     ASSERT(input.chunks[0].padded_start_frame == 0);
@@ -1003,7 +1003,7 @@ ctc_model_test_prepares_chunked_input(void) {
     ASSERT(input.extension_emission_count == 6);
     ASSERT(input.raw_chunk_emission_count == 16);
     ASSERT(input.kept_emission_count == 16);
-    ASSERT(input.chunks != NULL);
+    ASSERT(input.chunks);
 
     ASSERT(input.chunks[0].source_start_frame == 0);
     ASSERT(input.chunks[0].source_frame_count == 20);
@@ -1408,7 +1408,7 @@ main(void) {
         fatal(EXIT_FAILURE);
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_ctc_model */

@@ -170,7 +170,7 @@ fftw_float_close(float a, float b) {
     return fabsf(a - b) < 0.0001f;
 }
 
-int
+int32
 main(void) {
     FftwRealPlan plan;
     float impulse[8];
@@ -252,7 +252,7 @@ main(void) {
         fatal(fftw_test_fail("destroy resets plan"));
     }
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 #endif /* TESTING_fftw */
