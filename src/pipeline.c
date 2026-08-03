@@ -950,7 +950,7 @@ lrc_pipeline_debug_dump_token(
     LrcCtcTokenizer *tokenizer,
     int32 token_id
 ) {
-    if (tokenizer == NULL) {
+    if ((tokenizer == NULL) || (tokenizer->tokens == NULL)) {
         return NULL;
     }
     if ((token_id < 0) || (token_id >= tokenizer->token_count)) {
@@ -2626,8 +2626,13 @@ lrc_lyrics_load_file(
     LrcLyricsLoadResult *result
 ) {
     (void)lyrics;
-    (void)path;
-    (void)result;
+
+    if (result) {
+        result->error = LRC_LYRICS_LOAD_ERROR_OPEN_FAILED;
+        result->message = "lyrics load stub failed";
+        result->path = path;
+        result->byte_offset = -1;
+    }
 
     return false;
 }
