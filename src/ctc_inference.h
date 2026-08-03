@@ -84,7 +84,6 @@ typedef struct LrcCtcOnnxInference {
 } LrcCtcOnnxInference;
 
 static void lrc_ctc_inference_result_init(LrcCtcInferenceResult *result);
-static void lrc_ctc_emissions_init(LrcCtcEmissions *emissions);
 static void lrc_ctc_emissions_destroy(LrcCtcEmissions *emissions);
 static bool lrc_ctc_emissions_copy_shape(
     LrcCtcEmissions *emissions,
@@ -106,7 +105,6 @@ static bool lrc_ctc_inference_run(
     LrcCtcInferenceResult *result
 );
 
-static void lrc_ctc_fake_inference_init(LrcCtcFakeInference *fake);
 static bool lrc_ctc_fake_inference_set_shape(
     LrcCtcFakeInference *fake,
     float *values,
@@ -125,7 +123,6 @@ static void lrc_ctc_fake_inference_backend(
     LrcCtcInferenceBackend *backend
 );
 
-static void lrc_ctc_onnx_inference_init(LrcCtcOnnxInference *onnx);
 static void lrc_ctc_onnx_inference_destroy(LrcCtcOnnxInference *onnx);
 static bool lrc_ctc_onnx_inference_load(
     LrcCtcOnnxInference *onnx,

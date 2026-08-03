@@ -213,7 +213,7 @@ lrc_pipeline_init(LrcPipeline *pipeline, LrcPipelineConfig *config) {
         lrc_pipeline_config_init(&pipeline->config);
     }
 
-    lrc_ctc_assets_init(&pipeline->ctc_assets);
+    memset64(&pipeline->ctc_assets, 0, SIZEOF(pipeline->ctc_assets));
 
     return;
 }
@@ -341,7 +341,7 @@ lrc_pipeline_ctc_assets_config(
         return;
     }
 
-    lrc_ctc_assets_config_init(config);
+    memset64(config, 0, SIZEOF(*config));
     if (pipeline == NULL) {
         return;
     }
@@ -1429,8 +1429,8 @@ lrc_pipeline_debug_dump_write_active_word_spans(
         return true;
     }
 
-    lrc_ctc_token_spans_init(&active_token_spans);
-    lrc_ctc_word_spans_init(&active_word_spans);
+    memset64(&active_token_spans, 0, SIZEOF(active_token_spans));
+    memset64(&active_word_spans, 0, SIZEOF(active_word_spans));
 
     ok = lrc_ctc_path_to_token_spans(path,
                                      emissions,
@@ -1510,7 +1510,7 @@ lrc_pipeline_debug_dump_write_path_segments(
         return true;
     }
 
-    lrc_ctc_path_segments_init(&segments);
+    memset64(&segments, 0, SIZEOF(segments));
     if (!lrc_ctc_path_to_segments(path,
                                   emissions,
                                   frame_duration_seconds,
@@ -1821,18 +1821,6 @@ lrc_pipeline_path_to_padded_token_spans(
     return true;
 }
 
-static void
-lrc_pipeline_line_timing_audio_init(
-    LrcPipelineLineTimingAudio *audio
-) {
-    if (audio == NULL) {
-        return;
-    }
-
-    memset64(audio, 0, SIZEOF(*audio));
-
-    return;
-}
 
 static bool
 lrc_pipeline_line_timing_audio_from_ctc_audio(
@@ -1841,7 +1829,7 @@ lrc_pipeline_line_timing_audio_from_ctc_audio(
     LrcPipelineGenerateResult *result
 ) {
     if (line_audio) {
-        lrc_pipeline_line_timing_audio_init(line_audio);
+        memset64(line_audio, 0, SIZEOF(*line_audio));
     }
     if ((line_audio == NULL) || (audio == NULL) || (audio->samples == NULL)
         || (audio->sample_count <= 0) || (audio->sample_rate <= 0)) {
@@ -2669,20 +2657,20 @@ lrc_pipeline_generate_lrc(
         return false;
     }
 
-    lrc_lyrics_init(&lyrics);
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
+    memset64(&normalized, 0, SIZEOF(normalized));
     lrc_ctc_tokenizer_init(&tokenizer);
-    lrc_ctc_tokenized_text_init(&tokens);
-    lrc_ctc_audio_init(&audio);
-    lrc_ctc_model_input_init(&input);
-    lrc_ctc_onnx_inference_init(&onnx);
-    lrc_ctc_emissions_init(&emissions);
-    lrc_ctc_trellis_init(&trellis);
-    lrc_ctc_path_init(&path);
-    lrc_ctc_token_spans_init(&token_spans);
-    lrc_ctc_word_spans_init(&word_spans);
-    lrc_ctc_line_timestamps_init(&line_timestamps);
-    lrc_pipeline_line_timing_audio_init(&line_audio);
+    memset64(&tokens, 0, SIZEOF(tokens));
+    memset64(&audio, 0, SIZEOF(audio));
+    memset64(&input, 0, SIZEOF(input));
+    memset64(&onnx, 0, SIZEOF(onnx));
+    memset64(&emissions, 0, SIZEOF(emissions));
+    memset64(&trellis, 0, SIZEOF(trellis));
+    memset64(&path, 0, SIZEOF(path));
+    memset64(&token_spans, 0, SIZEOF(token_spans));
+    memset64(&word_spans, 0, SIZEOF(word_spans));
+    memset64(&line_timestamps, 0, SIZEOF(line_timestamps));
+    memset64(&line_audio, 0, SIZEOF(line_audio));
     lrc_ctc_debug_dump_writer_init(&debug_dump);
 
     output_lines = NULL;
@@ -3130,12 +3118,6 @@ lrc_pipeline_test_noop(void *pointer) {
     return;
 }
 
-static void
-lrc_lyrics_init(LrcLyrics *lyrics) {
-    memset64(lyrics, 0, SIZEOF(*lyrics));
-
-    return;
-}
 
 static void
 lrc_lyrics_destroy(LrcLyrics *lyrics) {
@@ -3162,12 +3144,6 @@ lrc_lyrics_load_file(
     return false;
 }
 
-static void
-lrc_lyrics_normalized_init(LrcLyricsNormalized *normalized) {
-    memset64(normalized, 0, SIZEOF(*normalized));
-
-    return;
-}
 
 static void
 lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized) {
@@ -3213,12 +3189,6 @@ lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result) {
     return;
 }
 
-static void
-lrc_ctc_tokenized_text_init(LrcCtcTokenizedText *text) {
-    memset64(text, 0, SIZEOF(*text));
-
-    return;
-}
 
 static void
 lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text) {
@@ -3291,12 +3261,6 @@ lrc_ctc_audio_config_init(LrcCtcAudioConfig *config) {
     return;
 }
 
-static void
-lrc_ctc_audio_init(LrcCtcAudio *audio) {
-    memset64(audio, 0, SIZEOF(*audio));
-
-    return;
-}
 
 static void
 lrc_ctc_audio_destroy(LrcCtcAudio *audio) {
@@ -3320,12 +3284,6 @@ lrc_ctc_audio_decode_file(
     return false;
 }
 
-static void
-lrc_ctc_model_input_init(LrcCtcModelInput *input) {
-    memset64(input, 0, SIZEOF(*input));
-
-    return;
-}
 
 static void
 lrc_ctc_model_input_destroy(LrcCtcModelInput *input) {
@@ -3349,12 +3307,6 @@ lrc_ctc_model_input_prepare(
     return false;
 }
 
-static void
-lrc_ctc_onnx_inference_init(LrcCtcOnnxInference *onnx) {
-    memset64(onnx, 0, SIZEOF(*onnx));
-
-    return;
-}
 
 static void
 lrc_ctc_onnx_inference_destroy(LrcCtcOnnxInference *onnx) {
@@ -3404,12 +3356,6 @@ lrc_ctc_inference_run(
     return false;
 }
 
-static void
-lrc_ctc_emissions_init(LrcCtcEmissions *emissions) {
-    memset64(emissions, 0, SIZEOF(*emissions));
-
-    return;
-}
 
 static void
 lrc_ctc_emissions_destroy(LrcCtcEmissions *emissions) {
@@ -3431,12 +3377,6 @@ lrc_ctc_emissions_convert_to_log_probabilities(
     return false;
 }
 
-static void
-lrc_ctc_trellis_init(LrcCtcTrellis *trellis) {
-    memset64(trellis, 0, SIZEOF(*trellis));
-
-    return;
-}
 
 static void
 lrc_ctc_trellis_destroy(LrcCtcTrellis *trellis) {
@@ -3579,12 +3519,6 @@ lrc_ctc_trellis_backtrack_with_segment_stars(
     return false;
 }
 
-static void
-lrc_ctc_path_init(LrcCtcPath *path) {
-    memset64(path, 0, SIZEOF(*path));
-
-    return;
-}
 
 static void
 lrc_ctc_path_destroy(LrcCtcPath *path) {
@@ -3593,12 +3527,6 @@ lrc_ctc_path_destroy(LrcCtcPath *path) {
     return;
 }
 
-static void
-lrc_ctc_path_segments_init(LrcCtcPathSegments *segments) {
-    memset64(segments, 0, SIZEOF(*segments));
-
-    return;
-}
 
 static void
 lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments) {
@@ -3710,12 +3638,6 @@ lrc_ctc_path_to_padded_token_spans_with_segment_stars(
     return false;
 }
 
-static void
-lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans) {
-    memset64(spans, 0, SIZEOF(*spans));
-
-    return;
-}
 
 static void
 lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans) {
@@ -3741,12 +3663,6 @@ lrc_ctc_token_spans_to_word_spans(
     return false;
 }
 
-static void
-lrc_ctc_word_spans_init(LrcCtcWordSpans *spans) {
-    memset64(spans, 0, SIZEOF(*spans));
-
-    return;
-}
 
 static void
 lrc_ctc_word_spans_destroy(LrcCtcWordSpans *spans) {
@@ -3770,12 +3686,6 @@ lrc_ctc_word_spans_to_line_timestamps(
     return false;
 }
 
-static void
-lrc_ctc_line_timestamps_init(LrcCtcLineTimestamps *timestamps) {
-    memset64(timestamps, 0, SIZEOF(*timestamps));
-
-    return;
-}
 
 static void
 lrc_ctc_line_timestamps_destroy(LrcCtcLineTimestamps *timestamps) {
@@ -4129,7 +4039,7 @@ pipeline_test_make_two_line_timestamps(
     float first_end_seconds,
     float second_start_seconds
 ) {
-    lrc_ctc_line_timestamps_init(timestamps);
+    memset64(timestamps, 0, SIZEOF(*timestamps));
     memset64(lines, 0, 2*SIZEOF(*lines));
 
     timestamps->lines = lines;
@@ -4157,7 +4067,7 @@ pipeline_test_line_timing_audio_set(
     int64 sample_count,
     int32 sample_rate
 ) {
-    lrc_pipeline_line_timing_audio_init(audio);
+    memset64(audio, 0, SIZEOF(*audio));
 
     audio->samples = samples;
     audio->sample_count = sample_count;
@@ -4247,7 +4157,7 @@ pipeline_test_line_timing_audio_correction_edges(void) {
                                         LENGTH(samples),
                                         1000);
 
-    lrc_ctc_line_timestamps_init(&timestamps);
+    memset64(&timestamps, 0, SIZEOF(timestamps));
     timestamps.line_count = 1;
     if (lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
                                                               &audio,
@@ -4328,7 +4238,7 @@ pipeline_test_lrc_clear_uses_audio_corrected_end(void) {
     char first[] = "First";
     char second[] = "Second";
 
-    lrc_lyrics_init(&lyrics);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(output_lines, 0, SIZEOF(output_lines));
@@ -4462,8 +4372,8 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
         return pipeline_test_fail("cafe-vocals sample second text missing");
     }
 
-    lrc_lyrics_init(&lyrics);
-    lrc_ctc_line_timestamps_init(&timestamps);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
+    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -4569,8 +4479,8 @@ pipeline_test_line_timing_audio_available(void) {
         0.50f,
     };
 
-    lrc_ctc_audio_init(&audio);
-    lrc_pipeline_line_timing_audio_init(&line_audio);
+    memset64(&audio, 0, SIZEOF(audio));
+    memset64(&line_audio, 0, SIZEOF(line_audio));
     lrc_pipeline_generate_result_init(&result);
 
     audio.samples = samples;
@@ -4615,8 +4525,8 @@ pipeline_test_line_timestamp_clear_case(
     char first[] = "First";
     char second[] = "Second";
 
-    lrc_lyrics_init(&lyrics);
-    lrc_ctc_line_timestamps_init(&timestamps);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
+    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -4761,8 +4671,8 @@ pipeline_test_line_timestamp_clear_keeps_blank_line(void) {
     char second[] = "Second";
     char blank[] = "";
 
-    lrc_lyrics_init(&lyrics);
-    lrc_ctc_line_timestamps_init(&timestamps);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
+    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -4911,8 +4821,8 @@ pipeline_test_line_timestamp_end_writes_clear_line(void) {
     char first[] = "First";
     char second[] = "Second";
 
-    lrc_lyrics_init(&lyrics);
-    lrc_ctc_line_timestamps_init(&timestamps);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
+    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -5078,13 +4988,13 @@ pipeline_test_ctc_debug_dump_text_and_tokens(void) {
     pipeline.ctc_assets.tokenizer_path = "tokens.txt";
     pipeline.vocals_stage_path = "moskau-vocals.opus";
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     normalized.text = "Ich\nMoskau";
     normalized.text_len = strlen32(normalized.text);
     normalized.target_text = "ich moskau";
     normalized.target_text_len = strlen32(normalized.target_text);
 
-    lrc_ctc_tokenized_text_init(&tokenized);
+    memset64(&tokenized, 0, SIZEOF(tokenized));
     tokenized.tokens = text_tokens;
     tokenized.token_count = LENGTH(text_tokens);
 
@@ -5184,18 +5094,18 @@ pipeline_test_ctc_debug_dump_audio_model(void) {
     config.ctc_model_config.context_seconds = 7;
     lrc_pipeline_init(&pipeline, &config);
 
-    lrc_ctc_audio_init(&audio);
+    memset64(&audio, 0, SIZEOF(audio));
     audio.sample_rate = 16000;
     audio.sample_count = 123456;
 
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     input.sample_rate = 16000;
     input.inputs_to_logits_ratio = 320;
     input.stride_ms = 20.0;
     input.chunk_count = 3;
     input.row_sample_count = 512000;
 
-    lrc_ctc_emissions_init(&emissions);
+    memset64(&emissions, 0, SIZEOF(emissions));
     emissions.frame_count = 6172;
     emissions.vocabulary_size = 1130;
 
@@ -5512,7 +5422,7 @@ pipeline_test_ctc_debug_dump_word_spans(void) {
     test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
                             "dump.txt");
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     normalized.text = normalized_text;
     normalized.text_len = strlen32(normalized.text);
     before_spans.spans = before;

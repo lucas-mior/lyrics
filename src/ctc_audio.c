@@ -55,16 +55,6 @@ lrc_ctc_audio_result_set(
     return;
 }
 
-static void
-lrc_ctc_audio_init(LrcCtcAudio *audio) {
-    if (audio == NULL) {
-        return;
-    }
-
-    memset64(audio, 0, SIZEOF(*audio));
-
-    return;
-}
 
 static void
 lrc_ctc_audio_destroy(LrcCtcAudio *audio) {
@@ -76,7 +66,7 @@ lrc_ctc_audio_destroy(LrcCtcAudio *audio) {
         free2(audio->samples, audio->sample_count*SIZEOF(*audio->samples));
     }
 
-    lrc_ctc_audio_init(audio);
+    memset64(audio, 0, SIZEOF(*audio));
 
     return;
 }
@@ -260,7 +250,7 @@ ctc_audio_test_defaults_and_invalid_inputs(void) {
 
     lrc_ctc_audio_config_init(&config);
     lrc_ctc_audio_result_init(&result);
-    lrc_ctc_audio_init(&audio);
+    memset64(&audio, 0, SIZEOF(audio));
 
     ASSERT(strequal(config.ffmpeg_path, "ffmpeg"));
     ASSERT(config.sample_rate == LRC_CTC_AUDIO_DEFAULT_SAMPLE_RATE);
@@ -356,7 +346,7 @@ ctc_audio_test_generated_decode(
         return ctc_audio_test_fail("source duration");
     }
 
-    lrc_ctc_audio_init(&audio);
+    memset64(&audio, 0, SIZEOF(audio));
     lrc_ctc_audio_config_init(&config);
     config.sample_rate = target_sample_rate;
     if (!lrc_ctc_audio_decode_file(&audio, wav_path, &config, &result)) {
@@ -452,7 +442,7 @@ ctc_audio_test_maxwell_vocals(void) {
         return ctc_audio_test_fail("Maxwell source duration");
     }
 
-    lrc_ctc_audio_init(&audio);
+    memset64(&audio, 0, SIZEOF(audio));
     lrc_ctc_audio_config_init(&config);
     config.sample_rate = 16000;
     if (!lrc_ctc_audio_decode_file(&audio, path, &config, &result)) {

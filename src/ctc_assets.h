@@ -30,9 +30,7 @@ typedef struct LrcCtcAssets {
     bool validated;
 } LrcCtcAssets;
 
-static void lrc_ctc_assets_config_init(LrcCtcAssetsConfig *config);
 static void lrc_ctc_assets_result_init(LrcCtcAssetsResult *result);
-static void lrc_ctc_assets_init(LrcCtcAssets *assets);
 static bool lrc_ctc_assets_validate(
     LrcCtcAssets *assets,
     LrcCtcAssetsConfig *config,

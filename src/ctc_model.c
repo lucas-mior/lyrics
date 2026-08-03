@@ -55,16 +55,6 @@ lrc_ctc_model_input_result_set(
     return;
 }
 
-static void
-lrc_ctc_model_input_init(LrcCtcModelInput *input) {
-    if (input == NULL) {
-        return;
-    }
-
-    memset64(input, 0, SIZEOF(*input));
-
-    return;
-}
 
 static void
 lrc_ctc_model_input_destroy(LrcCtcModelInput *input) {
@@ -79,7 +69,7 @@ lrc_ctc_model_input_destroy(LrcCtcModelInput *input) {
         free2(input->chunks, input->chunk_count*SIZEOF(*input->chunks));
     }
 
-    lrc_ctc_model_input_init(input);
+    memset64(input, 0, SIZEOF(*input));
 
     return;
 }
@@ -803,7 +793,7 @@ ctc_model_make_audio(
     int64 sample_count,
     int32 sample_rate
 ) {
-    lrc_ctc_audio_init(audio);
+    memset64(audio, 0, SIZEOF(*audio));
     audio->samples = samples;
     audio->sample_count = sample_count;
     audio->sample_rate = sample_rate;
@@ -824,7 +814,7 @@ ctc_model_test_defaults_and_invalid_inputs(void) {
     float samples[] = {0.0f, 0.1f};
 
     lrc_ctc_model_config_init(&config);
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     lrc_ctc_model_input_result_init(&result);
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
 
@@ -886,7 +876,7 @@ ctc_model_test_prepares_short_input(void) {
     float samples[] = {-0.50f, -0.25f, 0.0f, 0.25f, 0.50f};
 
     lrc_ctc_model_config_init(&config);
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -957,7 +947,7 @@ ctc_model_test_prepares_chunked_input(void) {
     config.inputs_to_logits_ratio = 2;
     config.window_seconds = 2;
     config.context_seconds = 1;
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -1089,7 +1079,7 @@ ctc_model_test_chunk_metadata_three_chunks(void) {
     config.inputs_to_logits_ratio = 2;
     config.window_seconds = 2;
     config.context_seconds = 1;
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -1168,7 +1158,7 @@ ctc_model_test_chunk_metadata_partial_stride(void) {
     config.inputs_to_logits_ratio = 2;
     config.window_seconds = 2;
     config.context_seconds = 1;
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -1199,7 +1189,7 @@ ctc_model_test_rejects_unaligned_window_or_context(void) {
     LrcCtcAudio audio;
     float samples[] = {0.0f, 0.1f, 0.2f};
 
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 10);
 
     lrc_ctc_model_config_init(&config);
@@ -1237,7 +1227,7 @@ ctc_model_test_validates_model_io(void) {
     float samples[] = {0.0f, 0.1f, 0.2f};
 
     lrc_ctc_model_config_init(&config);
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         return ctc_model_test_fail("prepare IO validation input");
@@ -1329,14 +1319,14 @@ ctc_model_test_prepares_maxwell_shaped_input(void) {
 
     lrc_ctc_audio_config_init(&audio_config);
     audio_config.sample_rate = 16000;
-    lrc_ctc_audio_init(&audio);
+    memset64(&audio, 0, SIZEOF(audio));
     if (!lrc_ctc_audio_decode_file(&audio, path, &audio_config,
                                     &audio_result)) {
         return ctc_model_test_fail("decode Maxwell vocals");
     }
 
     lrc_ctc_model_config_init(&config);
-    lrc_ctc_model_input_init(&input);
+    memset64(&input, 0, SIZEOF(input));
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         lrc_ctc_audio_destroy(&audio);
         return ctc_model_test_fail("prepare Maxwell-shaped input");

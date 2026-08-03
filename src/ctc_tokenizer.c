@@ -46,16 +46,6 @@ lrc_ctc_tokenize_result_set(
     return;
 }
 
-static void
-lrc_ctc_tokenized_text_init(LrcCtcTokenizedText *text) {
-    if (text == NULL) {
-        return;
-    }
-
-    memset64(text, 0, SIZEOF(*text));
-
-    return;
-}
 
 static void
 lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text) {
@@ -67,7 +57,7 @@ lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text) {
         free2(text->tokens, text->token_cap*SIZEOF(*text->tokens));
     }
 
-    lrc_ctc_tokenized_text_init(text);
+    memset64(text, 0, SIZEOF(*text));
 
     return;
 }
@@ -1114,8 +1104,8 @@ ctc_tokenizer_normalize_lyrics_text(
         return false;
     }
 
-    lrc_lyrics_init(lyrics);
-    lrc_lyrics_normalized_init(normalized);
+    memset64(lyrics, 0, SIZEOF(*lyrics));
+    memset64(normalized, 0, SIZEOF(*normalized));
     ok = lrc_lyrics_load_file(lyrics, path, &result);
     test_remove_tree(temp_dir);
     if (!ok) {
@@ -1342,7 +1332,7 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
         return ctc_tokenizer_test_fail("normalize tokenization lyrics");
     }
 
-    lrc_ctc_tokenized_text_init(&tokens);
+    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1403,7 +1393,7 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
         return ctc_tokenizer_test_fail("normalize unsupported lyrics");
     }
 
-    lrc_ctc_tokenized_text_init(&tokens);
+    memset64(&tokens, 0, SIZEOF(tokens));
     if (lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                               &normalized,
                                               &tokens,
@@ -1452,7 +1442,7 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
         return ctc_tokenizer_test_fail("normalize unknown lyrics");
     }
 
-    lrc_ctc_tokenized_text_init(&tokens);
+    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1525,7 +1515,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
                      normalized.target_text_len,
                      STRLIT("c a t")));
 
-    lrc_ctc_tokenized_text_init(&tokens);
+    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1592,7 +1582,7 @@ ctc_tokenizer_test_marks_segment_starts(void) {
         return ctc_tokenizer_test_fail("normalize segment word lyrics");
     }
 
-    lrc_ctc_tokenized_text_init(&tokens);
+    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1645,7 +1635,7 @@ ctc_tokenizer_test_skips_unmatched_spaces(void) {
         return ctc_tokenizer_test_fail("normalize no-space lyrics");
     }
 
-    lrc_ctc_tokenized_text_init(&tokens);
+    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,

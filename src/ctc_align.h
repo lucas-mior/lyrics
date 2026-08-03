@@ -181,15 +181,9 @@ typedef struct LrcCtcLineTimestamps {
 } LrcCtcLineTimestamps;
 
 static void lrc_ctc_align_result_init(LrcCtcAlignResult *result);
-static void lrc_ctc_trellis_init(LrcCtcTrellis *trellis);
 static void lrc_ctc_trellis_destroy(LrcCtcTrellis *trellis);
-static void lrc_ctc_path_init(LrcCtcPath *path);
 static void lrc_ctc_path_destroy(LrcCtcPath *path);
-static void lrc_ctc_path_segments_init(LrcCtcPathSegments *segments);
 static void lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments);
-static void lrc_ctc_aligned_token_intervals_init(
-    LrcCtcAlignedTokenIntervals *intervals
-);
 static void lrc_ctc_aligned_token_intervals_destroy(
     LrcCtcAlignedTokenIntervals *intervals
 );
@@ -199,11 +193,8 @@ static bool lrc_ctc_pad_token_intervals_with_blanks(
     LrcCtcAlignedTokenIntervals *intervals,
     LrcCtcAlignResult *result
 );
-static void lrc_ctc_token_spans_init(LrcCtcTokenSpans *spans);
 static void lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans);
-static void lrc_ctc_word_spans_init(LrcCtcWordSpans *spans);
 static void lrc_ctc_word_spans_destroy(LrcCtcWordSpans *spans);
-static void lrc_ctc_line_timestamps_init(LrcCtcLineTimestamps *timestamps);
 static void lrc_ctc_line_timestamps_destroy(LrcCtcLineTimestamps *timestamps);
 static float *lrc_ctc_trellis_cell(
     LrcCtcTrellis *trellis,

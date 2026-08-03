@@ -45,7 +45,6 @@ typedef struct LrcLyricsLoadResult {
     int32 byte_offset;
 } LrcLyricsLoadResult;
 
-static void lrc_lyrics_init(LrcLyrics *lyrics);
 static void lrc_lyrics_destroy(LrcLyrics *lyrics);
 static void lrc_lyrics_load_result_init(LrcLyricsLoadResult *result);
 static bool lrc_lyrics_load_file(

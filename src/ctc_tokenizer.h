@@ -90,7 +90,6 @@ typedef struct LrcCtcTokenizer {
 
 
 static void lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result);
-static void lrc_ctc_tokenized_text_init(LrcCtcTokenizedText *text);
 static void lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text);
 static bool lrc_ctc_tokenizer_tokenize_normalized(
     LrcCtcTokenizer *tokenizer,

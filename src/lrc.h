@@ -100,7 +100,6 @@ typedef struct LrcParsedFile {
 static void lrc_parse_result_init(LrcParseResult *result);
 static void lrc_format_result_init(LrcFormatResult *result);
 static void lrc_write_result_init(LrcWriteResult *result);
-static void lrc_parsed_file_init(LrcParsedFile *parsed);
 static void lrc_parsed_file_destroy(LrcParsedFile *parsed);
 static bool lrc_timestamp_hundredths_from_seconds(
     float seconds,

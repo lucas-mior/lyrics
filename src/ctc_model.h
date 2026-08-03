@@ -93,7 +93,6 @@ typedef struct LrcCtcModelInput {
 
 static void lrc_ctc_model_config_init(LrcCtcModelConfig *config);
 static void lrc_ctc_model_input_result_init(LrcCtcModelInputResult *result);
-static void lrc_ctc_model_input_init(LrcCtcModelInput *input);
 static void lrc_ctc_model_input_destroy(LrcCtcModelInput *input);
 static bool lrc_ctc_model_samples_to_emission_frames(
     int64 sample_count,

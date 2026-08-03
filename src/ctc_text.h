@@ -128,7 +128,6 @@ lrc_lyrics_preprocess_options_init(
 
     return;
 }
-static void lrc_lyrics_normalized_init(LrcLyricsNormalized *normalized);
 static void lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized);
 static bool lrc_lyrics_normalize_with_options(
     LrcLyrics *lyrics,

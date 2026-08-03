@@ -9,16 +9,6 @@
 #define TESTING_ctc_text 0
 #endif
 
-static void
-lrc_lyrics_normalized_init(LrcLyricsNormalized *normalized) {
-    if (normalized == NULL) {
-        return;
-    }
-
-    memset64(normalized, 0, SIZEOF(*normalized));
-
-    return;
-}
 
 static void
 lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized) {
@@ -51,7 +41,7 @@ lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized) {
               normalized->segment_cap*SIZEOF(*normalized->segments));
     }
 
-    lrc_lyrics_normalized_init(normalized);
+    memset64(normalized, 0, SIZEOF(*normalized));
 
     return;
 }
@@ -2192,7 +2182,7 @@ ctc_text_load_lyrics(
         return false;
     }
 
-    lrc_lyrics_init(lyrics);
+    memset64(lyrics, 0, SIZEOF(*lyrics));
     ok = lrc_lyrics_load_file(lyrics, path, &result);
     test_remove_tree(temp_dir);
 
@@ -2837,7 +2827,7 @@ ctc_text_test_word_split_fixture_case(char *fixture_name) {
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize word split fixture lyrics");
@@ -2897,7 +2887,7 @@ ctc_text_test_word_normalized_fixture_case(char *fixture_name) {
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize word fixture lyrics");
@@ -2961,7 +2951,7 @@ ctc_text_test_word_target_fixture_case(char *fixture_name) {
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize word target fixture lyrics");
@@ -3045,7 +3035,7 @@ ctc_text_test_star_target_sequence_fixture_case(char *fixture_name) {
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize star sequence lyrics");
@@ -3132,7 +3122,7 @@ ctc_text_test_word_target_text_is_character_spaced(void) {
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize word target lyrics");
@@ -3206,7 +3196,7 @@ ctc_text_test_char_fixture_case(
     options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_OFF;
     ctc_text_test_options_language(&options, language);
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize char fixture lyrics");
@@ -3291,7 +3281,7 @@ ctc_text_test_icu_word_romanization(void) {
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize ICU romanization lyrics");
@@ -3342,7 +3332,7 @@ ctc_text_test_icu_char_romanization(void) {
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_CHAR;
     options.romanization = LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU;
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize ICU char romanization lyrics");
@@ -3393,8 +3383,8 @@ ctc_text_test_word_split_option_preserves_current_text(void) {
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
 
-    lrc_lyrics_normalized_init(&current);
-    lrc_lyrics_normalized_init(&word);
+    memset64(&current, 0, SIZEOF(current));
+    memset64(&word, 0, SIZEOF(word));
     if (!lrc_lyrics_normalize(&lyrics, &current)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize current option text");
@@ -3446,7 +3436,7 @@ ctc_text_test_word_segments_preserve_line_mapping(void) {
         return ctc_text_test_fail("load segment lyrics");
     }
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize segment lyrics");
@@ -3489,7 +3479,7 @@ ctc_text_test_current_normalization_mapping(void) {
         return ctc_text_test_fail("load lyrics");
     }
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return ctc_text_test_fail("normalize lyrics");

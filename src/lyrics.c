@@ -7,16 +7,6 @@
 #define TESTING_lyrics 0
 #endif
 
-static void
-lrc_lyrics_init(LrcLyrics *lyrics) {
-    if (lyrics == NULL) {
-        return;
-    }
-
-    memset64(lyrics, 0, SIZEOF(*lyrics));
-
-    return;
-}
 
 static void
 lrc_lyrics_destroy(LrcLyrics *lyrics) {
@@ -31,7 +21,7 @@ lrc_lyrics_destroy(LrcLyrics *lyrics) {
         free2(lyrics->lines, lyrics->line_cap*SIZEOF(*lyrics->lines));
     }
 
-    lrc_lyrics_init(lyrics);
+    memset64(lyrics, 0, SIZEOF(*lyrics));
 
     return;
 }
@@ -335,7 +325,7 @@ lyrics_test_load_text(LrcLyrics *lyrics, char *text, int32 text_len) {
         return false;
     }
 
-    lrc_lyrics_init(lyrics);
+    memset64(lyrics, 0, SIZEOF(*lyrics));
     ok = lrc_lyrics_load_file(lyrics, path, &result);
     test_remove_tree(temp_dir);
 
@@ -450,7 +440,7 @@ lyrics_test_reject_empty(void) {
         return lyrics_test_fail("write empty text");
     }
 
-    lrc_lyrics_init(&lyrics);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
     if (lrc_lyrics_load_file(&lyrics, path, &result)) {
         lrc_lyrics_destroy(&lyrics);
         test_remove_tree(temp_dir);
@@ -485,7 +475,7 @@ lyrics_test_reject_invalid_utf8(void) {
         return lyrics_test_fail("write invalid utf8 text");
     }
 
-    lrc_lyrics_init(&lyrics);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
     if (lrc_lyrics_load_file(&lyrics, path, &result)) {
         lrc_lyrics_destroy(&lyrics);
         test_remove_tree(temp_dir);
@@ -512,7 +502,7 @@ lyrics_test_normalize_punctuation_sections_and_mapping(void) {
         return lyrics_test_fail("load normalization text");
     }
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize punctuation text");
@@ -560,7 +550,7 @@ lyrics_test_normalize_unicode_and_blank_lines(void) {
         return lyrics_test_fail("load unicode normalization text");
     }
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize unicode text");
@@ -608,7 +598,7 @@ lyrics_test_normalized_ranges_blank_punctuation_repeated(void) {
         return lyrics_test_fail("load repeated range text");
     }
 
-    lrc_lyrics_normalized_init(&normalized);
+    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize repeated range text");
@@ -658,8 +648,8 @@ lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
     ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
     ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
 
-    lrc_lyrics_normalized_init(&default_normalized);
-    lrc_lyrics_normalized_init(&option_normalized);
+    memset64(&default_normalized, 0, SIZEOF(default_normalized));
+    memset64(&option_normalized, 0, SIZEOF(option_normalized));
     if (!lrc_lyrics_normalize(&lyrics, &default_normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize through default wrapper");
@@ -702,7 +692,7 @@ lyrics_test_optional_maxwell_txt(void) {
         return 0;
     }
 
-    lrc_lyrics_init(&lyrics);
+    memset64(&lyrics, 0, SIZEOF(lyrics));
     if (!lrc_lyrics_load_file(&lyrics, path, &result)) {
         return lyrics_test_fail("load maxwell lyrics");
     }
@@ -722,7 +712,7 @@ lyrics_test_optional_maxwell_txt(void) {
         char *bang;
         int32 bang_offset;
 
-        lrc_lyrics_normalized_init(&normalized);
+        memset64(&normalized, 0, SIZEOF(normalized));
         if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
             lrc_lyrics_destroy(&lyrics);
             return lyrics_test_fail("normalize maxwell lyrics");

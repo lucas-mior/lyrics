@@ -44,7 +44,6 @@ typedef struct LrcCtcAudio {
 
 static void lrc_ctc_audio_config_init(LrcCtcAudioConfig *config);
 static void lrc_ctc_audio_result_init(LrcCtcAudioResult *result);
-static void lrc_ctc_audio_init(LrcCtcAudio *audio);
 static void lrc_ctc_audio_destroy(LrcCtcAudio *audio);
 static bool lrc_ctc_audio_decode_file(
     LrcCtcAudio *audio,
