@@ -4044,6 +4044,55 @@ pipeline_test_line_timing_audio_correction(void) {
 }
 
 static int32
+pipeline_test_line_timing_audio_correction_edges(void) {
+    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamp lines[2];
+    LrcPipelineLineTimingAudio audio;
+    LrcPipelineGenerateResult result;
+    float samples[12000];
+
+    lrc_pipeline_generate_result_init(&result);
+    pipeline_test_line_timing_audio_set(&audio,
+                                        samples,
+                                        LENGTH(samples),
+                                        1000);
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 9200, 2800, 0.0f);
+    pipeline_test_make_two_line_timestamps(&timestamps,
+                                           lines,
+                                           2.0f,
+                                           9.20f,
+                                           10.0f);
+    if (!lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
+                                                              &audio,
+                                                              &result)) {
+        return pipeline_test_fail("line audio short gap failed");
+    }
+    if (!pipeline_test_float_near(lines[0].end_seconds, 9.20f, 0.001f)) {
+        return pipeline_test_fail("line audio short gap keeps end");
+    }
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 6000, 6000, 0.0f);
+    pipeline_test_make_two_line_timestamps(&timestamps,
+                                           lines,
+                                           2.0f,
+                                           5.0f,
+                                           6.10f);
+    if (!lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
+                                                              &audio,
+                                                              &result)) {
+        return pipeline_test_fail("line audio late silence failed");
+    }
+    if (!pipeline_test_float_near(lines[0].end_seconds, 5.0f, 0.001f)) {
+        return pipeline_test_fail("line audio late silence keeps end");
+    }
+
+    return 0;
+}
+
+static int32
 pipeline_test_line_timing_audio_available(void) {
     LrcCtcAudio audio;
     LrcPipelineLineTimingAudio line_audio;
@@ -5629,6 +5678,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_line_timing_audio_correction() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_line_timing_audio_correction_edges() != 0) {
         exit(1);
     }
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
