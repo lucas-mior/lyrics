@@ -10,6 +10,8 @@
 #include "cbase.h"
 #include "pipeline.h"
 
+static const float LRC_PIPELINE_CLEAR_SILENCE_SECONDS = 1.0f;
+
 static void
 lrc_pipeline_error_set(
     LrcPipeline *pipeline,
@@ -1783,7 +1785,7 @@ lrc_pipeline_timestamp_needs_clear_line(
 
     gap_seconds = next->start_seconds - current->end_seconds;
 
-    return gap_seconds >= 1.0f;
+    return gap_seconds >= LRC_PIPELINE_CLEAR_SILENCE_SECONDS;
 }
 
 static bool
