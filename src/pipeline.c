@@ -3540,6 +3540,93 @@ pipeline_test_line_timestamp_clear_gap_edges(void) {
 }
 
 static int32
+pipeline_test_line_timestamp_clear_keeps_blank_line(void) {
+    LrcLyrics lyrics;
+    LrcLyricsLine lyric_lines[3];
+    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamp timestamp_lines[3];
+    LrcOutputLine output_lines[4];
+    LrcPipelineGenerateResult result;
+    int32 output_line_count;
+    char first[] = "First";
+    char second[] = "Second";
+    char blank[] = "";
+
+    lrc_lyrics_init(&lyrics);
+    lrc_ctc_line_timestamps_init(&timestamps);
+    lrc_pipeline_generate_result_init(&result);
+    memset64(lyric_lines, 0, SIZEOF(lyric_lines));
+    memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
+    memset64(output_lines, 0, SIZEOF(output_lines));
+    output_line_count = 0;
+
+    lyrics.lines = lyric_lines;
+    lyrics.line_count = LENGTH(lyric_lines);
+
+    lyric_lines[0].text = first;
+    lyric_lines[0].text_len = strlen32(first);
+    lyric_lines[1].text = blank;
+    lyric_lines[1].text_len = 0;
+    lyric_lines[2].text = second;
+    lyric_lines[2].text_len = strlen32(second);
+
+    timestamps.lines = timestamp_lines;
+    timestamps.line_count = LENGTH(timestamp_lines);
+    timestamps.line_cap = LENGTH(timestamp_lines);
+    timestamps.timestamped_line_count = 2;
+    timestamps.blank_line_count = 1;
+
+    timestamp_lines[0].line_index = 0;
+    timestamp_lines[0].start_seconds = 1.0f;
+    timestamp_lines[0].end_seconds = 3.40f;
+    timestamp_lines[0].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[1].line_index = 1;
+    timestamp_lines[1].kind = LRC_CTC_LINE_TIMESTAMP_KIND_BLANK;
+
+    timestamp_lines[2].line_index = 2;
+    timestamp_lines[2].start_seconds = 7.58f;
+    timestamp_lines[2].end_seconds = 9.0f;
+    timestamp_lines[2].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
+                                                   &timestamps,
+                                                   output_lines,
+                                                   LENGTH(output_lines),
+                                                   &output_line_count,
+                                                   &result)) {
+        return pipeline_test_fail("line timestamp blank conversion failed");
+    }
+    if (output_line_count != LENGTH(output_lines)) {
+        return pipeline_test_fail("line timestamp blank output count");
+    }
+    if ((output_lines[0].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[0].timestamp_hundredths != 100)
+        || !pipeline_test_output_text_equal(output_lines + 0,
+                                            STRLIT("First"))) {
+        return pipeline_test_fail("blank case first line output");
+    }
+    if ((output_lines[1].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[1].timestamp_hundredths != 340)
+        || (output_lines[1].text_len != 0)) {
+        return pipeline_test_fail("blank case clear line output");
+    }
+    if ((output_lines[2].kind != LRC_OUTPUT_LINE_KIND_BLANK)
+        || (output_lines[2].timestamp_hundredths != -1)
+        || (output_lines[2].text_len != 0)) {
+        return pipeline_test_fail("blank case physical blank output");
+    }
+    if ((output_lines[3].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[3].timestamp_hundredths != 758)
+        || !pipeline_test_output_text_equal(output_lines + 3,
+                                            STRLIT("Second"))) {
+        return pipeline_test_fail("blank case second line output");
+    }
+
+    return 0;
+}
+
+static int32
 pipeline_test_line_timestamp_end_writes_clear_line(void) {
     LrcLyrics lyrics;
     LrcLyricsLine lyric_lines[2];
@@ -4777,6 +4864,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_line_timestamp_clear_gap_edges() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_line_timestamp_clear_keeps_blank_line() != 0) {
         exit(1);
     }
     if (pipeline_test_preprocess_option_parsers() != 0) {
