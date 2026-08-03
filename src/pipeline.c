@@ -4092,6 +4092,90 @@ pipeline_test_line_timing_audio_correction_edges(void) {
     return 0;
 }
 
+
+static int32
+pipeline_test_lrc_clear_uses_audio_corrected_end(void) {
+    LrcLyrics lyrics;
+    LrcLyricsLine lyric_lines[2];
+    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamp timestamp_lines[2];
+    LrcPipelineLineTimingAudio audio;
+    LrcPipelineGenerateResult result;
+    LrcOutputLine output_lines[3];
+    int32 output_line_count;
+    float samples[12000];
+    char first[] = "First";
+    char second[] = "Second";
+
+    lrc_lyrics_init(&lyrics);
+    lrc_pipeline_generate_result_init(&result);
+    memset64(lyric_lines, 0, SIZEOF(lyric_lines));
+    memset64(output_lines, 0, SIZEOF(output_lines));
+    output_line_count = 0;
+
+    lyrics.lines = lyric_lines;
+    lyrics.line_count = LENGTH(lyric_lines);
+
+    lyric_lines[0].text = first;
+    lyric_lines[0].text_len = strlen32(first);
+    lyric_lines[1].text = second;
+    lyric_lines[1].text_len = strlen32(second);
+
+    pipeline_test_audio_fill(samples, LENGTH(samples), 0.50f);
+    pipeline_test_audio_fill(samples + 6500, 5500, 0.0f);
+    pipeline_test_line_timing_audio_set(&audio,
+                                        samples,
+                                        LENGTH(samples),
+                                        1000);
+    pipeline_test_make_two_line_timestamps(&timestamps,
+                                           timestamp_lines,
+                                           2.0f,
+                                           5.0f,
+                                           10.0f);
+
+    if (!lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
+                                                              &audio,
+                                                              &result)) {
+        return pipeline_test_fail("clear audio correction failed");
+    }
+    if (!pipeline_test_float_near(timestamp_lines[0].end_seconds,
+                                  6.50f,
+                                  0.011f)) {
+        return pipeline_test_fail("clear audio correction end");
+    }
+    if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
+                                                   &timestamps,
+                                                   output_lines,
+                                                   LENGTH(output_lines),
+                                                   &output_line_count,
+                                                   &result)) {
+        return pipeline_test_fail("clear audio output conversion");
+    }
+    if (output_line_count != LENGTH(output_lines)) {
+        return pipeline_test_fail("clear audio output count");
+    }
+    if ((output_lines[0].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[0].timestamp_hundredths != 200)
+        || !pipeline_test_output_text_equal(output_lines + 0,
+                                            STRLIT("First"))) {
+        return pipeline_test_fail("clear audio first lyric");
+    }
+    if ((output_lines[1].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[1].timestamp_hundredths != 650)
+        || (output_lines[1].timestamp_hundredths == 500)
+        || (output_lines[1].text_len != 0)) {
+        return pipeline_test_fail("clear audio corrected empty lyric");
+    }
+    if ((output_lines[2].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[2].timestamp_hundredths != 1000)
+        || !pipeline_test_output_text_equal(output_lines + 2,
+                                            STRLIT("Second"))) {
+        return pipeline_test_fail("clear audio second lyric");
+    }
+
+    return 0;
+}
+
 static int32
 pipeline_test_line_timing_audio_available(void) {
     LrcCtcAudio audio;
@@ -5681,6 +5765,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_line_timing_audio_correction_edges() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_lrc_clear_uses_audio_corrected_end() != 0) {
         exit(1);
     }
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
