@@ -948,7 +948,7 @@ lrc_pipeline_debug_dump_token(
     LrcCtcTokenizer *tokenizer,
     int32 token_id
 ) {
-    if ((tokenizer == NULL) || (tokenizer->tokens == NULL)) {
+    if (tokenizer == NULL) {
         return NULL;
     }
     if ((token_id < 0) || (token_id >= tokenizer->token_count)) {
@@ -3137,11 +3137,24 @@ lrc_timestamp_hundredths_from_seconds(
     int32 *timestamp_hundredths,
     LrcFormatResult *result
 ) {
-    (void)seconds;
-    (void)timestamp_hundredths;
-    (void)result;
+    double rounded;
 
-    return false;
+    (void)result;
+    if (timestamp_hundredths == NULL) {
+        return false;
+    }
+    if (!isfinite(seconds) || (seconds < 0.0f)) {
+        return false;
+    }
+
+    rounded = (double)seconds*100.0 + 0.5;
+    if (rounded > (double)INT32_MAX) {
+        return false;
+    }
+
+    *timestamp_hundredths = (int32)rounded;
+
+    return true;
 }
 
 static bool
@@ -3246,8 +3259,83 @@ pipeline_test_file_contains(
 }
 
 
+static bool
+pipeline_test_output_text_equal(LrcOutputLine *line, char *text, int32 len) {
+    return strequal2(line->text, line->text_len, text, len);
+}
+
+static int32
+pipeline_test_line_timestamp_end_writes_clear_line(void) {
+    LrcLyrics lyrics;
+    LrcLyricsLine lyric_lines[2];
+    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamp timestamp_lines[2];
+    LrcOutputLine output_lines[3];
+    LrcPipelineGenerateResult result;
+    char first[] = "First";
+    char second[] = "Second";
+
+    lrc_lyrics_init(&lyrics);
+    lrc_ctc_line_timestamps_init(&timestamps);
+    lrc_pipeline_generate_result_init(&result);
+    memset64(lyric_lines, 0, SIZEOF(lyric_lines));
+    memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
+    memset64(output_lines, 0, SIZEOF(output_lines));
+
+    lyrics.lines = lyric_lines;
+    lyrics.line_count = LENGTH(lyric_lines);
+
+    lyric_lines[0].text = first;
+    lyric_lines[0].text_len = strlen32(first);
+    lyric_lines[1].text = second;
+    lyric_lines[1].text_len = strlen32(second);
+
+    timestamps.lines = timestamp_lines;
+    timestamps.line_count = LENGTH(timestamp_lines);
+    timestamps.line_cap = LENGTH(timestamp_lines);
+    timestamps.timestamped_line_count = LENGTH(timestamp_lines);
+
+    timestamp_lines[0].line_index = 0;
+    timestamp_lines[0].start_seconds = 1.0f;
+    timestamp_lines[0].end_seconds = 3.40f;
+    timestamp_lines[0].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[1].line_index = 1;
+    timestamp_lines[1].start_seconds = 7.58f;
+    timestamp_lines[1].end_seconds = 9.0f;
+    timestamp_lines[1].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
+                                                   &timestamps,
+                                                   output_lines,
+                                                   &result)) {
+        return pipeline_test_fail("line timestamp conversion failed");
+    }
+    if ((output_lines[0].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[0].timestamp_hundredths != 100)
+        || !pipeline_test_output_text_equal(output_lines + 0,
+                                            STRLIT("First"))) {
+        return pipeline_test_fail("first line start output");
+    }
+    if ((output_lines[1].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[1].timestamp_hundredths != 340)
+        || (output_lines[1].text_len != 0)) {
+        return pipeline_test_fail("line end clear output");
+    }
+    if ((output_lines[2].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[2].timestamp_hundredths != 758)
+        || !pipeline_test_output_text_equal(output_lines + 2,
+                                            STRLIT("Second"))) {
+        return pipeline_test_fail("second line start output");
+    }
+
+    return 0;
+}
+
+
 static int32
 pipeline_test_ctc_debug_dump_escape(void) {
+
     LrcCtcDebugDumpWriter writer;
     char temp_dir[PATH_MAX];
     char dump_path[PATH_MAX];
@@ -4403,6 +4491,9 @@ pipeline_test_optional_maxwell_config(void) {
 
 int32
 main(void) {
+    if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
+        exit(1);
+    }
     if (pipeline_test_preprocess_option_parsers() != 0) {
         exit(1);
     }
