@@ -618,7 +618,6 @@ vocals_test_optional_real_extraction(void) {
     char output_path[PATH_MAX];
     char temp_dir[PATH_MAX];
     char *model_path;
-    int32 len;
 
     model_path = getenv("UVR_TEST_MDX_MODEL");
     if (model_path == NULL) {
@@ -629,17 +628,8 @@ vocals_test_optional_real_extraction(void) {
     }
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "vocals");
-    len = snprintf2(input_path, SIZEOF(input_path), "%s/input.wav", temp_dir);
-    if ((len <= 0) || (len >= SIZEOF(input_path))) {
-        test_remove_tree(temp_dir);
-        return vocals_test_fail("input path too long");
-    }
-    len = snprintf2(output_path, SIZEOF(output_path),
-                    "%s/output.wav", temp_dir);
-    if ((len <= 0) || (len >= SIZEOF(output_path))) {
-        test_remove_tree(temp_dir);
-        return vocals_test_fail("output path too long");
-    }
+    test_join_path(input_path, SIZEOF(input_path), temp_dir, "input.wav");
+    test_join_path(output_path, SIZEOF(output_path), temp_dir, "output.wav");
 
     audio_test_sine_options_init(&sine_options);
     sine_options.duration_seconds = 0.25;

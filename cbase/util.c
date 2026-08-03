@@ -2446,6 +2446,22 @@ test_command_exists(char *command) {
 }
 
 CBASE_API_DEF void
+test_join_path(
+    char *buffer,
+    int64 buffer_len,
+    char *dir,
+    char *name
+) {
+    int32 len;
+
+    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
+    ASSERT(len > 0);
+    ASSERT(len < buffer_len);
+
+    return;
+}
+
+CBASE_API_DEF void
 test_make_temp_dir(char *buffer, int32 capacity, char *name) {
     char *tmpdir;
     int32 len;

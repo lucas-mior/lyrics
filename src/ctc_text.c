@@ -2173,21 +2173,6 @@ ctc_text_test_fail(char *name) {
     return 1;
 }
 
-static void
-ctc_text_join_path(
-    char *buffer,
-    int64 buffer_len,
-    char *dir,
-    char *name
-) {
-    int32 len;
-
-    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
-    ASSERT(len > 0);
-    ASSERT(len < buffer_len);
-
-    return;
-}
 
 static bool
 ctc_text_load_lyrics(
@@ -2201,7 +2186,7 @@ ctc_text_load_lyrics(
     bool ok;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), name);
-    ctc_text_join_path(path, SIZEOF(path), temp_dir, "lyrics.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "lyrics.txt");
     if (!write_entire_file(path, text, strlen32(text))) {
         test_remove_tree(temp_dir);
         return false;

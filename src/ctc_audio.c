@@ -242,21 +242,6 @@ ctc_audio_test_fail(char *name) {
     return 1;
 }
 
-static void
-ctc_audio_join_path(
-    char *buffer,
-    int64 buffer_len,
-    char *dir,
-    char *name
-) {
-    int32 len;
-
-    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
-    ASSERT(len > 0);
-    ASSERT(len < buffer_len);
-
-    return;
-}
 
 static bool
 ctc_audio_double_close(double a, double b, double max_error) {
@@ -339,7 +324,7 @@ ctc_audio_test_generated_decode(
     }
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), name);
-    ctc_audio_join_path(wav_path, SIZEOF(wav_path), temp_dir, "input.wav");
+    test_join_path(wav_path, SIZEOF(wav_path), temp_dir, "input.wav");
 
     audio_test_sine_options_init(&sine);
     sine.format.sample_rate = source_sample_rate;

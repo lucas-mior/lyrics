@@ -1356,24 +1356,14 @@ audio_test_generated_wave_helpers(void) {
     char mono_path[PATH_MAX];
     char stereo_path[PATH_MAX];
     char temp_dir[PATH_MAX];
-    int32 len;
 
     if (!test_command_exists("ffmpeg") || !test_command_exists("ffprobe")) {
         return 0;
     }
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "audio_generated");
-    len = snprintf2(mono_path, SIZEOF(mono_path), "%s/mono.wav", temp_dir);
-    if ((len <= 0) || (len >= SIZEOF(mono_path))) {
-        test_remove_tree(temp_dir);
-        return audio_test_fail("mono generated path");
-    }
-    len = snprintf2(stereo_path, SIZEOF(stereo_path),
-                    "%s/stereo.wav", temp_dir);
-    if ((len <= 0) || (len >= SIZEOF(stereo_path))) {
-        test_remove_tree(temp_dir);
-        return audio_test_fail("stereo generated path");
-    }
+    test_join_path(mono_path, SIZEOF(mono_path), temp_dir, "mono.wav");
+    test_join_path(stereo_path, SIZEOF(stereo_path), temp_dir, "stereo.wav");
 
     audio_test_sine_options_init(&options);
     options.format.sample_rate = 16000;

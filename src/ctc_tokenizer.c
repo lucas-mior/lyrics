@@ -1062,21 +1062,6 @@ ctc_tokenizer_test_fail(char *name) {
     return 1;
 }
 
-static void
-ctc_tokenizer_join_path(
-    char *buffer,
-    int64 buffer_len,
-    char *dir,
-    char *name
-) {
-    int32 len;
-
-    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
-    ASSERT(len > 0);
-    ASSERT(len < buffer_len);
-
-    return;
-}
 
 static bool
 ctc_tokenizer_write_file(char *path, char *text) {
@@ -1096,7 +1081,7 @@ ctc_tokenizer_load_from_text(
     bool ok;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), name);
-    ctc_tokenizer_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path, text)) {
         test_remove_tree(temp_dir);
         return false;
@@ -1123,7 +1108,7 @@ ctc_tokenizer_normalize_lyrics_text(
     bool ok;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), name);
-    ctc_tokenizer_join_path(path, SIZEOF(path), temp_dir, "lyrics.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "lyrics.txt");
     if (!write_entire_file(path, text, strlen32(text))) {
         test_remove_tree(temp_dir);
         return false;
@@ -1154,7 +1139,7 @@ ctc_tokenizer_test_load_minimal_vocabulary(void) {
     int32 id;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_tokenizer_minimal");
-    ctc_tokenizer_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path,
                                   "<blank>\n<space>\na\nb\nc\n<unk>\n")) {
         test_remove_tree(temp_dir);
@@ -1211,7 +1196,7 @@ ctc_tokenizer_test_rejects_duplicate_tokens(void) {
     char path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_tokenizer_dup");
-    ctc_tokenizer_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path, "<blank>\na\n<space>\na\n")) {
         test_remove_tree(temp_dir);
         return ctc_tokenizer_test_fail("write duplicate vocabulary");
@@ -1243,7 +1228,7 @@ ctc_tokenizer_test_requires_blank_token(void) {
     char path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_tokenizer_blank");
-    ctc_tokenizer_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path, "a\nb\n<space>\n")) {
         test_remove_tree(temp_dir);
         return ctc_tokenizer_test_fail("write no-blank vocabulary");
@@ -1273,7 +1258,7 @@ ctc_tokenizer_test_rejects_empty_token_line(void) {
     char path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_tokenizer_empty");
-    ctc_tokenizer_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path, "<blank>\na\n\nb\n")) {
         test_remove_tree(temp_dir);
         return ctc_tokenizer_test_fail("write empty-token vocabulary");
@@ -1310,7 +1295,7 @@ ctc_tokenizer_test_rejects_invalid_utf8(void) {
     };
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_tokenizer_utf8");
-    ctc_tokenizer_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!write_entire_file(path, invalid, SIZEOF(invalid) - 1)) {
         test_remove_tree(temp_dir);
         return ctc_tokenizer_test_fail("write invalid UTF-8 vocabulary");

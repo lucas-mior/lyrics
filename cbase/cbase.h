@@ -290,6 +290,7 @@ CBASE_API_DECL int xunlink(char *);
 CBASE_API_DECL bool test_command_exists(char *);
 CBASE_API_DECL bool test_hardlink_supported(char *);
 CBASE_API_DECL bool test_symlink_supported(char *);
+CBASE_API_DECL void test_join_path(char *, int64, char *, char *);
 CBASE_API_DECL void test_make_temp_dir(char *, int32, char *);
 CBASE_API_DECL void test_remove_tree(char *);
 #endif

@@ -3877,21 +3877,6 @@ pipeline_test_write_file(char *path) {
     return write_entire_file(path, STRLIT("x"));
 }
 
-static void
-pipeline_test_join_path(
-    char *buffer,
-    int64 buffer_len,
-    char *dir,
-    char *name
-) {
-    int32 len;
-
-    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
-    ASSERT(len > 0);
-    ASSERT(len < buffer_len);
-
-    return;
-}
 
 
 static bool
@@ -5010,7 +4995,7 @@ pipeline_test_ctc_debug_dump_escape(void) {
     };
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_dump_escape");
-    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+    test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
                             "dump.txt");
 
     if (!lrc_ctc_debug_dump_writer_open(&writer, dump_path)) {
@@ -5078,7 +5063,7 @@ pipeline_test_ctc_debug_dump_text_and_tokens(void) {
     };
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_dump_tokens");
-    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+    test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
                             "dump.txt");
 
     lrc_pipeline_config_init(&config);
@@ -5191,7 +5176,7 @@ pipeline_test_ctc_debug_dump_audio_model(void) {
     char dump_path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_dump_frames");
-    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+    test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
                             "dump.txt");
 
     lrc_pipeline_config_init(&config);
@@ -5399,7 +5384,7 @@ pipeline_test_ctc_debug_dump_path_segments(void) {
     test_make_temp_dir(temp_dir,
                        SIZEOF(temp_dir),
                        "ctc_dump_path_segments");
-    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+    test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
                             "dump.txt");
 
     segments.segments = path_segments;
@@ -5524,7 +5509,7 @@ pipeline_test_ctc_debug_dump_word_spans(void) {
     };
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_dump_word_spans");
-    pipeline_test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
+    test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
                             "dump.txt");
 
     lrc_lyrics_normalized_init(&normalized);
@@ -5924,9 +5909,9 @@ pipeline_test_ctc_assets_validate(void) {
     char tokenizer_path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "pipeline_ctc_assets");
-    pipeline_test_join_path(model_path, SIZEOF(model_path), temp_dir,
+    test_join_path(model_path, SIZEOF(model_path), temp_dir,
                             "ctc.onnx");
-    pipeline_test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
+    test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
                             "tokens.txt");
 
     if (!pipeline_test_write_file(model_path)) {
@@ -5988,9 +5973,9 @@ pipeline_test_ctc_assets_missing_file(void) {
     char tokenizer_path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "pipeline_no_ctc");
-    pipeline_test_join_path(model_path, SIZEOF(model_path), temp_dir,
+    test_join_path(model_path, SIZEOF(model_path), temp_dir,
                             "missing.onnx");
-    pipeline_test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
+    test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
                             "tokens.txt");
 
     if (!pipeline_test_write_file(tokenizer_path)) {

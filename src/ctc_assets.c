@@ -139,21 +139,6 @@ ctc_assets_write_file(char *path, char *text) {
     return write_entire_file(path, text, strlen32(text));
 }
 
-static void
-ctc_assets_join_path(
-    char *buffer,
-    int64 buffer_len,
-    char *dir,
-    char *name
-) {
-    int32 len;
-
-    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
-    ASSERT(len > 0);
-    ASSERT(len < buffer_len);
-
-    return;
-}
 
 static int32
 ctc_assets_test_config_defaults(void) {
@@ -187,9 +172,9 @@ ctc_assets_test_valid_generated_files(void) {
     char tokenizer_path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_assets_valid");
-    ctc_assets_join_path(model_path, SIZEOF(model_path), temp_dir,
+    test_join_path(model_path, SIZEOF(model_path), temp_dir,
                          "model.onnx");
-    ctc_assets_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
+    test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
                          "tokens.txt");
 
     if (!ctc_assets_write_file(model_path, "fake model\n")) {
@@ -270,9 +255,9 @@ ctc_assets_test_missing_model_file(void) {
     char tokenizer_path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_assets_no_model");
-    ctc_assets_join_path(model_path, SIZEOF(model_path), temp_dir,
+    test_join_path(model_path, SIZEOF(model_path), temp_dir,
                          "missing.onnx");
-    ctc_assets_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
+    test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
                          "tokens.txt");
 
     if (!ctc_assets_write_file(tokenizer_path, "<blank>\na\n")) {
@@ -307,9 +292,9 @@ ctc_assets_test_missing_tokenizer_file(void) {
     char tokenizer_path[PATH_MAX];
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_assets_no_tokens");
-    ctc_assets_join_path(model_path, SIZEOF(model_path), temp_dir,
+    test_join_path(model_path, SIZEOF(model_path), temp_dir,
                          "model.onnx");
-    ctc_assets_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
+    test_join_path(tokenizer_path, SIZEOF(tokenizer_path), temp_dir,
                          "missing.txt");
 
     if (!ctc_assets_write_file(model_path, "fake model\n")) {

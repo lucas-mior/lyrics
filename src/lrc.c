@@ -1403,16 +1403,6 @@ lrc_test_set_output_line(
     return;
 }
 
-static void
-lrc_test_output_path(char *buffer, int32 buffer_len, char *dir) {
-    int32 len;
-
-    len = snprintf2(buffer, buffer_len, "%s/out.lrc", dir);
-    ASSERT(len > 0);
-    ASSERT(len < buffer_len);
-
-    return;
-}
 
 static int32
 lrc_test_write_generated_file(void) {
@@ -1428,7 +1418,7 @@ lrc_test_write_generated_file(void) {
     int32 text_len;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_write");
-    lrc_test_output_path(path, SIZEOF(path), temp_dir);
+    test_join_path(path, SIZEOF(path), temp_dir, "out.lrc");
 
     lrc_test_set_output_line(lines + 0,
                              LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
@@ -1482,7 +1472,7 @@ lrc_test_write_timestamped_empty_line(void) {
     int32 text_len;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_empty_line");
-    lrc_test_output_path(path, SIZEOF(path), temp_dir);
+    test_join_path(path, SIZEOF(path), temp_dir, "out.lrc");
 
     lrc_test_set_output_line(lines + 0,
                              LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
@@ -1532,7 +1522,7 @@ lrc_test_write_overwrites_existing_file(void) {
     int32 text_len;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_overwrite");
-    lrc_test_output_path(path, SIZEOF(path), temp_dir);
+    test_join_path(path, SIZEOF(path), temp_dir, "out.lrc");
 
     lrc_test_set_output_line(first_lines + 0,
                              LRC_OUTPUT_LINE_KIND_TIMESTAMPED,
@@ -1772,7 +1762,7 @@ lrc_test_optional_maxwell_write_structure(void) {
     lrc_test_output_lines_from_parsed(&parsed, lines);
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "lrc_maxwell_write");
-    lrc_test_output_path(out_path, SIZEOF(out_path), temp_dir);
+    test_join_path(out_path, SIZEOF(out_path), temp_dir, "out.lrc");
     if (!lrc_write_output_file(out_path,
                                lines,
                                parsed.line_count,

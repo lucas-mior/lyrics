@@ -4973,21 +4973,6 @@ ctc_align_make_emissions(
     return;
 }
 
-static void
-ctc_align_join_path(
-    char *buffer,
-    int64 buffer_len,
-    char *dir,
-    char *name
-) {
-    int32 len;
-
-    len = snprintf2(buffer, buffer_len, "%s/%s", dir, name);
-    ASSERT(len > 0);
-    ASSERT(len < buffer_len);
-
-    return;
-}
 
 static void
 ctc_align_set_path_segment(
@@ -5043,7 +5028,7 @@ ctc_align_load_alphabet_tokenizer_with_options(
     }
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_align_tokens");
-    ctc_align_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!write_entire_file(path, builder.data, builder.len)) {
         test_remove_tree(temp_dir);
         sb_free(&builder);
@@ -5080,7 +5065,7 @@ ctc_align_load_lyrics_text(
     bool ok;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_align_lyrics");
-    ctc_align_join_path(path, SIZEOF(path), temp_dir, "lyrics.txt");
+    test_join_path(path, SIZEOF(path), temp_dir, "lyrics.txt");
     if (!write_entire_file(path, text, text_len)) {
         test_remove_tree(temp_dir);
         return false;
@@ -7483,7 +7468,7 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     ok = true;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_padded_lrc");
-    ctc_align_join_path(lrc_path, SIZEOF(lrc_path), temp_dir, "out.lrc");
+    test_join_path(lrc_path, SIZEOF(lrc_path), temp_dir, "out.lrc");
 
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
         ok = false;
@@ -9175,10 +9160,10 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     ok = true;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_full_lrc");
-    ctc_align_join_path(lyrics_path, SIZEOF(lyrics_path), temp_dir,
+    test_join_path(lyrics_path, SIZEOF(lyrics_path), temp_dir,
                         "lyrics.txt");
-    ctc_align_join_path(wav_path, SIZEOF(wav_path), temp_dir, "song.wav");
-    ctc_align_join_path(lrc_path, SIZEOF(lrc_path), temp_dir, "out.lrc");
+    test_join_path(wav_path, SIZEOF(wav_path), temp_dir, "song.wav");
+    test_join_path(lrc_path, SIZEOF(lrc_path), temp_dir, "out.lrc");
     write_entire_file(lyrics_path, lyrics_text, strlen32(lyrics_text));
 
     audio_test_sine_options_init(&sine_options);
@@ -9485,7 +9470,7 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     ok = true;
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "ctc_maxwell_lrc");
-    ctc_align_join_path(output_lrc_path,
+    test_join_path(output_lrc_path,
                         SIZEOF(output_lrc_path),
                         temp_dir,
                         "generated.lrc");
