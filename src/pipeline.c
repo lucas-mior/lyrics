@@ -1771,6 +1771,9 @@ lrc_pipeline_timestamp_needs_clear_line(
     if (current->kind != LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED) {
         return false;
     }
+    if (current->end_seconds <= current->start_seconds) {
+        return false;
+    }
 
     next = lrc_pipeline_next_timestamped_line(timestamps,
                                               timestamp_index + 1);
@@ -3383,6 +3386,160 @@ pipeline_test_output_text_equal(LrcOutputLine *line, char *text, int32 len) {
 }
 
 static int32
+pipeline_test_line_timestamp_clear_case(
+    char *name,
+    float first_end_seconds,
+    float second_start_seconds,
+    bool expect_clear,
+    int32 expected_clear_hundredths,
+    int32 expected_second_hundredths
+) {
+    LrcLyrics lyrics;
+    LrcLyricsLine lyric_lines[2];
+    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamp timestamp_lines[2];
+    LrcOutputLine output_lines[3];
+    LrcPipelineGenerateResult result;
+    int32 output_line_count;
+    int32 expected_output_line_count;
+    int32 second_output_index;
+    char first[] = "First";
+    char second[] = "Second";
+
+    lrc_lyrics_init(&lyrics);
+    lrc_ctc_line_timestamps_init(&timestamps);
+    lrc_pipeline_generate_result_init(&result);
+    memset64(lyric_lines, 0, SIZEOF(lyric_lines));
+    memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
+    memset64(output_lines, 0, SIZEOF(output_lines));
+    output_line_count = 0;
+
+    lyrics.lines = lyric_lines;
+    lyrics.line_count = LENGTH(lyric_lines);
+
+    lyric_lines[0].text = first;
+    lyric_lines[0].text_len = strlen32(first);
+    lyric_lines[1].text = second;
+    lyric_lines[1].text_len = strlen32(second);
+
+    timestamps.lines = timestamp_lines;
+    timestamps.line_count = LENGTH(timestamp_lines);
+    timestamps.line_cap = LENGTH(timestamp_lines);
+    timestamps.timestamped_line_count = LENGTH(timestamp_lines);
+
+    timestamp_lines[0].line_index = 0;
+    timestamp_lines[0].start_seconds = 1.0f;
+    timestamp_lines[0].end_seconds = first_end_seconds;
+    timestamp_lines[0].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    timestamp_lines[1].line_index = 1;
+    timestamp_lines[1].start_seconds = second_start_seconds;
+    timestamp_lines[1].end_seconds = second_start_seconds + 1.0f;
+    timestamp_lines[1].kind = LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED;
+
+    if (!lrc_pipeline_output_lines_from_timestamps(&lyrics,
+                                                   &timestamps,
+                                                   output_lines,
+                                                   LENGTH(output_lines),
+                                                   &output_line_count,
+                                                   &result)) {
+        return pipeline_test_fail(name);
+    }
+
+    expected_output_line_count = 2;
+    if (expect_clear) {
+        expected_output_line_count = 3;
+    }
+    if (output_line_count != expected_output_line_count) {
+        return pipeline_test_fail(name);
+    }
+    if ((output_lines[0].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[0].timestamp_hundredths != 100)
+        || !pipeline_test_output_text_equal(output_lines + 0,
+                                            STRLIT("First"))) {
+        return pipeline_test_fail(name);
+    }
+
+    second_output_index = 1;
+    if (expect_clear) {
+        if ((output_lines[1].kind != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+            || (output_lines[1].timestamp_hundredths
+                != expected_clear_hundredths)
+            || (output_lines[1].text_len != 0)) {
+            return pipeline_test_fail(name);
+        }
+        second_output_index = 2;
+    }
+
+    if ((output_lines[second_output_index].kind
+         != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
+        || (output_lines[second_output_index].timestamp_hundredths
+            != expected_second_hundredths)
+        || !pipeline_test_output_text_equal(output_lines + second_output_index,
+                                            STRLIT("Second"))) {
+        return pipeline_test_fail(name);
+    }
+
+    return 0;
+}
+
+static int32
+pipeline_test_line_timestamp_clear_gap_edges(void) {
+    if (pipeline_test_line_timestamp_clear_case(
+        "line clear gap below threshold",
+        3.40f,
+        4.39f,
+        false,
+        -1,
+        439
+    ) != 0) {
+        return 1;
+    }
+    if (pipeline_test_line_timestamp_clear_case(
+        "line clear gap at threshold",
+        3.40f,
+        4.40f,
+        true,
+        340,
+        440
+    ) != 0) {
+        return 1;
+    }
+    if (pipeline_test_line_timestamp_clear_case(
+        "line clear zero gap",
+        3.40f,
+        3.40f,
+        false,
+        -1,
+        340
+    ) != 0) {
+        return 1;
+    }
+    if (pipeline_test_line_timestamp_clear_case(
+        "line clear negative gap",
+        3.40f,
+        3.00f,
+        false,
+        -1,
+        300
+    ) != 0) {
+        return 1;
+    }
+    if (pipeline_test_line_timestamp_clear_case(
+        "line clear invalid current duration",
+        1.00f,
+        3.00f,
+        false,
+        -1,
+        300
+    ) != 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int32
 pipeline_test_line_timestamp_end_writes_clear_line(void) {
     LrcLyrics lyrics;
     LrcLyricsLine lyric_lines[2];
@@ -4617,6 +4774,9 @@ pipeline_test_optional_maxwell_config(void) {
 int32
 main(void) {
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_line_timestamp_clear_gap_edges() != 0) {
         exit(1);
     }
     if (pipeline_test_preprocess_option_parsers() != 0) {
