@@ -1312,7 +1312,7 @@ ctc_tokenizer_test_rejects_invalid_utf8(void) {
 static int32
 ctc_tokenizer_test_tokenizes_normalized_text(void) {
     LrcCtcTokenizer tokenizer;
-    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizedText tokens = {0};
     LrcCtcTokenizeResult result;
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -1332,7 +1332,6 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
         return ctc_tokenizer_test_fail("normalize tokenization lyrics");
     }
 
-    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1373,7 +1372,7 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
 static int32
 ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
     LrcCtcTokenizer tokenizer;
-    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizedText tokens = {0};
     LrcCtcTokenizeResult result;
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -1393,7 +1392,6 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
         return ctc_tokenizer_test_fail("normalize unsupported lyrics");
     }
 
-    memset64(&tokens, 0, SIZEOF(tokens));
     if (lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                               &normalized,
                                               &tokens,
@@ -1422,7 +1420,7 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
 static int32
 ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
     LrcCtcTokenizer tokenizer;
-    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizedText tokens = {0};
     LrcCtcTokenizeResult result;
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -1442,7 +1440,6 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
         return ctc_tokenizer_test_fail("normalize unknown lyrics");
     }
 
-    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1478,7 +1475,7 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
 static int32
 ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
     LrcCtcTokenizer tokenizer;
-    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizedText tokens = {0};
     LrcCtcTokenizeResult result;
     LrcLyricsPreprocessOptions options;
     LrcLyrics lyrics;
@@ -1515,7 +1512,6 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
                      normalized.target_text_len,
                      STRLIT("c a t")));
 
-    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1550,7 +1546,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
 static int32
 ctc_tokenizer_test_marks_segment_starts(void) {
     LrcCtcTokenizer tokenizer;
-    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizedText tokens = {0};
     LrcCtcTokenizeResult result;
     LrcLyricsPreprocessOptions options;
     LrcLyrics lyrics;
@@ -1582,7 +1578,6 @@ ctc_tokenizer_test_marks_segment_starts(void) {
         return ctc_tokenizer_test_fail("normalize segment word lyrics");
     }
 
-    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
@@ -1615,7 +1610,7 @@ ctc_tokenizer_test_marks_segment_starts(void) {
 static int32
 ctc_tokenizer_test_skips_unmatched_spaces(void) {
     LrcCtcTokenizer tokenizer;
-    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizedText tokens = {0};
     LrcCtcTokenizeResult result;
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -1635,7 +1630,6 @@ ctc_tokenizer_test_skips_unmatched_spaces(void) {
         return ctc_tokenizer_test_fail("normalize no-space lyrics");
     }
 
-    memset64(&tokens, 0, SIZEOF(tokens));
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,

@@ -1092,14 +1092,13 @@ lyrics_generate_lrc(
 
 LYRICS_API int32
 lyrics_main(int32 argc, char **argv) {
-    MainOptions options;
+    MainOptions options = {0};
     bool has_lyrics;
 
     if ((argc > 0) && argv) {
         program = argv[0];
     }
 
-    memset64(&options, 0, SIZEOF(options));
     lrc_pipeline_config_init(&options.config);
     if (!main_parse_args(&options, argc, argv)) {
         if (options.print_usage_on_error) {

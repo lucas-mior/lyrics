@@ -1055,11 +1055,10 @@ lrc_test_assert_line(
 
 static int32
 lrc_test_parse_timestamped_and_blank_lines(void) {
-    LrcParsedFile parsed;
+    LrcParsedFile parsed = {0};
     LrcParseResult result;
     char text[] = "[00:00.20]Hello\n\n[01:02.34]World\n";
 
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (!lrc_parse_text(&parsed, text, strlen32(text), &result)) {
         return lrc_test_fail("parse timestamped and blank lines");
     }
@@ -1091,11 +1090,10 @@ lrc_test_parse_timestamped_and_blank_lines(void) {
 
 static int32
 lrc_test_parse_crlf_and_space_blank_line(void) {
-    LrcParsedFile parsed;
+    LrcParsedFile parsed = {0};
     LrcParseResult result;
     char text[] = "[00:01.00]One\r\n  \t\r\n[00:02.00]Two\r\n";
 
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (!lrc_parse_text(&parsed, text, strlen32(text), &result)) {
         return lrc_test_fail("parse crlf and blank line");
     }
@@ -1126,12 +1124,11 @@ lrc_test_parse_crlf_and_space_blank_line(void) {
 
 static int32
 lrc_test_reject_malformed_timestamps(void) {
-    LrcParsedFile parsed;
+    LrcParsedFile parsed = {0};
     LrcParseResult result;
     char bad_seconds[] = "[00:60.00]Bad\n";
     char bad_fraction[] = "[00:00.1]Bad\n";
 
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (lrc_parse_text(&parsed,
                        bad_seconds,
                        strlen32(bad_seconds),
@@ -1158,11 +1155,10 @@ lrc_test_reject_malformed_timestamps(void) {
 
 static int32
 lrc_test_reject_untimed_text(void) {
-    LrcParsedFile parsed;
+    LrcParsedFile parsed = {0};
     LrcParseResult result;
     char text[] = "[00:01.00]Good\nUntimed lyric\n";
 
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (lrc_parse_text(&parsed, text, strlen32(text), &result)) {
         lrc_parsed_file_destroy(&parsed);
         return lrc_test_fail("accepted untimed text");
@@ -1175,11 +1171,10 @@ lrc_test_reject_untimed_text(void) {
 
 static int32
 lrc_test_duplicate_timestamps_are_preserved(void) {
-    LrcParsedFile parsed;
+    LrcParsedFile parsed = {0};
     LrcParseResult result;
     char text[] = "[00:01.00]A\n[00:01.00]B\n";
 
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (!lrc_parse_text(&parsed, text, strlen32(text), &result)) {
         return lrc_test_fail("parse duplicate timestamps");
     }
@@ -1604,7 +1599,7 @@ lrc_test_write_rejects_bad_inputs(void) {
 
 static int32
 lrc_test_optional_maxwell_formatting(void) {
-    LrcParsedFile parsed;
+    LrcParsedFile parsed = {0};
     LrcParseResult parse_result;
     LrcFormatResult format_result;
     StrBuilder builder;
@@ -1623,7 +1618,6 @@ lrc_test_optional_maxwell_formatting(void) {
     if (!read_entire_file(path, &text, &text_len)) {
         return lrc_test_fail("read maxwell lrc before formatting");
     }
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (!lrc_parse_text(&parsed, text, text_len, &parse_result)) {
         free2(text, ((int64)text_len + 1)*SIZEOF(*text));
         return lrc_test_fail("parse maxwell lrc before formatting");
@@ -1712,8 +1706,8 @@ lrc_test_output_lines_from_parsed(
 
 static int32
 lrc_test_optional_maxwell_write_structure(void) {
-    LrcParsedFile parsed;
-    LrcParsedFile reparsed;
+    LrcParsedFile parsed = {0};
+    LrcParsedFile reparsed = {0};
     LrcParseResult parse_result;
     LrcWriteResult write_result;
     LrcOutputLine *lines;
@@ -1737,7 +1731,6 @@ lrc_test_optional_maxwell_write_structure(void) {
     if (!read_entire_file(fixture_path, &fixture_text, &fixture_text_len)) {
         return lrc_test_fail("read maxwell lrc before write");
     }
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (!lrc_parse_text(&parsed,
                         fixture_text,
                         fixture_text_len,
@@ -1773,7 +1766,6 @@ lrc_test_optional_maxwell_write_structure(void) {
         test_remove_tree(temp_dir);
         return lrc_test_fail("read written maxwell lrc");
     }
-    memset64(&reparsed, 0, SIZEOF(reparsed));
     if (!lrc_parse_text(&reparsed,
                         written_text,
                         written_text_len,
@@ -1802,7 +1794,7 @@ lrc_test_optional_maxwell_write_structure(void) {
 
 static int32
 lrc_test_optional_maxwell_lrc(void) {
-    LrcParsedFile parsed;
+    LrcParsedFile parsed = {0};
     LrcParseResult result;
     char *path;
     char *text;
@@ -1819,7 +1811,6 @@ lrc_test_optional_maxwell_lrc(void) {
     if (!read_entire_file(path, &text, &text_len)) {
         return lrc_test_fail("read maxwell lrc");
     }
-    memset64(&parsed, 0, SIZEOF(parsed));
     if (!lrc_parse_text(&parsed, text, text_len, &result)) {
         free2(text, ((int64)text_len + 1)*SIZEOF(*text));
         return lrc_test_fail("parse maxwell lrc");

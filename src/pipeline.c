@@ -1421,16 +1421,14 @@ lrc_pipeline_debug_dump_write_active_word_spans(
     LrcCtcAlignResult *align_result,
     LrcPipelineGenerateResult *result
 ) {
-    LrcCtcTokenSpans active_token_spans;
-    LrcCtcWordSpans active_word_spans;
+    LrcCtcTokenSpans active_token_spans = {0};
+    LrcCtcWordSpans active_word_spans = {0};
     bool ok;
 
     if (!lrc_pipeline_debug_dump_enabled(pipeline)) {
         return true;
     }
 
-    memset64(&active_token_spans, 0, SIZEOF(active_token_spans));
-    memset64(&active_word_spans, 0, SIZEOF(active_word_spans));
 
     ok = lrc_ctc_path_to_token_spans(path,
                                      emissions,
@@ -1504,13 +1502,12 @@ lrc_pipeline_debug_dump_write_path_segments(
     LrcCtcAlignResult *align_result,
     LrcPipelineGenerateResult *result
 ) {
-    LrcCtcPathSegments segments;
+    LrcCtcPathSegments segments = {0};
 
     if (!lrc_pipeline_debug_dump_enabled(pipeline)) {
         return true;
     }
 
-    memset64(&segments, 0, SIZEOF(segments));
     if (!lrc_ctc_path_to_segments(path,
                                   emissions,
                                   frame_duration_seconds,
@@ -2590,30 +2587,30 @@ lrc_pipeline_generate_lrc(
     LrcPipelineGenerateResult *result
 ) {
     LrcCtcAssetsResult assets_result;
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLoadResult lyrics_result;
-    LrcLyricsNormalized normalized;
+    LrcLyricsNormalized normalized = {0};
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizerResult tokenizer_result;
-    LrcCtcTokenizedText tokens;
+    LrcCtcTokenizedText tokens = {0};
     LrcCtcTokenizeResult tokenize_result;
     LrcCtcAudioConfig audio_config;
     LrcCtcAudioResult audio_result;
-    LrcCtcAudio audio;
+    LrcCtcAudio audio = {0};
     LrcCtcModelInputResult model_result;
-    LrcCtcModelInput input;
-    LrcCtcOnnxInference onnx;
+    LrcCtcModelInput input = {0};
+    LrcCtcOnnxInference onnx = {0};
     LrcCtcInferenceBackend backend;
     OrtSessionConfig ort_session_config;
     LrcCtcInferenceResult inference_result;
-    LrcCtcEmissions emissions;
+    LrcCtcEmissions emissions = {0};
     LrcCtcAlignResult align_result;
-    LrcCtcTrellis trellis;
-    LrcCtcPath path;
-    LrcCtcTokenSpans token_spans;
-    LrcCtcWordSpans word_spans;
-    LrcCtcLineTimestamps line_timestamps;
-    LrcPipelineLineTimingAudio line_audio;
+    LrcCtcTrellis trellis = {0};
+    LrcCtcPath path = {0};
+    LrcCtcTokenSpans token_spans = {0};
+    LrcCtcWordSpans word_spans = {0};
+    LrcCtcLineTimestamps line_timestamps = {0};
+    LrcPipelineLineTimingAudio line_audio = {0};
     LrcCtcDebugDumpWriter debug_dump;
     LrcOutputLine *output_lines;
     LrcWriteResult write_result;
@@ -2657,20 +2654,7 @@ lrc_pipeline_generate_lrc(
         return false;
     }
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
-    memset64(&normalized, 0, SIZEOF(normalized));
     lrc_ctc_tokenizer_init(&tokenizer);
-    memset64(&tokens, 0, SIZEOF(tokens));
-    memset64(&audio, 0, SIZEOF(audio));
-    memset64(&input, 0, SIZEOF(input));
-    memset64(&onnx, 0, SIZEOF(onnx));
-    memset64(&emissions, 0, SIZEOF(emissions));
-    memset64(&trellis, 0, SIZEOF(trellis));
-    memset64(&path, 0, SIZEOF(path));
-    memset64(&token_spans, 0, SIZEOF(token_spans));
-    memset64(&word_spans, 0, SIZEOF(word_spans));
-    memset64(&line_timestamps, 0, SIZEOF(line_timestamps));
-    memset64(&line_audio, 0, SIZEOF(line_audio));
     lrc_ctc_debug_dump_writer_init(&debug_dump);
 
     output_lines = NULL;
@@ -4145,7 +4129,7 @@ pipeline_test_line_timing_audio_correction(void) {
 
 static int32
 pipeline_test_line_timing_audio_correction_edges(void) {
-    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamps timestamps = {0};
     LrcCtcLineTimestamp lines[2];
     LrcPipelineLineTimingAudio audio;
     LrcPipelineGenerateResult result;
@@ -4157,7 +4141,6 @@ pipeline_test_line_timing_audio_correction_edges(void) {
                                         LENGTH(samples),
                                         1000);
 
-    memset64(&timestamps, 0, SIZEOF(timestamps));
     timestamps.line_count = 1;
     if (lrc_pipeline_line_timestamps_correct_ends_from_audio(&timestamps,
                                                               &audio,
@@ -4226,7 +4209,7 @@ pipeline_test_line_timing_audio_correction_edges(void) {
 
 static int32
 pipeline_test_lrc_clear_uses_audio_corrected_end(void) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLine lyric_lines[2];
     LrcCtcLineTimestamps timestamps;
     LrcCtcLineTimestamp timestamp_lines[2];
@@ -4238,7 +4221,6 @@ pipeline_test_lrc_clear_uses_audio_corrected_end(void) {
     char first[] = "First";
     char second[] = "Second";
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(output_lines, 0, SIZEOF(output_lines));
@@ -4309,9 +4291,9 @@ pipeline_test_lrc_clear_uses_audio_corrected_end(void) {
 
 static int32
 pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLine lyric_lines[7];
-    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamps timestamps = {0};
     LrcCtcLineTimestamp timestamp_lines[7];
     LrcPipelineLineTimingAudio audio;
     LrcPipelineGenerateResult result;
@@ -4372,8 +4354,6 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
         return pipeline_test_fail("cafe-vocals sample second text missing");
     }
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
-    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -4469,8 +4449,8 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
 
 static int32
 pipeline_test_line_timing_audio_available(void) {
-    LrcCtcAudio audio;
-    LrcPipelineLineTimingAudio line_audio;
+    LrcCtcAudio audio = {0};
+    LrcPipelineLineTimingAudio line_audio = {0};
     LrcPipelineGenerateResult result;
     float samples[] = {
         0.25f,
@@ -4479,8 +4459,6 @@ pipeline_test_line_timing_audio_available(void) {
         0.50f,
     };
 
-    memset64(&audio, 0, SIZEOF(audio));
-    memset64(&line_audio, 0, SIZEOF(line_audio));
     lrc_pipeline_generate_result_init(&result);
 
     audio.samples = samples;
@@ -4513,9 +4491,9 @@ pipeline_test_line_timestamp_clear_case(
     int32 expected_clear_hundredths,
     int32 expected_second_hundredths
 ) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLine lyric_lines[2];
-    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamps timestamps = {0};
     LrcCtcLineTimestamp timestamp_lines[2];
     LrcOutputLine output_lines[3];
     LrcPipelineGenerateResult result;
@@ -4525,8 +4503,6 @@ pipeline_test_line_timestamp_clear_case(
     char first[] = "First";
     char second[] = "Second";
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
-    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -4660,9 +4636,9 @@ pipeline_test_line_timestamp_clear_gap_edges(void) {
 
 static int32
 pipeline_test_line_timestamp_clear_keeps_blank_line(void) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLine lyric_lines[3];
-    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamps timestamps = {0};
     LrcCtcLineTimestamp timestamp_lines[3];
     LrcOutputLine output_lines[4];
     LrcPipelineGenerateResult result;
@@ -4671,8 +4647,6 @@ pipeline_test_line_timestamp_clear_keeps_blank_line(void) {
     char second[] = "Second";
     char blank[] = "";
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
-    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -4811,9 +4785,9 @@ pipeline_test_sample_has_blank_line_between(
 
 static int32
 pipeline_test_line_timestamp_end_writes_clear_line(void) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLine lyric_lines[2];
-    LrcCtcLineTimestamps timestamps;
+    LrcCtcLineTimestamps timestamps = {0};
     LrcCtcLineTimestamp timestamp_lines[2];
     LrcOutputLine output_lines[3];
     LrcPipelineGenerateResult result;
@@ -4821,8 +4795,6 @@ pipeline_test_line_timestamp_end_writes_clear_line(void) {
     char first[] = "First";
     char second[] = "Second";
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
-    memset64(&timestamps, 0, SIZEOF(timestamps));
     lrc_pipeline_generate_result_init(&result);
     memset64(lyric_lines, 0, SIZEOF(lyric_lines));
     memset64(timestamp_lines, 0, SIZEOF(timestamp_lines));
@@ -4936,9 +4908,9 @@ static int32
 pipeline_test_ctc_debug_dump_text_and_tokens(void) {
     LrcPipelineConfig config;
     LrcPipeline pipeline;
-    LrcLyricsNormalized normalized;
+    LrcLyricsNormalized normalized = {0};
     LrcCtcDebugDumpWriter writer;
-    LrcCtcTokenizedText tokenized;
+    LrcCtcTokenizedText tokenized = {0};
     char temp_dir[PATH_MAX];
     char dump_path[PATH_MAX];
     LrcCtcToken tokenizer_tokens[] = {
@@ -4988,13 +4960,11 @@ pipeline_test_ctc_debug_dump_text_and_tokens(void) {
     pipeline.ctc_assets.tokenizer_path = "tokens.txt";
     pipeline.vocals_stage_path = "moskau-vocals.opus";
 
-    memset64(&normalized, 0, SIZEOF(normalized));
     normalized.text = "Ich\nMoskau";
     normalized.text_len = strlen32(normalized.text);
     normalized.target_text = "ich moskau";
     normalized.target_text_len = strlen32(normalized.target_text);
 
-    memset64(&tokenized, 0, SIZEOF(tokenized));
     tokenized.tokens = text_tokens;
     tokenized.token_count = LENGTH(text_tokens);
 
@@ -5078,9 +5048,9 @@ pipeline_test_ctc_debug_dump_audio_model(void) {
     LrcPipelineConfig config;
     LrcPipeline pipeline;
     LrcCtcDebugDumpWriter writer;
-    LrcCtcAudio audio;
-    LrcCtcModelInput input;
-    LrcCtcEmissions emissions;
+    LrcCtcAudio audio = {0};
+    LrcCtcModelInput input = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcTokenizer tokenizer;
     char temp_dir[PATH_MAX];
     char dump_path[PATH_MAX];
@@ -5094,18 +5064,15 @@ pipeline_test_ctc_debug_dump_audio_model(void) {
     config.ctc_model_config.context_seconds = 7;
     lrc_pipeline_init(&pipeline, &config);
 
-    memset64(&audio, 0, SIZEOF(audio));
     audio.sample_rate = 16000;
     audio.sample_count = 123456;
 
-    memset64(&input, 0, SIZEOF(input));
     input.sample_rate = 16000;
     input.inputs_to_logits_ratio = 320;
     input.stride_ms = 20.0;
     input.chunk_count = 3;
     input.row_sample_count = 512000;
 
-    memset64(&emissions, 0, SIZEOF(emissions));
     emissions.frame_count = 6172;
     emissions.vocabulary_size = 1130;
 
@@ -5355,7 +5322,7 @@ pipeline_test_ctc_debug_dump_path_segments(void) {
 static int32
 pipeline_test_ctc_debug_dump_word_spans(void) {
     LrcCtcDebugDumpWriter writer;
-    LrcLyricsNormalized normalized;
+    LrcLyricsNormalized normalized = {0};
     LrcCtcWordSpans before_spans;
     LrcCtcWordSpans after_spans;
     char temp_dir[PATH_MAX];
@@ -5422,7 +5389,6 @@ pipeline_test_ctc_debug_dump_word_spans(void) {
     test_join_path(dump_path, SIZEOF(dump_path), temp_dir,
                             "dump.txt");
 
-    memset64(&normalized, 0, SIZEOF(normalized));
     normalized.text = normalized_text;
     normalized.text_len = strlen32(normalized.text);
     before_spans.spans = before;

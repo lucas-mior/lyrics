@@ -422,7 +422,7 @@ lyrics_test_bom_unicode_and_blank_lines(void) {
 
 static int32
 lyrics_test_reject_empty(void) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLoadResult result;
     char temp_dir[PATH_MAX];
     char path[PATH_MAX];
@@ -440,7 +440,6 @@ lyrics_test_reject_empty(void) {
         return lyrics_test_fail("write empty text");
     }
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
     if (lrc_lyrics_load_file(&lyrics, path, &result)) {
         lrc_lyrics_destroy(&lyrics);
         test_remove_tree(temp_dir);
@@ -457,7 +456,7 @@ lyrics_test_reject_empty(void) {
 
 static int32
 lyrics_test_reject_invalid_utf8(void) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLoadResult result;
     char temp_dir[PATH_MAX];
     char path[PATH_MAX];
@@ -475,7 +474,6 @@ lyrics_test_reject_invalid_utf8(void) {
         return lyrics_test_fail("write invalid utf8 text");
     }
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
     if (lrc_lyrics_load_file(&lyrics, path, &result)) {
         lrc_lyrics_destroy(&lyrics);
         test_remove_tree(temp_dir);
@@ -493,7 +491,7 @@ lyrics_test_reject_invalid_utf8(void) {
 static int32
 lyrics_test_normalize_punctuation_sections_and_mapping(void) {
     LrcLyrics lyrics;
-    LrcLyricsNormalized normalized;
+    LrcLyricsNormalized normalized = {0};
     char text[] = "  Hello, WORLD!!\n[Chorus]\nBang-bang   MAXWELL's\n";
     int32 bang_offset;
     char *bang;
@@ -502,7 +500,6 @@ lyrics_test_normalize_punctuation_sections_and_mapping(void) {
         return lyrics_test_fail("load normalization text");
     }
 
-    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize punctuation text");
@@ -541,7 +538,7 @@ lyrics_test_normalize_punctuation_sections_and_mapping(void) {
 static int32
 lyrics_test_normalize_unicode_and_blank_lines(void) {
     LrcLyrics lyrics;
-    LrcLyricsNormalized normalized;
+    LrcLyricsNormalized normalized = {0};
     char text[] = "Olá,   世界!\n\n(Bridge)\nAgain\n";
     char *again;
     int32 again_offset;
@@ -550,7 +547,6 @@ lyrics_test_normalize_unicode_and_blank_lines(void) {
         return lyrics_test_fail("load unicode normalization text");
     }
 
-    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize unicode text");
@@ -591,14 +587,13 @@ lyrics_test_normalize_unicode_and_blank_lines(void) {
 static int32
 lyrics_test_normalized_ranges_blank_punctuation_repeated(void) {
     LrcLyrics lyrics;
-    LrcLyricsNormalized normalized;
+    LrcLyricsNormalized normalized = {0};
     char text[] = "Repeat\n\n!!! ???\nRepeat\n";
 
     if (!lyrics_test_load_text(&lyrics, text, strlen32(text))) {
         return lyrics_test_fail("load repeated range text");
     }
 
-    memset64(&normalized, 0, SIZEOF(normalized));
     if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize repeated range text");
@@ -632,8 +627,8 @@ lyrics_test_normalized_ranges_blank_punctuation_repeated(void) {
 static int32
 lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
     LrcLyrics lyrics;
-    LrcLyricsNormalized default_normalized;
-    LrcLyricsNormalized option_normalized;
+    LrcLyricsNormalized default_normalized = {0};
+    LrcLyricsNormalized option_normalized = {0};
     LrcLyricsPreprocessOptions options;
     char text[] = "  Hello, WORLD!!\n[Chorus]\nBang-bang   MAXWELL's\n";
 
@@ -648,8 +643,6 @@ lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
     ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
     ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
 
-    memset64(&default_normalized, 0, SIZEOF(default_normalized));
-    memset64(&option_normalized, 0, SIZEOF(option_normalized));
     if (!lrc_lyrics_normalize(&lyrics, &default_normalized)) {
         lrc_lyrics_destroy(&lyrics);
         return lyrics_test_fail("normalize through default wrapper");
@@ -680,7 +673,7 @@ lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
 
 static int32
 lyrics_test_optional_maxwell_txt(void) {
-    LrcLyrics lyrics;
+    LrcLyrics lyrics = {0};
     LrcLyricsLoadResult result;
     char *path;
 
@@ -692,7 +685,6 @@ lyrics_test_optional_maxwell_txt(void) {
         return 0;
     }
 
-    memset64(&lyrics, 0, SIZEOF(lyrics));
     if (!lrc_lyrics_load_file(&lyrics, path, &result)) {
         return lyrics_test_fail("load maxwell lyrics");
     }
@@ -708,11 +700,10 @@ lyrics_test_optional_maxwell_txt(void) {
                      "Came down upon her head", 23));
 
     {
-        LrcLyricsNormalized normalized;
+        LrcLyricsNormalized normalized = {0};
         char *bang;
         int32 bang_offset;
 
-        memset64(&normalized, 0, SIZEOF(normalized));
         if (!lrc_lyrics_normalize(&lyrics, &normalized)) {
             lrc_lyrics_destroy(&lyrics);
             return lyrics_test_fail("normalize maxwell lyrics");

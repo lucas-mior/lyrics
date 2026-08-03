@@ -402,7 +402,7 @@ static bool
 ctc_unicode_norm_open_latin_transliterator(
     UTransliterator **transliterator
 ) {
-    UParseError parse_error;
+    UParseError parse_error = {0};
     UErrorCode status;
     UChar id[64];
     int32 id_len;
@@ -417,7 +417,6 @@ ctc_unicode_norm_open_latin_transliterator(
         return false;
     }
 
-    memset64(&parse_error, 0, SIZEOF(parse_error));
     status = U_ZERO_ERROR;
     *transliterator = utrans_openU(id,
                                    (int32_t)id_len,

@@ -1868,16 +1868,13 @@ ctc_inference_stderr_capture_end(
 static int32
 ctc_inference_test_empty_initializers(void) {
     LrcCtcInferenceResult result;
-    LrcCtcEmissions emissions;
-    LrcCtcFakeInference fake;
+    LrcCtcEmissions emissions = {0};
+    LrcCtcFakeInference fake = {0};
     LrcCtcInferenceBackend backend;
-    LrcCtcOnnxInference onnx;
+    LrcCtcOnnxInference onnx = {0};
 
     lrc_ctc_inference_result_init(&result);
-    memset64(&emissions, 0, SIZEOF(emissions));
-    memset64(&fake, 0, SIZEOF(fake));
     lrc_ctc_fake_inference_backend(&fake, &backend);
-    memset64(&onnx, 0, SIZEOF(onnx));
 
     ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
@@ -1904,16 +1901,14 @@ static int32
 ctc_inference_test_fake_rank2(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     float values[] = {
         -2.0f, -0.1f, -3.0f,
         -1.0f, -4.0f, -0.2f,
     };
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_input(&input);
     if (!lrc_ctc_fake_inference_set(&fake, values, 2, 3)) {
         return ctc_inference_test_fail("set fake rank-2 emissions");
@@ -1949,8 +1944,8 @@ static int32
 ctc_inference_test_fake_rank3(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -1963,8 +1958,6 @@ ctc_inference_test_fake_rank3(void) {
     shape[1] = 3;
     shape[2] = 2;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_rank3_trim_input(&input, chunks, 2);
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
@@ -2001,8 +1994,8 @@ static int32
 ctc_inference_test_rank3_extension_truncated(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -2015,8 +2008,6 @@ ctc_inference_test_rank3_extension_truncated(void) {
     shape[1] = 3;
     shape[2] = 2;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_rank3_trim_input(&input, chunks, 1);
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
@@ -2049,8 +2040,8 @@ static int32
 ctc_inference_test_rank3_logits_converted_after_trim(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -2071,8 +2062,6 @@ ctc_inference_test_rank3_logits_converted_after_trim(void) {
     row0_norm = log(2.0);
     row1_norm = log(exp(2.0) + 1.0);
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_rank3_trim_input(&input, chunks, 2);
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
@@ -2113,8 +2102,8 @@ static int32
 ctc_inference_test_rank3_probability_trim_before_convert(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -2131,8 +2120,6 @@ ctc_inference_test_rank3_probability_trim_before_convert(void) {
     shape[1] = 3;
     shape[2] = 2;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_rank3_trim_input(&input, chunks, 2);
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
@@ -2174,10 +2161,10 @@ static int32
 ctc_inference_test_rank3_accepts_short_actual_model_length(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
-    LrcCtcModelInput input;
-    LrcCtcModelChunk chunk;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
+    LrcCtcModelInput input = {0};
+    LrcCtcModelChunk chunk = {0};
     int64 shape[3];
     float values[] = {
         10.0f,
@@ -2189,8 +2176,6 @@ ctc_inference_test_rank3_accepts_short_actual_model_length(void) {
     shape[1] = 3;
     shape[2] = 1;
 
-    memset64(&input, 0, SIZEOF(input));
-    memset64(&chunk, 0, SIZEOF(chunk));
     input.samples = values;
     input.sample_count = 4;
     input.shape_len = LRC_CTC_MODEL_INPUT_RANK;
@@ -2204,8 +2189,6 @@ ctc_inference_test_rank3_accepts_short_actual_model_length(void) {
     chunk.raw_emission_count = 4;
     chunk.kept_emission_count = 4;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
                                           LENGTH(values),
@@ -2235,8 +2218,8 @@ static int32
 ctc_inference_test_rank3_accepts_wav2vec_actual_chunk_length(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -2259,8 +2242,6 @@ ctc_inference_test_rank3_accepts_wav2vec_actual_chunk_length(void) {
     shape[1] = 5;
     shape[2] = 1;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_custom_rank3_trim_input(&input,
                                                chunks,
                                                2,
@@ -2297,8 +2278,8 @@ static int32
 ctc_inference_test_rank3_python_slicing_vectors(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[3];
     int64 shape[3];
@@ -2323,8 +2304,6 @@ ctc_inference_test_rank3_python_slicing_vectors(void) {
     shape[1] = 6;
     shape[2] = 1;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_custom_rank3_trim_input(&input,
                                                chunks,
                                                3,
@@ -2360,8 +2339,8 @@ static int32
 ctc_inference_test_rank3_repeated_boundary_frames(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -2390,8 +2369,6 @@ ctc_inference_test_rank3_repeated_boundary_frames(void) {
     shape[1] = 6;
     shape[2] = 1;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_custom_rank3_trim_input(&input,
                                                chunks,
                                                2,
@@ -2427,8 +2404,8 @@ ctc_inference_test_progress_disabled_is_silent(void) {
     CtcInferenceStderrCapture capture;
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -2443,8 +2420,6 @@ ctc_inference_test_progress_disabled_is_silent(void) {
     shape[1] = 3;
     shape[2] = 2;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_rank3_trim_input(&input, chunks, 2);
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
@@ -2476,8 +2451,8 @@ ctc_inference_test_progress_counts_chunks(void) {
     CtcInferenceStderrCapture capture;
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     char output[512];
@@ -2492,8 +2467,6 @@ ctc_inference_test_progress_counts_chunks(void) {
     shape[1] = 3;
     shape[2] = 2;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_rank3_trim_input(&input, chunks, 2);
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
@@ -2524,14 +2497,13 @@ ctc_inference_test_progress_counts_chunks(void) {
 static int32
 ctc_inference_test_onnx_chunk_output_shape(void) {
     LrcCtcInferenceResult result;
-    OrtTensor output;
+    OrtTensor output = {0};
     float values[12];
     int64 chunk_emission_count;
     int64 vocabulary_size;
     int64 chunk_value_count;
 
     lrc_ctc_inference_result_init(&result);
-    memset64(&output, 0, SIZEOF(output));
     output.data = values;
     output.data_len = LENGTH(values);
     output.shape_len = 3;
@@ -2586,8 +2558,8 @@ static int32
 ctc_inference_test_rank3_rejects_mismatched_chunks(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     LrcCtcModelChunk chunks[2];
     int64 shape[3];
@@ -2600,8 +2572,6 @@ ctc_inference_test_rank3_rejects_mismatched_chunks(void) {
     shape[1] = 3;
     shape[2] = 2;
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_rank3_trim_input(&input, chunks, 2);
     if (!lrc_ctc_fake_inference_set_shape(&fake,
                                           values,
@@ -2624,13 +2594,11 @@ static int32
 ctc_inference_test_rejects_invalid_inputs(void) {
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcFakeInference fake;
-    LrcCtcEmissions emissions;
+    LrcCtcFakeInference fake = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     float values[] = {0.0f, 1.0f};
 
-    memset64(&fake, 0, SIZEOF(fake));
-    memset64(&emissions, 0, SIZEOF(emissions));
     lrc_ctc_fake_inference_backend(&fake, &backend);
     ctc_inference_make_input(&input);
 
@@ -2667,11 +2635,10 @@ ctc_inference_test_rejects_invalid_inputs(void) {
 
 static int32
 ctc_inference_test_rejects_bad_shapes(void) {
-    LrcCtcFakeInference fake;
+    LrcCtcFakeInference fake = {0};
     int64 shape[3];
     float values[] = {0.0f, 1.0f, 2.0f, 3.0f};
 
-    memset64(&fake, 0, SIZEOF(fake));
 
     shape[0] = 0;
     shape[1] = 2;
@@ -2698,7 +2665,7 @@ ctc_inference_test_rejects_bad_shapes(void) {
 static int32
 ctc_inference_test_log_probability_bypass(void) {
     LrcCtcInferenceResult result;
-    LrcCtcEmissions emissions;
+    LrcCtcEmissions emissions = {0};
     int64 shape[2];
     float values[] = {
         -0.10f, -2.30f,
@@ -2708,7 +2675,6 @@ ctc_inference_test_log_probability_bypass(void) {
     shape[0] = 2;
     shape[1] = 2;
 
-    memset64(&emissions, 0, SIZEOF(emissions));
     if (!lrc_ctc_emissions_copy_shape(&emissions,
                                       values,
                                       LENGTH(values),
@@ -2737,7 +2703,7 @@ ctc_inference_test_log_probability_bypass(void) {
 static int32
 ctc_inference_test_logits_to_log_probabilities(void) {
     LrcCtcInferenceResult result;
-    LrcCtcEmissions emissions;
+    LrcCtcEmissions emissions = {0};
     int64 shape[2];
     double row1_norm;
     double row2_norm;
@@ -2753,7 +2719,6 @@ ctc_inference_test_logits_to_log_probabilities(void) {
     row1_norm = log(2.0);
     row2_norm = log(1.0 + exp(-1.0));
 
-    memset64(&emissions, 0, SIZEOF(emissions));
     if (!lrc_ctc_emissions_copy_shape(&emissions,
                                       values,
                                       LENGTH(values),
@@ -2798,7 +2763,7 @@ ctc_inference_test_logits_to_log_probabilities(void) {
 static int32
 ctc_inference_test_probabilities_to_log_probabilities(void) {
     LrcCtcInferenceResult result;
-    LrcCtcEmissions emissions;
+    LrcCtcEmissions emissions = {0};
     int64 shape[2];
     float values[] = {
         0.25f, 0.75f,
@@ -2808,7 +2773,6 @@ ctc_inference_test_probabilities_to_log_probabilities(void) {
     shape[0] = 2;
     shape[1] = 2;
 
-    memset64(&emissions, 0, SIZEOF(emissions));
     if (!lrc_ctc_emissions_copy_shape(&emissions,
                                       values,
                                       LENGTH(values),
@@ -2846,13 +2810,12 @@ ctc_inference_test_probabilities_to_log_probabilities(void) {
 static int32
 ctc_inference_test_rejects_invalid_probability_conversion(void) {
     LrcCtcInferenceResult result;
-    LrcCtcEmissions emissions;
+    LrcCtcEmissions emissions = {0};
     int64 shape[2];
     float values[] = {1.0f, 0.0f};
 
     shape[0] = 1;
     shape[1] = 2;
-    memset64(&emissions, 0, SIZEOF(emissions));
     if (!lrc_ctc_emissions_copy_shape(&emissions,
                                       values,
                                       LENGTH(values),
@@ -2897,8 +2860,8 @@ ctc_inference_test_optional_onnx_backend(void) {
 #if LRC_CTC_INFERENCE_ENABLE_ORT
     LrcCtcInferenceBackend backend;
     LrcCtcInferenceResult result;
-    LrcCtcOnnxInference onnx;
-    LrcCtcEmissions emissions;
+    LrcCtcOnnxInference onnx = {0};
+    LrcCtcEmissions emissions = {0};
     LrcCtcModelInput input;
     char *model_path;
 
@@ -2907,8 +2870,6 @@ ctc_inference_test_optional_onnx_backend(void) {
         return 0;
     }
 
-    memset64(&onnx, 0, SIZEOF(onnx));
-    memset64(&emissions, 0, SIZEOF(emissions));
     ctc_inference_make_input(&input);
     if (!lrc_ctc_onnx_inference_load(&onnx,
                                       model_path,
@@ -2929,9 +2890,8 @@ ctc_inference_test_optional_onnx_backend(void) {
     lrc_ctc_onnx_inference_destroy(&onnx);
 #else
     LrcCtcInferenceResult result;
-    LrcCtcOnnxInference onnx;
+    LrcCtcOnnxInference onnx = {0};
 
-    memset64(&onnx, 0, SIZEOF(onnx));
     if (lrc_ctc_onnx_inference_load(&onnx,
                                      "missing.onnx",
                                      NULL,

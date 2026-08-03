@@ -122,13 +122,11 @@ ctc_assets_write_file(char *path, char *text) {
 
 static int32
 ctc_assets_test_config_defaults(void) {
-    LrcCtcAssetsConfig config;
+    LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
-    LrcCtcAssets assets;
+    LrcCtcAssets assets = {0};
 
-    memset64(&config, 0, SIZEOF(config));
     lrc_ctc_assets_result_init(&result);
-    memset64(&assets, 0, SIZEOF(assets));
 
     ASSERT(config.model_path == NULL);
     ASSERT(config.tokenizer_path == NULL);
@@ -144,7 +142,7 @@ ctc_assets_test_config_defaults(void) {
 
 static int32
 ctc_assets_test_valid_generated_files(void) {
-    LrcCtcAssetsConfig config;
+    LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
     LrcCtcAssets assets;
     char temp_dir[PATH_MAX];
@@ -166,7 +164,6 @@ ctc_assets_test_valid_generated_files(void) {
         return ctc_assets_test_fail("write fake tokenizer");
     }
 
-    memset64(&config, 0, SIZEOF(config));
     config.model_path = model_path;
     config.tokenizer_path = tokenizer_path;
 
@@ -187,11 +184,10 @@ ctc_assets_test_valid_generated_files(void) {
 
 static int32
 ctc_assets_test_missing_model_path(void) {
-    LrcCtcAssetsConfig config;
+    LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
     LrcCtcAssets assets;
 
-    memset64(&config, 0, SIZEOF(config));
     config.tokenizer_path = "tokens.txt";
 
     if (lrc_ctc_assets_validate(&assets, &config, &result)) {
@@ -207,11 +203,10 @@ ctc_assets_test_missing_model_path(void) {
 
 static int32
 ctc_assets_test_missing_tokenizer_path(void) {
-    LrcCtcAssetsConfig config;
+    LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
     LrcCtcAssets assets;
 
-    memset64(&config, 0, SIZEOF(config));
     config.model_path = "model.onnx";
 
     if (lrc_ctc_assets_validate(&assets, &config, &result)) {
@@ -227,7 +222,7 @@ ctc_assets_test_missing_tokenizer_path(void) {
 
 static int32
 ctc_assets_test_missing_model_file(void) {
-    LrcCtcAssetsConfig config;
+    LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
     LrcCtcAssets assets;
     char temp_dir[PATH_MAX];
@@ -245,7 +240,6 @@ ctc_assets_test_missing_model_file(void) {
         return ctc_assets_test_fail("write tokenizer for missing model test");
     }
 
-    memset64(&config, 0, SIZEOF(config));
     config.model_path = model_path;
     config.tokenizer_path = tokenizer_path;
 
@@ -264,7 +258,7 @@ ctc_assets_test_missing_model_file(void) {
 
 static int32
 ctc_assets_test_missing_tokenizer_file(void) {
-    LrcCtcAssetsConfig config;
+    LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
     LrcCtcAssets assets;
     char temp_dir[PATH_MAX];
@@ -282,7 +276,6 @@ ctc_assets_test_missing_tokenizer_file(void) {
         return ctc_assets_test_fail("write model for missing tokenizer test");
     }
 
-    memset64(&config, 0, SIZEOF(config));
     config.model_path = model_path;
     config.tokenizer_path = tokenizer_path;
 
@@ -301,11 +294,10 @@ ctc_assets_test_missing_tokenizer_file(void) {
 
 static int32
 ctc_assets_test_invalid_arguments(void) {
-    LrcCtcAssetsConfig config;
+    LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
     LrcCtcAssets assets;
 
-    memset64(&config, 0, SIZEOF(config));
 
     if (lrc_ctc_assets_validate(NULL, &config, &result)) {
         return ctc_assets_test_fail("null assets accepted");

@@ -808,13 +808,12 @@ ctc_model_make_audio(
 static int32
 ctc_model_test_defaults_and_invalid_inputs(void) {
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     LrcCtcAudio audio;
     float samples[] = {0.0f, 0.1f};
 
     lrc_ctc_model_config_init(&config);
-    memset64(&input, 0, SIZEOF(input));
     lrc_ctc_model_input_result_init(&result);
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
 
@@ -870,13 +869,12 @@ ctc_model_test_defaults_and_invalid_inputs(void) {
 static int32
 ctc_model_test_prepares_short_input(void) {
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     LrcCtcAudio audio;
     float samples[] = {-0.50f, -0.25f, 0.0f, 0.25f, 0.50f};
 
     lrc_ctc_model_config_init(&config);
-    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -933,7 +931,7 @@ ctc_model_test_prepares_short_input(void) {
 static int32
 ctc_model_test_prepares_chunked_input(void) {
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     LrcCtcAudio audio;
     float samples[20];
@@ -947,7 +945,6 @@ ctc_model_test_prepares_chunked_input(void) {
     config.inputs_to_logits_ratio = 2;
     config.window_seconds = 2;
     config.context_seconds = 1;
-    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -1064,7 +1061,7 @@ ctc_model_test_emission_frame_conversion(void) {
 static int32
 ctc_model_test_chunk_metadata_three_chunks(void) {
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     LrcCtcAudio audio;
     int64 valid_total;
@@ -1079,7 +1076,6 @@ ctc_model_test_chunk_metadata_three_chunks(void) {
     config.inputs_to_logits_ratio = 2;
     config.window_seconds = 2;
     config.context_seconds = 1;
-    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -1144,7 +1140,7 @@ ctc_model_test_chunk_metadata_three_chunks(void) {
 static int32
 ctc_model_test_chunk_metadata_partial_stride(void) {
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     LrcCtcAudio audio;
     float samples[21];
@@ -1158,7 +1154,6 @@ ctc_model_test_chunk_metadata_partial_stride(void) {
     config.inputs_to_logits_ratio = 2;
     config.window_seconds = 2;
     config.context_seconds = 1;
-    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
@@ -1184,12 +1179,11 @@ ctc_model_test_chunk_metadata_partial_stride(void) {
 static int32
 ctc_model_test_rejects_unaligned_window_or_context(void) {
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     LrcCtcAudio audio;
     float samples[] = {0.0f, 0.1f, 0.2f};
 
-    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 10);
 
     lrc_ctc_model_config_init(&config);
@@ -1220,20 +1214,18 @@ ctc_model_test_rejects_unaligned_window_or_context(void) {
 static int32
 ctc_model_test_validates_model_io(void) {
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     LrcCtcAudio audio;
-    LrcCtcModelIoInfo info;
+    LrcCtcModelIoInfo info = {0};
     float samples[] = {0.0f, 0.1f, 0.2f};
 
     lrc_ctc_model_config_init(&config);
-    memset64(&input, 0, SIZEOF(input));
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         return ctc_model_test_fail("prepare IO validation input");
     }
 
-    memset64(&info, 0, SIZEOF(info));
     info.count = 1;
     info.is_float32 = true;
     info.shape_len = 2;
@@ -1302,9 +1294,9 @@ static int32
 ctc_model_test_prepares_maxwell_shaped_input(void) {
     LrcCtcAudioConfig audio_config;
     LrcCtcAudioResult audio_result;
-    LrcCtcAudio audio;
+    LrcCtcAudio audio = {0};
     LrcCtcModelConfig config;
-    LrcCtcModelInput input;
+    LrcCtcModelInput input = {0};
     LrcCtcModelInputResult result;
     char *path;
 
@@ -1319,14 +1311,12 @@ ctc_model_test_prepares_maxwell_shaped_input(void) {
 
     lrc_ctc_audio_config_init(&audio_config);
     audio_config.sample_rate = 16000;
-    memset64(&audio, 0, SIZEOF(audio));
     if (!lrc_ctc_audio_decode_file(&audio, path, &audio_config,
                                     &audio_result)) {
         return ctc_model_test_fail("decode Maxwell vocals");
     }
 
     lrc_ctc_model_config_init(&config);
-    memset64(&input, 0, SIZEOF(input));
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         lrc_ctc_audio_destroy(&audio);
         return ctc_model_test_fail("prepare Maxwell-shaped input");
