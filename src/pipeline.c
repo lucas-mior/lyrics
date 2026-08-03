@@ -11,6 +11,20 @@
 #include "pipeline.h"
 
 static const float LRC_PIPELINE_CLEAR_SILENCE_SECONDS = 1.0f;
+static const float LRC_SILENCE_WINDOW_SECONDS = 0.040f;
+static const float LRC_SILENCE_HOP_SECONDS = 0.010f;
+static const float LRC_SILENCE_MARGIN_DB = 6.0f;
+static const float LRC_SILENCE_RUN_SECONDS = 0.25f;
+static const float LRC_AUDIO_MIN_RMS = 0.000001f;
+static const float LRC_AUDIO_DB_FLOOR = -120.0f;
+static const float LRC_AUDIO_DB_CEILING = 60.0f;
+static const float LRC_AUDIO_SILENT_PEAK_DB = -90.0f;
+static const float LRC_AUDIO_PEAK_HEADROOM_DB = 12.0f;
+
+enum {
+    LRC_AUDIO_DB_BIN_COUNT = 181,
+    LRC_AUDIO_NOISE_PERCENTILE_DIVISOR = 10,
+};
 
 
 typedef struct LrcPipelineLineTimingAudio {
@@ -1819,8 +1833,8 @@ lrc_pipeline_audio_window_rms(
 
 static float
 lrc_pipeline_audio_rms_db(float rms) {
-    if (rms <= 0.000001f) {
-        return -120.0f;
+    if (rms <= LRC_AUDIO_MIN_RMS) {
+        return LRC_AUDIO_DB_FLOOR;
     }
 
     return 20.0f*log10f(rms);
@@ -1830,19 +1844,19 @@ static int32
 lrc_pipeline_audio_db_bin(float db) {
     int32 bin;
 
-    if (db <= -120.0f) {
+    if (db <= LRC_AUDIO_DB_FLOOR) {
         return 0;
     }
-    if (db >= 60.0f) {
-        return 180;
+    if (db >= LRC_AUDIO_DB_CEILING) {
+        return LRC_AUDIO_DB_BIN_COUNT - 1;
     }
 
-    bin = (int32)floorf(db + 120.0f);
+    bin = (int32)floorf(db - LRC_AUDIO_DB_FLOOR);
     if (bin < 0) {
         bin = 0;
     }
-    if (bin > 180) {
-        bin = 180;
+    if (bin >= LRC_AUDIO_DB_BIN_COUNT) {
+        bin = LRC_AUDIO_DB_BIN_COUNT - 1;
     }
 
     return bin;
@@ -1857,7 +1871,7 @@ lrc_pipeline_audio_silence_threshold_db(
     int64 hop_count,
     float noise_margin_db
 ) {
-    int64 bins[181] = {0};
+    int64 bins[LRC_AUDIO_DB_BIN_COUNT] = {0};
     int64 window_index;
     int64 target_index;
     int64 running_count;
@@ -1867,7 +1881,7 @@ lrc_pipeline_audio_silence_threshold_db(
     float ceiling_db;
 
     window_index = 0;
-    peak_db = -120.0f;
+    peak_db = LRC_AUDIO_DB_FLOOR;
     for (int64 i = search_start; i + window_count <= search_end;
          i += hop_count) {
         float rms;
@@ -1885,25 +1899,25 @@ lrc_pipeline_audio_silence_threshold_db(
     }
 
     if (window_index <= 0) {
-        return -120.0f;
+        return LRC_AUDIO_DB_FLOOR;
     }
-    if (peak_db <= -90.0f) {
-        return -90.0f;
+    if (peak_db <= LRC_AUDIO_SILENT_PEAK_DB) {
+        return LRC_AUDIO_SILENT_PEAK_DB;
     }
 
-    target_index = window_index/10;
+    target_index = window_index/LRC_AUDIO_NOISE_PERCENTILE_DIVISOR;
     running_count = 0;
-    noise_floor_db = -120.0f;
+    noise_floor_db = LRC_AUDIO_DB_FLOOR;
     for (int32 i = 0; i < LENGTH(bins); i += 1) {
         running_count += bins[i];
         if (running_count > target_index) {
-            noise_floor_db = -120.0f + (float)i;
+            noise_floor_db = LRC_AUDIO_DB_FLOOR + (float)i;
             break;
         }
     }
 
     threshold_db = noise_floor_db + noise_margin_db;
-    ceiling_db = peak_db - 12.0f;
+    ceiling_db = peak_db - LRC_AUDIO_PEAK_HEADROOM_DB;
     if (threshold_db > ceiling_db) {
         threshold_db = ceiling_db;
     }
@@ -1973,10 +1987,14 @@ lrc_pipeline_audio_find_silence_start(
         return false;
     }
 
-    window_count = lrc_pipeline_audio_second_to_sample_count(0.040f,
-                                                             sample_rate);
-    hop_count = lrc_pipeline_audio_second_to_sample_count(0.010f,
-                                                          sample_rate);
+    window_count = lrc_pipeline_audio_second_to_sample_count(
+        LRC_SILENCE_WINDOW_SECONDS,
+        sample_rate
+    );
+    hop_count = lrc_pipeline_audio_second_to_sample_count(
+        LRC_SILENCE_HOP_SECONDS,
+        sample_rate
+    );
     sustained_count = lrc_pipeline_audio_second_to_sample_count(
         sustained_silence_seconds,
         sample_rate
@@ -2116,8 +2134,8 @@ lrc_pipeline_line_timestamps_correct_ends_from_audio(
             audio->sample_rate,
             current->end_seconds,
             next->start_seconds,
-            6.0f,
-            0.25f,
+            LRC_SILENCE_MARGIN_DB,
+            LRC_SILENCE_RUN_SECONDS,
             &silence_start_seconds
         )) {
             continue;
@@ -3859,8 +3877,8 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.0f,
                                                   2.0f,
-                                                  6.0f,
-                                                  0.25f,
+                                                  LRC_SILENCE_MARGIN_DB,
+                                                  LRC_SILENCE_RUN_SECONDS,
                                                   &silence_start);
     if (!found || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
         return pipeline_test_fail("silence detector tone then silence");
@@ -3873,8 +3891,8 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.25f,
                                                   1.50f,
-                                                  6.0f,
-                                                  0.25f,
+                                                  LRC_SILENCE_MARGIN_DB,
+                                                  LRC_SILENCE_RUN_SECONDS,
                                                   &silence_start);
     if (!found || !pipeline_test_float_near(silence_start, 0.25f, 0.011f)) {
         return pipeline_test_fail("silence detector already silent");
@@ -3887,8 +3905,8 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.0f,
                                                   2.0f,
-                                                  6.0f,
-                                                  0.25f,
+                                                  LRC_SILENCE_MARGIN_DB,
+                                                  LRC_SILENCE_RUN_SECONDS,
                                                   &silence_start);
     if (found) {
         return pipeline_test_fail("silence detector no silence");
@@ -3902,8 +3920,8 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.0f,
                                                   2.0f,
-                                                  6.0f,
-                                                  0.25f,
+                                                  LRC_SILENCE_MARGIN_DB,
+                                                  LRC_SILENCE_RUN_SECONDS,
                                                   &silence_start);
     if (found) {
         return pipeline_test_fail("silence detector short silence");
@@ -3917,8 +3935,8 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   -1.0f,
                                                   3.0f,
-                                                  6.0f,
-                                                  0.25f,
+                                                  LRC_SILENCE_MARGIN_DB,
+                                                  LRC_SILENCE_RUN_SECONDS,
                                                   &silence_start);
     if (!found || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
         return pipeline_test_fail("silence detector out of bounds search");
@@ -3930,8 +3948,8 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   2.50f,
                                                   3.0f,
-                                                  6.0f,
-                                                  0.25f,
+                                                  LRC_SILENCE_MARGIN_DB,
+                                                  LRC_SILENCE_RUN_SECONDS,
                                                   &silence_start);
     if (found) {
         return pipeline_test_fail("silence detector empty clamped range");
@@ -3964,8 +3982,8 @@ pipeline_test_audio_silence_detector_scaled(void) {
                                                       1000,
                                                       0.0f,
                                                       2.0f,
-                                                      6.0f,
-                                                      0.25f,
+                                                      LRC_SILENCE_MARGIN_DB,
+                                                      LRC_SILENCE_RUN_SECONDS,
                                                       &silence_start);
         if (!found
             || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
