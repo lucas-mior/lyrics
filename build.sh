@@ -306,10 +306,6 @@ test)
             continue
         fi
 
-        # if echo "$module" | grep -q "pipeline.c" ; then
-        #     continue
-        # fi
-
         printf '\nTesting %s ...\n' "$module"
 
         flags=$(awk '/\/\/ flags:/ { $1=$2=""; print $0 }' "$module")
