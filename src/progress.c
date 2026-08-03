@@ -15,18 +15,6 @@
 
 static bool lrc_progress_line_open;
 
-static int64
-lrc_progress_clamp_current(int64 current, int64 total) {
-    if (current < 0) {
-        return 0;
-    }
-    if (current > total) {
-        return total;
-    }
-
-    return current;
-}
-
 static int32
 lrc_progress_percent(int64 current, int64 total) {
     double ratio;
@@ -36,12 +24,7 @@ lrc_progress_percent(int64 current, int64 total) {
     }
 
     ratio = (double)current/(double)total;
-    if (ratio < 0.0) {
-        ratio = 0.0;
-    }
-    if (ratio > 1.0) {
-        ratio = 1.0;
-    }
+    ratio = CLAMP(ratio, 0.0, 1.0);
 
     return (int32)(ratio*100.0 + 0.5);
 }
@@ -116,12 +99,7 @@ lrc_progress_filled_width(LrcProgress *progress) {
     }
 
     ratio = (double)progress->current/(double)progress->total;
-    if (ratio < 0.0) {
-        ratio = 0.0;
-    }
-    if (ratio > 1.0) {
-        ratio = 1.0;
-    }
+    ratio = CLAMP(ratio, 0.0, 1.0);
 
     return (int32)(ratio*(double)progress->width + 0.5);
 }
@@ -169,8 +147,7 @@ lrc_progress_render(LrcProgress *progress, bool end_line) {
         return;
     }
 
-    progress->current = lrc_progress_clamp_current(progress->current,
-                                                   progress->total);
+    progress->current = CLAMP(progress->current, 0, progress->total);
     percent = lrc_progress_percent(progress->current, progress->total);
     changed = (percent != progress->last_percent)
               || (progress->current != progress->last_current);

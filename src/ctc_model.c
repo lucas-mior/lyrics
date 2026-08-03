@@ -455,24 +455,6 @@ lrc_ctc_model_input_copy_chunked(
     return;
 }
 
-static int64
-lrc_ctc_model_min64(int64 a, int64 b) {
-    if (a < b) {
-        return a;
-    }
-
-    return b;
-}
-
-static int64
-lrc_ctc_model_max64(int64 a, int64 b) {
-    if (a > b) {
-        return a;
-    }
-
-    return b;
-}
-
 static bool
 lrc_ctc_model_input_prepare_emission_counts(
     LrcCtcModelInput *input
@@ -580,14 +562,10 @@ lrc_ctc_model_input_prepare_chunk_metadata(
         chunk = &input->chunks[i];
         center_start = i*input->window_sample_count;
         center_end = center_start + input->window_sample_count;
-        source_start = lrc_ctc_model_max64(0,
-                                           center_start
-                                           - input->context_sample_count);
-        source_end = lrc_ctc_model_min64(input->original_sample_count,
-                                         center_end
-                                         + input->context_sample_count);
-        output_end = lrc_ctc_model_min64(center_end,
-                                         input->original_sample_count);
+        source_start = MAX(0, center_start - input->context_sample_count);
+        source_end = MIN(input->original_sample_count,
+                         center_end + input->context_sample_count);
+        output_end = MIN(center_end, input->original_sample_count);
 
         chunk->source_start_frame = source_start;
         chunk->source_frame_count = source_end - source_start;
