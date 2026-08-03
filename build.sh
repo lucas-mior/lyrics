@@ -306,9 +306,9 @@ test)
             continue
         fi
 
-        if echo "$module" | grep -q "pipeline.c" ; then
-            continue
-        fi
+        # if echo "$module" | grep -q "pipeline.c" ; then
+        #     continue
+        # fi
 
         printf '\nTesting %s ...\n' "$module"
 
