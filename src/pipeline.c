@@ -3633,6 +3633,70 @@ pipeline_test_line_timestamp_clear_keeps_blank_line(void) {
     return 0;
 }
 
+
+static bool
+pipeline_test_sample_has_blank_line_between(
+    char *text,
+    int32 text_len,
+    char *first,
+    int32 first_len,
+    char *second,
+    int32 second_len
+) {
+    bool found_first;
+    bool saw_blank;
+    int32 pos;
+
+    found_first = false;
+    saw_blank = false;
+    pos = 0;
+
+    while (pos < text_len) {
+        int32 start;
+        int32 end;
+        int32 len;
+
+        start = pos;
+        while ((pos < text_len) && (text[pos] != '\n')) {
+            pos += 1;
+        }
+        end = pos;
+        if ((end > start) && (text[end - 1] == '\r')) {
+            end -= 1;
+        }
+        while ((end > start)
+               && ((text[end - 1] == ' ') || (text[end - 1] == '\t'))) {
+            end -= 1;
+        }
+        while ((start < end)
+               && ((text[start] == ' ') || (text[start] == '\t'))) {
+            start += 1;
+        }
+        len = end - start;
+
+        if (!found_first) {
+            if (strequal2(text + start, len, first, first_len)) {
+                found_first = true;
+                saw_blank = false;
+            }
+        } else if (len == 0) {
+            saw_blank = true;
+        } else if (saw_blank
+                   && strequal2(text + start, len, second, second_len)) {
+            return true;
+        } else {
+            found_first = strequal2(text + start, len, first, first_len);
+            saw_blank = false;
+        }
+
+        if (pos < text_len) {
+            pos += 1;
+        }
+    }
+
+    return false;
+}
+
 static int32
 pipeline_test_cafe_vocals_clear_before_sombras(void) {
     LrcLyrics lyrics;
@@ -3663,11 +3727,12 @@ pipeline_test_cafe_vocals_clear_before_sombras(void) {
     }
 
     sample_text = read_entire_file(sample_path, &sample_text_len);
-    if (memmem64(sample_text,
-                 sample_text_len,
-                 STRLIT("e o gosto amargo\n\n"
-                        "Sombras do passado pairam sobre o cafezal"))
-        == NULL) {
+    if (!pipeline_test_sample_has_blank_line_between(
+        sample_text,
+        sample_text_len,
+        STRLIT("e o gosto amargo"),
+        STRLIT("Sombras do passado pairam sobre o cafezal")
+    )) {
         free2(sample_text,
               ((int64)sample_text_len + 1)*SIZEOF(*sample_text));
         return pipeline_test_fail("cafe-vocals sample pause missing");
@@ -5025,73 +5090,73 @@ pipeline_test_optional_maxwell_config(void) {
 int32
 main(void) {
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_line_timestamp_clear_gap_edges() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_line_timestamp_clear_keeps_blank_line() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_cafe_vocals_clear_before_sombras() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_preprocess_option_parsers() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_debug_dump_escape() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_debug_dump_text_and_tokens() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_debug_dump_audio_model() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_debug_dump_path_segments() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_debug_dump_word_spans() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_config_defaults() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_explicit_vocals_path() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_owned_temp_cleanup() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_keep_temp_files() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_vocals_request() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_existing_vocals_path() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_assets_config() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_assets_validate() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_assets_missing_path() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_ctc_assets_missing_file() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_generate_requires_lyrics_and_output() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_generate_from_song_requires_full_config() != 0) {
-        fatal(1);
+        exit(1);
     }
     if (pipeline_test_optional_maxwell_config() != 0) {
-        fatal(1);
+        exit(1);
     }
 
     return 0;
