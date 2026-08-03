@@ -110,6 +110,8 @@ CBASE_API_DECL int32 utf8_decode_raw(char *, uint32 *, int32);
 CBASE_API_DECL int32 utf8_encode(uint32, char *, int32);
 CBASE_API_DECL char utf8_encode_byte(uint32, int32);
 CBASE_API_DECL int32 utf8_encode_raw(uint32, char *);
+CBASE_API_DECL bool utf8_has_bom(char *, int32);
+CBASE_API_DECL bool utf8_valid(char *, int32, int32 *);
 CBASE_API_DECL void utf8_functions_sink(void);
 CBASE_API_DECL int32 utf8_next_position(char *, int32, int32);
 CBASE_API_DECL int32 utf8_suffix_width_position(char *, int32, int32);

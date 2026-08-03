@@ -178,49 +178,6 @@ lrc_lyrics_read_file(
 }
 
 static bool
-lrc_lyrics_utf8_valid(char *text, int32 text_len, int32 *bad_offset) {
-    uint32 rune;
-
-    for (int32 i = 0; i < text_len;) {
-        char encoded[4];
-        int32 step;
-        int32 encoded_len;
-
-        step = utf8_decode_raw(text + i, &rune, text_len - i);
-        encoded_len = utf8_encode_raw(rune, encoded);
-        if ((step <= 0)
-            || (encoded_len != step)
-            || (memcmp64(encoded, text + i, step) != 0)) {
-            if (bad_offset) {
-                *bad_offset = i;
-            }
-            return false;
-        }
-        i += step;
-    }
-
-    return true;
-}
-
-static bool
-lrc_lyrics_has_utf8_bom(char *text, int32 text_len) {
-    if (text_len < 3) {
-        return false;
-    }
-    if ((uint8)text[0] != 0xEF) {
-        return false;
-    }
-    if ((uint8)text[1] != 0xBB) {
-        return false;
-    }
-    if ((uint8)text[2] != 0xBF) {
-        return false;
-    }
-
-    return true;
-}
-
-static bool
 lrc_lyrics_normalize_text(
     LrcLyrics *lyrics,
     char *file_text,
@@ -233,7 +190,7 @@ lrc_lyrics_normalize_text(
     int32 normalized_len;
     char *normalized;
 
-    if (!lrc_lyrics_utf8_valid(file_text, file_len, &bad_offset)) {
+    if (!utf8_valid(file_text, file_len, &bad_offset)) {
         lrc_lyrics_load_result_set(
             result,
             LRC_LYRICS_LOAD_ERROR_INVALID_UTF8,
@@ -245,7 +202,7 @@ lrc_lyrics_normalize_text(
     }
 
     start = 0;
-    lyrics->had_utf8_bom = lrc_lyrics_has_utf8_bom(file_text, file_len);
+    lyrics->had_utf8_bom = utf8_has_bom(file_text, file_len);
     if (lyrics->had_utf8_bom) {
         start = 3;
     }
