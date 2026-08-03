@@ -1817,6 +1817,100 @@ lrc_pipeline_audio_window_rms(
     return (float)sqrt(sum/(double)sample_count);
 }
 
+static float
+lrc_pipeline_audio_rms_db(float rms) {
+    if (rms <= 0.000001f) {
+        return -120.0f;
+    }
+
+    return 20.0f*log10f(rms);
+}
+
+static int32
+lrc_pipeline_audio_db_bin(float db) {
+    int32 bin;
+
+    if (db <= -120.0f) {
+        return 0;
+    }
+    if (db >= 60.0f) {
+        return 180;
+    }
+
+    bin = (int32)floorf(db + 120.0f);
+    if (bin < 0) {
+        bin = 0;
+    }
+    if (bin > 180) {
+        bin = 180;
+    }
+
+    return bin;
+}
+
+static float
+lrc_pipeline_audio_silence_threshold_db(
+    float *samples,
+    int64 search_start,
+    int64 search_end,
+    int64 window_count,
+    int64 hop_count,
+    float noise_margin_db
+) {
+    int64 bins[181] = {0};
+    int64 window_index;
+    int64 target_index;
+    int64 running_count;
+    float peak_db;
+    float noise_floor_db;
+    float threshold_db;
+    float ceiling_db;
+
+    window_index = 0;
+    peak_db = -120.0f;
+    for (int64 i = search_start; i + window_count <= search_end;
+         i += hop_count) {
+        float rms;
+        float db;
+        int32 bin;
+
+        rms = lrc_pipeline_audio_window_rms(samples, i, window_count);
+        db = lrc_pipeline_audio_rms_db(rms);
+        bin = lrc_pipeline_audio_db_bin(db);
+        bins[bin] += 1;
+        window_index += 1;
+        if (db > peak_db) {
+            peak_db = db;
+        }
+    }
+
+    if (window_index <= 0) {
+        return -120.0f;
+    }
+    if (peak_db <= -90.0f) {
+        return -90.0f;
+    }
+
+    target_index = window_index/10;
+    running_count = 0;
+    noise_floor_db = -120.0f;
+    for (int32 i = 0; i < LENGTH(bins); i += 1) {
+        running_count += bins[i];
+        if (running_count > target_index) {
+            noise_floor_db = -120.0f + (float)i;
+            break;
+        }
+    }
+
+    threshold_db = noise_floor_db + noise_margin_db;
+    ceiling_db = peak_db - 12.0f;
+    if (threshold_db > ceiling_db) {
+        threshold_db = ceiling_db;
+    }
+
+    return threshold_db;
+}
+
 static bool
 lrc_pipeline_audio_find_silence_start(
     float *samples,
@@ -1824,7 +1918,7 @@ lrc_pipeline_audio_find_silence_start(
     int32 sample_rate,
     float search_start_seconds,
     float search_end_seconds,
-    float silence_rms_threshold,
+    float noise_margin_db,
     float sustained_silence_seconds,
     float *silence_start_seconds
 ) {
@@ -1834,6 +1928,7 @@ lrc_pipeline_audio_find_silence_start(
     int64 hop_count;
     int64 sustained_count;
     int64 silent_run_start;
+    float silence_threshold_db;
     double duration_seconds;
 
     if (silence_start_seconds) {
@@ -1842,9 +1937,9 @@ lrc_pipeline_audio_find_silence_start(
     if ((samples == NULL) || (sample_count <= 0) || (sample_rate <= 0)
         || !isfinite(search_start_seconds)
         || !isfinite(search_end_seconds)
-        || !isfinite(silence_rms_threshold)
+        || !isfinite(noise_margin_db)
         || !isfinite(sustained_silence_seconds)
-        || (silence_rms_threshold < 0.0f)
+        || (noise_margin_db < 0.0f)
         || (sustained_silence_seconds <= 0.0f)
         || (silence_start_seconds == NULL)) {
         return false;
@@ -1891,13 +1986,24 @@ lrc_pipeline_audio_find_silence_start(
         return false;
     }
 
+    silence_threshold_db = lrc_pipeline_audio_silence_threshold_db(
+        samples,
+        search_start,
+        search_end,
+        window_count,
+        hop_count,
+        noise_margin_db
+    );
+
     silent_run_start = -1;
     for (int64 i = search_start; i + window_count <= search_end;
          i += hop_count) {
         float rms;
+        float db;
 
         rms = lrc_pipeline_audio_window_rms(samples, i, window_count);
-        if (rms <= silence_rms_threshold) {
+        db = lrc_pipeline_audio_rms_db(rms);
+        if (db <= silence_threshold_db) {
             if (silent_run_start < 0) {
                 silent_run_start = i;
             }
@@ -3637,7 +3743,7 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.0f,
                                                   2.0f,
-                                                  0.05f,
+                                                  6.0f,
                                                   0.25f,
                                                   &silence_start);
     if (!found || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
@@ -3651,7 +3757,7 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.25f,
                                                   1.50f,
-                                                  0.05f,
+                                                  6.0f,
                                                   0.25f,
                                                   &silence_start);
     if (!found || !pipeline_test_float_near(silence_start, 0.25f, 0.011f)) {
@@ -3665,7 +3771,7 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.0f,
                                                   2.0f,
-                                                  0.05f,
+                                                  6.0f,
                                                   0.25f,
                                                   &silence_start);
     if (found) {
@@ -3680,7 +3786,7 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   0.0f,
                                                   2.0f,
-                                                  0.05f,
+                                                  6.0f,
                                                   0.25f,
                                                   &silence_start);
     if (found) {
@@ -3695,7 +3801,7 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   -1.0f,
                                                   3.0f,
-                                                  0.05f,
+                                                  6.0f,
                                                   0.25f,
                                                   &silence_start);
     if (!found || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
@@ -3708,11 +3814,47 @@ pipeline_test_audio_silence_detector(void) {
                                                   1000,
                                                   2.50f,
                                                   3.0f,
-                                                  0.05f,
+                                                  6.0f,
                                                   0.25f,
                                                   &silence_start);
     if (found) {
         return pipeline_test_fail("silence detector empty clamped range");
+    }
+
+    return 0;
+}
+
+
+static int32
+pipeline_test_audio_silence_detector_scaled(void) {
+    float samples[2000];
+    float amplitudes[] = {
+        1.0f,
+        0.10f,
+        0.01f,
+    };
+
+    for (int64 i = 0; i < LENGTH(amplitudes); i += 1) {
+        float silence_start;
+        bool found;
+
+        pipeline_test_audio_fill(samples, LENGTH(samples), amplitudes[i]);
+        pipeline_test_audio_fill(samples + 1000,
+                                 1000,
+                                 amplitudes[i]*0.001f);
+        silence_start = -1.0f;
+        found = lrc_pipeline_audio_find_silence_start(samples,
+                                                      LENGTH(samples),
+                                                      1000,
+                                                      0.0f,
+                                                      2.0f,
+                                                      6.0f,
+                                                      0.25f,
+                                                      &silence_start);
+        if (!found
+            || !pipeline_test_float_near(silence_start, 1.0f, 0.011f)) {
+            return pipeline_test_fail("silence detector scaled amplitude");
+        }
     }
 
     return 0;
@@ -5298,6 +5440,9 @@ main(void) {
         exit(1);
     }
     if (pipeline_test_audio_silence_detector() != 0) {
+        exit(1);
+    }
+    if (pipeline_test_audio_silence_detector_scaled() != 0) {
         exit(1);
     }
     if (pipeline_test_line_timestamp_end_writes_clear_line() != 0) {
