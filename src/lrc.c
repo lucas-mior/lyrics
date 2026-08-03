@@ -1453,7 +1453,10 @@ lrc_test_write_generated_file(void) {
     ASSERT(result.error == LRC_WRITE_ERROR_NONE);
     ASSERT(util_file_exists(path));
 
-    text = read_entire_file(path, &text_len);
+    if (!read_entire_file(path, &text, &text_len)) {
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("read generated lrc file");
+    }
     ASSERT(text_len == strlen32(expected));
     ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
 
@@ -1502,7 +1505,10 @@ lrc_test_write_timestamped_empty_line(void) {
         return lrc_test_fail("write timestamped empty lrc line");
     }
 
-    text = read_entire_file(path, &text_len);
+    if (!read_entire_file(path, &text, &text_len)) {
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("read timestamped empty lrc line");
+    }
     ASSERT(text_len == strlen32(expected));
     ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
 
@@ -1554,7 +1560,10 @@ lrc_test_write_overwrites_existing_file(void) {
         return lrc_test_fail("overwrite lrc file");
     }
 
-    text = read_entire_file(path, &text_len);
+    if (!read_entire_file(path, &text, &text_len)) {
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("read overwritten lrc file");
+    }
     ASSERT(text_len == strlen32(expected));
     ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
 
@@ -1631,7 +1640,9 @@ lrc_test_optional_maxwell_formatting(void) {
         return 0;
     }
 
-    text = read_entire_file(path, &text_len);
+    if (!read_entire_file(path, &text, &text_len)) {
+        return lrc_test_fail("read maxwell lrc before formatting");
+    }
     lrc_parsed_file_init(&parsed);
     if (!lrc_parse_text(&parsed, text, text_len, &parse_result)) {
         free2(text, ((int64)text_len + 1)*SIZEOF(*text));
@@ -1743,7 +1754,9 @@ lrc_test_optional_maxwell_write_structure(void) {
         return 0;
     }
 
-    fixture_text = read_entire_file(fixture_path, &fixture_text_len);
+    if (!read_entire_file(fixture_path, &fixture_text, &fixture_text_len)) {
+        return lrc_test_fail("read maxwell lrc before write");
+    }
     lrc_parsed_file_init(&parsed);
     if (!lrc_parse_text(&parsed,
                         fixture_text,
@@ -1772,7 +1785,14 @@ lrc_test_optional_maxwell_write_structure(void) {
         return lrc_test_fail("write maxwell lrc structure");
     }
 
-    written_text = read_entire_file(out_path, &written_text_len);
+    if (!read_entire_file(out_path, &written_text, &written_text_len)) {
+        free2(lines, line_count*SIZEOF(*lines));
+        lrc_parsed_file_destroy(&parsed);
+        free2(fixture_text,
+              ((int64)fixture_text_len + 1)*SIZEOF(*fixture_text));
+        test_remove_tree(temp_dir);
+        return lrc_test_fail("read written maxwell lrc");
+    }
     lrc_parsed_file_init(&reparsed);
     if (!lrc_parse_text(&reparsed,
                         written_text,
@@ -1816,7 +1836,9 @@ lrc_test_optional_maxwell_lrc(void) {
         return 0;
     }
 
-    text = read_entire_file(path, &text_len);
+    if (!read_entire_file(path, &text, &text_len)) {
+        return lrc_test_fail("read maxwell lrc");
+    }
     lrc_parsed_file_init(&parsed);
     if (!lrc_parse_text(&parsed, text, text_len, &result)) {
         free2(text, ((int64)text_len + 1)*SIZEOF(*text));

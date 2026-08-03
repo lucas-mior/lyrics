@@ -73,111 +73,6 @@ lrc_lyrics_load_result_set(
 }
 
 static bool
-lrc_lyrics_path_missing(char *path) {
-    if (path == NULL) {
-        return true;
-    }
-    if (path[0] == '\0') {
-        return true;
-    }
-
-    return false;
-}
-
-static bool
-lrc_lyrics_read_file(
-    char *path,
-    char **file_text,
-    int32 *file_len,
-    LrcLyricsLoadResult *result
-) {
-    FILE *file;
-    int64 len;
-    int64 read_len;
-    char *text;
-
-    if ((file = fopen(path, "rb")) == NULL) {
-        lrc_lyrics_load_result_set(
-            result,
-            LRC_LYRICS_LOAD_ERROR_OPEN_FAILED,
-            "could not open lyrics file",
-            path,
-            -1
-        );
-        return false;
-    }
-    if (fseek(file, 0, SEEK_END) != 0) {
-        lrc_lyrics_load_result_set(
-            result,
-            LRC_LYRICS_LOAD_ERROR_READ_FAILED,
-            "could not seek lyrics file",
-            path,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-    if ((len = ftell(file)) < 0) {
-        lrc_lyrics_load_result_set(
-            result,
-            LRC_LYRICS_LOAD_ERROR_READ_FAILED,
-            "could not measure lyrics file",
-            path,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-    if (len >= MAXOF(*file_len)) {
-        lrc_lyrics_load_result_set(
-            result,
-            LRC_LYRICS_LOAD_ERROR_FILE_TOO_LARGE,
-            "lyrics file is too large",
-            path,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-    if (fseek(file, 0, SEEK_SET) != 0) {
-        lrc_lyrics_load_result_set(
-            result,
-            LRC_LYRICS_LOAD_ERROR_READ_FAILED,
-            "could not rewind lyrics file",
-            path,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-
-    text = malloc2(len + 1);
-    read_len = 0;
-    if (len > 0) {
-        read_len = fread64(text, 1, len, file);
-    }
-    if (read_len != len) {
-        lrc_lyrics_load_result_set(
-            result,
-            LRC_LYRICS_LOAD_ERROR_READ_FAILED,
-            "could not read lyrics file",
-            path,
-            -1
-        );
-        free2(text, (len + 1)*SIZEOF(*text));
-        XFCLOSE(file, path);
-        return false;
-    }
-    text[read_len] = '\0';
-    XFCLOSE(file, path);
-
-    *file_text = text;
-    *file_len = (int32)read_len;
-
-    return true;
-}
-
-static bool
 lrc_lyrics_normalize_text(
     LrcLyrics *lyrics,
     char *file_text,
@@ -343,7 +238,7 @@ lrc_lyrics_load_file(
         );
         return false;
     }
-    if (lrc_lyrics_path_missing(path)) {
+    if (path_missing(path)) {
         lrc_lyrics_load_result_set(
             result,
             LRC_LYRICS_LOAD_ERROR_MISSING_PATH,
@@ -357,7 +252,14 @@ lrc_lyrics_load_file(
     lrc_lyrics_destroy(lyrics);
     file_text = NULL;
     file_len = 0;
-    if (!lrc_lyrics_read_file(path, &file_text, &file_len, result)) {
+    if (!read_entire_file(path, &file_text, &file_len)) {
+        lrc_lyrics_load_result_set(
+            result,
+            LRC_LYRICS_LOAD_ERROR_READ_FAILED,
+            "could not read lyrics file",
+            path,
+            -1
+        );
         return false;
     }
     if (!lrc_lyrics_normalize_text(lyrics, file_text, file_len, result, path)) {

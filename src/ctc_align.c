@@ -5236,11 +5236,13 @@ ctc_align_parse_lrc_file(
 
     *file_text = NULL;
     *file_text_len = 0;
-    if ((path == NULL) || (path[0] == '\0') || !util_file_exists(path)) {
+    if (path_missing(path) || !util_file_exists(path)) {
         return false;
     }
 
-    *file_text = read_entire_file(path, file_text_len);
+    if (!read_entire_file(path, file_text, file_text_len)) {
+        return false;
+    }
     if (!lrc_parse_text(parsed, *file_text, *file_text_len, &result)) {
         free2(*file_text, ((int64)*file_text_len + 1)*SIZEOF(**file_text));
         *file_text = NULL;
@@ -7633,11 +7635,12 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
         ok = false;
     }
     if (ok) {
-        written_lrc = read_entire_file(lrc_path, &written_lrc_len);
-        if (!strequal2(written_lrc,
-                       written_lrc_len,
-                       expected_lrc,
-                       strlen32(expected_lrc))) {
+        if (!read_entire_file(lrc_path, &written_lrc, &written_lrc_len)) {
+            ok = false;
+        } else if (!strequal2(written_lrc,
+                              written_lrc_len,
+                              expected_lrc,
+                              strlen32(expected_lrc))) {
             ok = false;
         }
     }
@@ -8769,7 +8772,9 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
         return ctc_align_test_fail("normalize maxwell line lyrics");
     }
 
-    lrc_text = read_entire_file(lrc_path, &lrc_text_len);
+    if (!read_entire_file(lrc_path, &lrc_text, &lrc_text_len)) {
+        return ctc_align_test_fail("read maxwell expected lrc");
+    }
     if (!lrc_parse_text(&parsed, lrc_text, lrc_text_len, &parse_result)) {
         free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
         return ctc_align_test_fail("parse maxwell expected lrc");
@@ -9341,11 +9346,12 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
         ok = false;
     }
     if (ok) {
-        written_lrc = read_entire_file(lrc_path, &written_lrc_len);
-        if (!strequal2(written_lrc,
-                       written_lrc_len,
-                       expected_lrc,
-                       strlen32(expected_lrc))) {
+        if (!read_entire_file(lrc_path, &written_lrc, &written_lrc_len)) {
+            ok = false;
+        } else if (!strequal2(written_lrc,
+                              written_lrc_len,
+                              expected_lrc,
+                              strlen32(expected_lrc))) {
             ok = false;
         }
     }

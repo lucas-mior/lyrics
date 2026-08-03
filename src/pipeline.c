@@ -52,18 +52,6 @@ lrc_pipeline_error_set(
     return;
 }
 
-static bool
-lrc_pipeline_path_missing(char *path) {
-    if (path == NULL) {
-        return true;
-    }
-    if (path[0] == '\0') {
-        return true;
-    }
-
-    return false;
-}
-
 static void
 lrc_pipeline_vocals_result_set(
     LrcVocalsExtractResult *result,
@@ -86,7 +74,7 @@ static bool
 lrc_pipeline_store_owned_temp_dir(LrcPipeline *pipeline) {
     int32 len;
 
-    if (lrc_pipeline_path_missing(pipeline->config.temp_dir)) {
+    if (path_missing(pipeline->config.temp_dir)) {
         lrc_pipeline_error_set(
             pipeline,
             LRC_PIPELINE_ERROR_TEMP_DIR_MISSING,
@@ -157,12 +145,12 @@ lrc_pipeline_store_owned_vocals_path(LrcPipeline *pipeline) {
 
 static bool
 lrc_pipeline_prepare_vocals_path(LrcPipeline *pipeline) {
-    if (!lrc_pipeline_path_missing(pipeline->config.existing_vocals_path)) {
+    if (!path_missing(pipeline->config.existing_vocals_path)) {
         pipeline->vocals_stage_path = pipeline->config.existing_vocals_path;
         return true;
     }
 
-    if (!lrc_pipeline_path_missing(pipeline->config.vocals_path)) {
+    if (!path_missing(pipeline->config.vocals_path)) {
         pipeline->vocals_stage_path = pipeline->config.vocals_path;
         return true;
     }
@@ -202,7 +190,7 @@ lrc_pipeline_debug_dump_enabled(LrcPipeline *pipeline) {
         return false;
     }
 
-    return !lrc_pipeline_path_missing(
+    return !path_missing(
         pipeline->config.ctc_debug_dump_path
     );
 }
@@ -265,7 +253,7 @@ lrc_pipeline_cleanup(LrcPipeline *pipeline) {
     }
 
     if (pipeline->owns_vocals_path
-        && !lrc_pipeline_path_missing(pipeline->owned_vocals_path)) {
+        && !path_missing(pipeline->owned_vocals_path)) {
         if ((unlink(pipeline->owned_vocals_path) < 0) && (errno != ENOENT)) {
             lrc_pipeline_error_set(
                 pipeline,
@@ -277,7 +265,7 @@ lrc_pipeline_cleanup(LrcPipeline *pipeline) {
     }
 
     if (pipeline->owns_temp_dir
-        && !lrc_pipeline_path_missing(pipeline->owned_temp_dir)) {
+        && !path_missing(pipeline->owned_temp_dir)) {
         if ((rmdir(pipeline->owned_temp_dir) < 0) && (errno != ENOENT)) {
             lrc_pipeline_error_set(
                 pipeline,
@@ -319,7 +307,7 @@ lrc_pipeline_vocals_request(
         return false;
     }
 
-    if (!lrc_pipeline_path_missing(pipeline->config.existing_vocals_path)) {
+    if (!path_missing(pipeline->config.existing_vocals_path)) {
         lrc_pipeline_error_set(
             pipeline,
             LRC_PIPELINE_ERROR_VOCALS_ALREADY_AVAILABLE,
@@ -505,7 +493,7 @@ lrc_ctc_debug_dump_writer_open(
     LrcCtcDebugDumpWriter *writer,
     char *path
 ) {
-    if ((writer == NULL) || lrc_pipeline_path_missing(path)) {
+    if ((writer == NULL) || path_missing(path)) {
         return false;
     }
 
@@ -2499,7 +2487,7 @@ lrc_pipeline_prepare_vocals_stage_for_generation(
         return false;
     }
 
-    if (!lrc_pipeline_path_missing(pipeline->config.existing_vocals_path)) {
+    if (!path_missing(pipeline->config.existing_vocals_path)) {
         return true;
     }
 
@@ -2523,7 +2511,7 @@ lrc_generate_config_path_ready(
     char *message,
     LrcPipelineGenerateResult *result
 ) {
-    if (!lrc_pipeline_path_missing(path)) {
+    if (!path_missing(path)) {
         return true;
     }
 
@@ -2662,7 +2650,7 @@ lrc_pipeline_generate_lrc(
         );
         return false;
     }
-    if (lrc_pipeline_path_missing(pipeline->config.lyrics_text_path)) {
+    if (path_missing(pipeline->config.lyrics_text_path)) {
         lrc_pipeline_generate_result_set(
             result,
             LRC_PIPELINE_GENERATE_ERROR_MISSING_LYRICS,
@@ -2671,7 +2659,7 @@ lrc_pipeline_generate_lrc(
         );
         return false;
     }
-    if (lrc_pipeline_path_missing(pipeline->config.output_lrc_path)) {
+    if (path_missing(pipeline->config.output_lrc_path)) {
         lrc_pipeline_generate_result_set(
             result,
             LRC_PIPELINE_GENERATE_ERROR_MISSING_OUTPUT,
@@ -3916,7 +3904,9 @@ pipeline_test_file_contains(
     int32 text_len;
     bool found;
 
-    text = read_entire_file(path, &text_len);
+    if (!read_entire_file(path, &text, &text_len)) {
+        return false;
+    }
     found = false;
     if (memmem64(text, text_len, needle, needle_len)) {
         found = true;

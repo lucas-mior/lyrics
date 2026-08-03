@@ -60,18 +60,6 @@ lrc_ctc_assets_result_set(
 }
 
 static bool
-lrc_ctc_assets_path_missing(char *path) {
-    if (path == NULL) {
-        return true;
-    }
-    if (path[0] == '\0') {
-        return true;
-    }
-
-    return false;
-}
-
-static bool
 lrc_ctc_assets_validate(
     LrcCtcAssets *assets,
     LrcCtcAssetsConfig *config,
@@ -90,7 +78,7 @@ lrc_ctc_assets_validate(
     lrc_ctc_assets_init(assets);
     lrc_ctc_assets_result_init(result);
 
-    if (lrc_ctc_assets_path_missing(config->model_path)) {
+    if (path_missing(config->model_path)) {
         lrc_ctc_assets_result_set(
             result,
             LRC_CTC_ASSETS_ERROR_MISSING_MODEL_PATH,
@@ -99,7 +87,7 @@ lrc_ctc_assets_validate(
         );
         return false;
     }
-    if (lrc_ctc_assets_path_missing(config->tokenizer_path)) {
+    if (path_missing(config->tokenizer_path)) {
         lrc_ctc_assets_result_set(
             result,
             LRC_CTC_ASSETS_ERROR_MISSING_TOKENIZER_PATH,

@@ -639,117 +639,6 @@ lrc_ctc_tokenizer_result_set(
 }
 
 static bool
-lrc_ctc_tokenizer_path_missing(char *path) {
-    if (path == NULL) {
-        return true;
-    }
-    if (path[0] == '\0') {
-        return true;
-    }
-
-    return false;
-}
-
-static bool
-lrc_ctc_tokenizer_read_file(
-    char *path,
-    char **file_text,
-    int32 *file_len,
-    LrcCtcTokenizerResult *result
-) {
-    FILE *file;
-    int64 len;
-    int64 read_len;
-    char *text;
-
-    if ((file = fopen(path, "rb")) == NULL) {
-        lrc_ctc_tokenizer_result_set(
-            result,
-            LRC_CTC_TOKENIZER_ERROR_OPEN_FAILED,
-            "could not open CTC tokenizer file",
-            path,
-            -1,
-            -1
-        );
-        return false;
-    }
-    if (fseek(file, 0, SEEK_END) != 0) {
-        lrc_ctc_tokenizer_result_set(
-            result,
-            LRC_CTC_TOKENIZER_ERROR_READ_FAILED,
-            "could not seek CTC tokenizer file",
-            path,
-            -1,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-    if ((len = ftell(file)) < 0) {
-        lrc_ctc_tokenizer_result_set(
-            result,
-            LRC_CTC_TOKENIZER_ERROR_READ_FAILED,
-            "could not measure CTC tokenizer file",
-            path,
-            -1,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-    if (len >= MAXOF(*file_len)) {
-        lrc_ctc_tokenizer_result_set(
-            result,
-            LRC_CTC_TOKENIZER_ERROR_FILE_TOO_LARGE,
-            "CTC tokenizer file is too large",
-            path,
-            -1,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-    if (fseek(file, 0, SEEK_SET) != 0) {
-        lrc_ctc_tokenizer_result_set(
-            result,
-            LRC_CTC_TOKENIZER_ERROR_READ_FAILED,
-            "could not rewind CTC tokenizer file",
-            path,
-            -1,
-            -1
-        );
-        XFCLOSE(file, path);
-        return false;
-    }
-
-    text = malloc2(len + 1);
-    read_len = 0;
-    if (len > 0) {
-        read_len = fread64(text, 1, len, file);
-    }
-    if (read_len != len) {
-        lrc_ctc_tokenizer_result_set(
-            result,
-            LRC_CTC_TOKENIZER_ERROR_READ_FAILED,
-            "could not read CTC tokenizer file",
-            path,
-            -1,
-            -1
-        );
-        free2(text, (len + 1)*SIZEOF(*text));
-        XFCLOSE(file, path);
-        return false;
-    }
-    text[read_len] = '\0';
-    XFCLOSE(file, path);
-
-    *file_text = text;
-    *file_len = (int32)read_len;
-
-    return true;
-}
-
-static bool
 lrc_ctc_tokenizer_reserve_tokens(
     LrcCtcTokenizer *tokenizer,
     int32 extra
@@ -1112,7 +1001,7 @@ lrc_ctc_tokenizer_load_file(
 
     lrc_ctc_tokenizer_destroy(tokenizer);
 
-    if (lrc_ctc_tokenizer_path_missing(path)) {
+    if (path_missing(path)) {
         lrc_ctc_tokenizer_result_set(
             result,
             LRC_CTC_TOKENIZER_ERROR_MISSING_PATH,
@@ -1123,7 +1012,15 @@ lrc_ctc_tokenizer_load_file(
         );
         return false;
     }
-    if (!lrc_ctc_tokenizer_read_file(path, &file_text, &file_len, result)) {
+    if (!read_entire_file(path, &file_text, &file_len)) {
+        lrc_ctc_tokenizer_result_set(
+            result,
+            LRC_CTC_TOKENIZER_ERROR_READ_FAILED,
+            "could not read CTC tokenizer file",
+            path,
+            -1,
+            -1
+        );
         return false;
     }
     if (!utf8_valid(file_text, file_len, &bad_offset)) {

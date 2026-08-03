@@ -81,18 +81,6 @@ lrc_ctc_audio_destroy(LrcCtcAudio *audio) {
     return;
 }
 
-static bool
-lrc_ctc_audio_path_missing(char *path) {
-    if (path == NULL) {
-        return true;
-    }
-    if (path[0] == '\0') {
-        return true;
-    }
-
-    return false;
-}
-
 static float
 lrc_ctc_audio_abs_sample(float sample) {
     if (sample < 0.0f) {
@@ -165,7 +153,7 @@ lrc_ctc_audio_decode_file(
         config = &default_config;
     }
 
-    if (lrc_ctc_audio_path_missing(path)) {
+    if (path_missing(path)) {
         lrc_ctc_audio_result_set(
             result,
             LRC_CTC_AUDIO_ERROR_MISSING_PATH,
@@ -175,7 +163,7 @@ lrc_ctc_audio_decode_file(
         );
         return false;
     }
-    if (lrc_ctc_audio_path_missing(config->ffmpeg_path)) {
+    if (path_missing(config->ffmpeg_path)) {
         lrc_ctc_audio_result_set(
             result,
             LRC_CTC_AUDIO_ERROR_MISSING_FFMPEG,
@@ -436,7 +424,7 @@ ctc_audio_maxwell_vocals_path(void) {
     char *path;
 
     path = getenv("LRC_TEST_MAXWELL_VOCALS");
-    if (!lrc_ctc_audio_path_missing(path)) {
+    if (!path_missing(path)) {
         return path;
     }
     if (util_file_exists("next-phase/maxwell_vocals.opus")) {

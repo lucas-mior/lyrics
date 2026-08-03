@@ -114,18 +114,6 @@ vocals_print_model_info(MdxModelInfo *info, MdxConfig *config) {
 }
 
 static bool
-vocals_request_path_missing(char *path) {
-    if (path == NULL) {
-        return true;
-    }
-    if (path[0] == '\0') {
-        return true;
-    }
-
-    return false;
-}
-
-static bool
 vocals_request_valid(
     LrcVocalsExtractRequest *request,
     LrcVocalsExtractResult *result
@@ -139,7 +127,7 @@ vocals_request_valid(
         );
         return false;
     }
-    if (vocals_request_path_missing(request->input_path)) {
+    if (path_missing(request->input_path)) {
         vocals_extract_result_set(
             result,
             LRC_VOCALS_EXTRACT_ERROR_MISSING_INPUT,
@@ -148,7 +136,7 @@ vocals_request_valid(
         );
         return false;
     }
-    if (vocals_request_path_missing(request->output_path)) {
+    if (path_missing(request->output_path)) {
         vocals_extract_result_set(
             result,
             LRC_VOCALS_EXTRACT_ERROR_MISSING_OUTPUT,
@@ -157,7 +145,7 @@ vocals_request_valid(
         );
         return false;
     }
-    if (vocals_request_path_missing(request->model_path)) {
+    if (path_missing(request->model_path)) {
         vocals_extract_result_set(
             result,
             LRC_VOCALS_EXTRACT_ERROR_MISSING_MODEL,
@@ -166,7 +154,7 @@ vocals_request_valid(
         );
         return false;
     }
-    if (vocals_request_path_missing(request->temp_dir)) {
+    if (path_missing(request->temp_dir)) {
         vocals_extract_result_set(
             result,
             LRC_VOCALS_EXTRACT_ERROR_MISSING_TEMP_DIR,
@@ -175,7 +163,7 @@ vocals_request_valid(
         );
         return false;
     }
-    if (vocals_request_path_missing(request->ffmpeg_path)) {
+    if (path_missing(request->ffmpeg_path)) {
         vocals_extract_result_set(
             result,
             LRC_VOCALS_EXTRACT_ERROR_MISSING_FFMPEG,
@@ -184,7 +172,7 @@ vocals_request_valid(
         );
         return false;
     }
-    if (vocals_request_path_missing(request->container_format)) {
+    if (path_missing(request->container_format)) {
         vocals_extract_result_set(
             result,
             LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,

@@ -150,18 +150,6 @@ main_print_usage(FILE *stream) {
 }
 
 static bool
-main_path_missing(char *path) {
-    if (path == NULL) {
-        return true;
-    }
-    if (path[0] == '\0') {
-        return true;
-    }
-
-    return false;
-}
-
-static bool
 main_long_option_value(char *arg, char *name, char **value) {
     int32 i;
 
@@ -293,7 +281,7 @@ main_infer_vocals_format(LrcPipelineConfig *config, char *path) {
     char *last_slash;
     int32 path_len;
 
-    if (main_path_missing(path)) {
+    if (path_missing(path)) {
         return;
     }
 
@@ -783,10 +771,10 @@ main_input_prefix_path(
 
     config = &options->config;
     input_path = config->song_path;
-    if (main_path_missing(input_path)) {
+    if (path_missing(input_path)) {
         input_path = config->existing_vocals_path;
     }
-    if (main_path_missing(input_path)) {
+    if (path_missing(input_path)) {
         error2("could not derive %s path without an input path\n",
                description);
         return false;
@@ -831,7 +819,7 @@ main_default_lyrics_text_path(MainOptions *options) {
     LrcPipelineConfig *config;
 
     config = &options->config;
-    if (!main_path_missing(config->lyrics_text_path)) {
+    if (!path_missing(config->lyrics_text_path)) {
         return true;
     }
     if (!main_input_prefix_path(options,
@@ -887,8 +875,8 @@ main_validate_options(MainOptions *options) {
     bool has_lyrics;
 
     config = &options->config;
-    has_song = !main_path_missing(config->song_path);
-    has_vocals = !main_path_missing(config->existing_vocals_path);
+    has_song = !path_missing(config->song_path);
+    has_vocals = !path_missing(config->existing_vocals_path);
     if (has_song && has_vocals) {
         error2("--input-song and --input-vocals cannot both be passed\n");
         main_mark_usage_error(options);
@@ -903,8 +891,8 @@ main_validate_options(MainOptions *options) {
         return false;
     }
 
-    has_lyrics = !main_path_missing(config->lyrics_text_path);
-    if (has_lyrics && main_path_missing(config->output_lrc_path)) {
+    has_lyrics = !path_missing(config->lyrics_text_path);
+    if (has_lyrics && path_missing(config->output_lrc_path)) {
         if (!main_default_lrc_path(options)) {
             return false;
         }
@@ -915,22 +903,22 @@ main_validate_options(MainOptions *options) {
                config->output_lrc_path);
         return false;
     }
-    if (has_lyrics && main_path_missing(config->output_lrc_path)) {
+    if (has_lyrics && path_missing(config->output_lrc_path)) {
         error2("missing LRC output path\n");
         main_mark_usage_error(options);
         return false;
     }
-    if (has_song && main_path_missing(config->vocals_model_path)) {
+    if (has_song && path_missing(config->vocals_model_path)) {
         error2("missing required option: --model-vocal\n");
         main_mark_usage_error(options);
         return false;
     }
-    if (has_lyrics && main_path_missing(config->ctc_model_path)) {
+    if (has_lyrics && path_missing(config->ctc_model_path)) {
         error2("missing required option: --model-ctc\n");
         main_mark_usage_error(options);
         return false;
     }
-    if (has_lyrics && main_path_missing(config->tokenizer_path)) {
+    if (has_lyrics && path_missing(config->tokenizer_path)) {
         error2("missing required option: --tokenizer\n");
         main_mark_usage_error(options);
         return false;
@@ -1120,14 +1108,14 @@ lyrics_main(int32 argc, char **argv) {
         return EXIT_FAILURE;
     }
 
-    has_lyrics = !main_path_missing(options.config.lyrics_text_path);
+    has_lyrics = !path_missing(options.config.lyrics_text_path);
     if (!has_lyrics) {
         error2("internal error: lyrics path missing after validation\n");
         return EXIT_FAILURE;
     }
 
-    if (!main_path_missing(options.config.existing_vocals_path)
-        && !main_path_missing(options.config.vocals_path)) {
+    if (!path_missing(options.config.existing_vocals_path)
+        && !path_missing(options.config.vocals_path)) {
         error2("warning: --output-vocals ignored when --input-vocals is "
                "used\n");
     }

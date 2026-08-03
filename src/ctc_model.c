@@ -1295,7 +1295,7 @@ ctc_model_maxwell_vocals_path(void) {
     char *path;
 
     path = getenv("LRC_TEST_MAXWELL_VOCALS");
-    if (!lrc_ctc_audio_path_missing(path)) {
+    if (!path_missing(path)) {
         return path;
     }
     if (util_file_exists("next-phase/maxwell_vocals.opus")) {
