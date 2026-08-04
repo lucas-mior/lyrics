@@ -2,7 +2,6 @@
 #include "lrc.h"
 
 #include "cbase.h"
-#include "array_util.h"
 
 #if !defined(TESTING_lrc)
 #define TESTING_lrc 0
@@ -486,7 +485,7 @@ lrc_parsed_file_reserve_lines(LrcParsedFile *parsed, int32 extra) {
         return false;
     }
 
-    return LRC_ARRAY_RESERVE(parsed->lines, (int32)needed);
+    return ARRAY_RESERVE(parsed->lines, (int32)needed);
 }
 
 static bool
@@ -506,7 +505,7 @@ lrc_parsed_file_append_line(
 
     line = &parsed->lines[parsed->line_count];
     parsed->line_count += 1;
-    lrc_array_set_count(parsed->lines, parsed->line_count);
+    ARRAY_SET_COUNT(parsed->lines, parsed->line_count);
 
     line->text = parsed->text + text_start;
     line->text_len = text_len;
@@ -612,7 +611,7 @@ lrc_parsed_file_copy_text(
         return false;
     }
 
-    LRC_ARRAY_INIT_COUNT(parsed->text, text_len + 1);
+    ARRAY_INIT_COUNT(parsed->text, text_len + 1);
     if (text_len > 0) {
         memcpy64(parsed->text, text, text_len);
     }

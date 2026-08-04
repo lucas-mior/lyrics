@@ -2,7 +2,6 @@
 #include "ctc_align.h"
 
 #include "cbase.h"
-#include "array_util.h"
 
 #if !defined(TESTING_ctc_align)
 #define TESTING_ctc_align 0
@@ -755,7 +754,7 @@ lrc_ctc_token_spans_allocate(
     }
 
     lrc_ctc_token_spans_destroy(spans);
-    LRC_ARRAY_INIT_COUNT(spans->spans, span_count);
+    ARRAY_INIT_COUNT(spans->spans, span_count);
     spans->span_count = span_count;
 
     for (int32 i = 0; i < spans->span_count; i += 1) {
@@ -814,7 +813,7 @@ lrc_ctc_path_segments_allocate(
     }
 
     lrc_ctc_path_segments_destroy(segments);
-    LRC_ARRAY_INIT_COUNT(segments->segments, segment_count);
+    ARRAY_INIT_COUNT(segments->segments, segment_count);
     segments->segment_count = segment_count;
 
     for (int32 i = 0; i < segments->segment_count; i += 1) {
@@ -871,7 +870,7 @@ lrc_ctc_aligned_token_intervals_allocate(
     }
 
     lrc_ctc_aligned_token_intervals_destroy(intervals);
-    LRC_ARRAY_INIT_COUNT(intervals->intervals, interval_count);
+    ARRAY_INIT_COUNT(intervals->intervals, interval_count);
     intervals->interval_count = interval_count;
 
     for (int32 i = 0; i < intervals->interval_count; i += 1) {
@@ -929,7 +928,7 @@ lrc_ctc_path_allocate(
     }
 
     lrc_ctc_path_destroy(path);
-    LRC_ARRAY_INIT_COUNT(path->steps, step_count);
+    ARRAY_INIT_COUNT(path->steps, step_count);
     path->step_count = step_count;
 
     for (int32 i = 0; i < path->step_count; i += 1) {
@@ -3528,7 +3527,7 @@ lrc_ctc_word_spans_allocate(
     }
 
     lrc_ctc_word_spans_destroy(spans);
-    LRC_ARRAY_INIT_COUNT(spans->spans, span_count);
+    ARRAY_INIT_COUNT(spans->spans, span_count);
     spans->span_count = span_count;
 
     for (int32 i = 0; i < spans->span_count; i += 1) {
@@ -4416,7 +4415,7 @@ lrc_ctc_line_timestamps_allocate(
     }
 
     lrc_ctc_line_timestamps_destroy(timestamps);
-    LRC_ARRAY_INIT_COUNT(timestamps->lines, line_count);
+    ARRAY_INIT_COUNT(timestamps->lines, line_count);
     timestamps->line_count = line_count;
     timestamps->timestamped_line_count = 0;
     timestamps->blank_line_count = 0;

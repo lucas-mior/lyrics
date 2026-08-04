@@ -563,10 +563,24 @@ typedef struct GenericArrayHeader {
 
 CBASE_API_DECL void *generic_array_init(int32, int64);
 CBASE_API_DECL void *generic_array_grow(void *, int64);
+CBASE_API_DECL bool generic_array_reserve(void **, int32, int64);
+CBASE_API_DECL int32 generic_array_capacity(void *);
+CBASE_API_DECL void generic_array_set_count(void *, int32);
 CBASE_API_DECL void array_sink(void);
 
 #define ARRAY_HEADER(ARRAY) ((GenericArrayHeader *)(ARRAY) - 1)
 #define ARRAY_LEN(ARRAY) ((ARRAY) ? ARRAY_HEADER(ARRAY)->count : 0)
+#define ARRAY_CAPACITY(ARRAY) generic_array_capacity(ARRAY)
+#define ARRAY_RESERVE(ARRAY, NEEDED_COUNT) \
+    generic_array_reserve((void **)&(ARRAY), \
+                          (NEEDED_COUNT), \
+                          SIZEOF(*(ARRAY)))
+#define ARRAY_SET_COUNT(ARRAY, COUNT) \
+    generic_array_set_count((ARRAY), (COUNT))
+#define ARRAY_INIT_COUNT(ARRAY, COUNT) do { \
+    ARRAY_INIT((ARRAY), (COUNT)); \
+    ARRAY_SET_COUNT((ARRAY), (COUNT)); \
+} while (0)
 #define ARRAY_CLEAR(ARRAY) do { \
     if (ARRAY) { \
         ARRAY_HEADER(ARRAY)->count = 0; \

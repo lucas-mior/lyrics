@@ -4,7 +4,6 @@
 #include "unicode_norm.h"
 
 #include "cbase.h"
-#include "array_util.h"
 
 #if !defined(TESTING_ctc_text)
 #define TESTING_ctc_text 0
@@ -38,7 +37,7 @@ lrc_lyrics_normalized_alloc_lines(
         return true;
     }
 
-    LRC_ARRAY_INIT_COUNT(normalized->lines, line_count);
+    ARRAY_INIT_COUNT(normalized->lines, line_count);
     normalized->line_count = line_count;
 
     for (int32 i = 0; i < line_count; i += 1) {
@@ -66,7 +65,7 @@ lrc_lyrics_normalized_reserve_segments(
         return false;
     }
 
-    return LRC_ARRAY_RESERVE(normalized->segments, (int32)needed);
+    return ARRAY_RESERVE(normalized->segments, (int32)needed);
 }
 
 static bool
@@ -103,7 +102,7 @@ lrc_lyrics_normalized_append_segment(
 
     segment = &normalized->segments[normalized->segment_count];
     normalized->segment_count += 1;
-    lrc_array_set_count(normalized->segments, normalized->segment_count);
+    ARRAY_SET_COUNT(normalized->segments, normalized->segment_count);
 
     segment->line_index = line_index;
     segment->source_start = source_start;
@@ -131,10 +130,10 @@ lrc_lyrics_normalized_reserve(
     if (needed >= INT32_MAX) {
         return false;
     }
-    if (!LRC_ARRAY_RESERVE(normalized->text, (int32)needed + 1)) {
+    if (!ARRAY_RESERVE(normalized->text, (int32)needed + 1)) {
         return false;
     }
-    if (!LRC_ARRAY_RESERVE(normalized->bytes, (int32)needed)) {
+    if (!ARRAY_RESERVE(normalized->bytes, (int32)needed)) {
         return false;
     }
 
@@ -176,8 +175,8 @@ lrc_lyrics_normalized_append_bytes(
     }
     normalized->text_len += bytes_len;
     normalized->text[normalized->text_len] = '\0';
-    lrc_array_set_count(normalized->bytes, normalized->byte_count);
-    lrc_array_set_count(normalized->text, normalized->text_len + 1);
+    ARRAY_SET_COUNT(normalized->bytes, normalized->byte_count);
+    ARRAY_SET_COUNT(normalized->text, normalized->text_len + 1);
 
     return true;
 }
@@ -238,10 +237,10 @@ lrc_lyrics_normalized_reserve_target(
     if (needed >= INT32_MAX) {
         return false;
     }
-    if (!LRC_ARRAY_RESERVE(normalized->target_text, (int32)needed + 1)) {
+    if (!ARRAY_RESERVE(normalized->target_text, (int32)needed + 1)) {
         return false;
     }
-    if (!LRC_ARRAY_RESERVE(normalized->target_bytes, (int32)needed)) {
+    if (!ARRAY_RESERVE(normalized->target_bytes, (int32)needed)) {
         return false;
     }
 
@@ -276,9 +275,9 @@ lrc_lyrics_normalized_append_target_bytes(
     }
     normalized->target_text_len += bytes_len;
     normalized->target_text[normalized->target_text_len] = '\0';
-    lrc_array_set_count(normalized->target_bytes,
+    ARRAY_SET_COUNT(normalized->target_bytes,
                         normalized->target_byte_count);
-    lrc_array_set_count(normalized->target_text,
+    ARRAY_SET_COUNT(normalized->target_text,
                         normalized->target_text_len + 1);
 
     return true;
@@ -1514,8 +1513,8 @@ lrc_lyrics_normalize_line(
         normalized->text_len -= 1;
         normalized->byte_count -= 1;
         normalized->text[normalized->text_len] = '\0';
-        lrc_array_set_count(normalized->bytes, normalized->byte_count);
-        lrc_array_set_count(normalized->text, normalized->text_len + 1);
+        ARRAY_SET_COUNT(normalized->bytes, normalized->byte_count);
+        ARRAY_SET_COUNT(normalized->text, normalized->text_len + 1);
         line_range->normalized_end = normalized->text_len;
     }
 

@@ -2,7 +2,6 @@
 #include "lyrics.h"
 
 #include "cbase.h"
-#include "array_util.h"
 
 #if !defined(TESTING_lyrics)
 #define TESTING_lyrics 0
@@ -131,7 +130,7 @@ lrc_lyrics_reserve_lines(LrcLyrics *lyrics, int32 extra) {
         return false;
     }
 
-    return LRC_ARRAY_RESERVE(lyrics->lines, (int32)needed);
+    return ARRAY_RESERVE(lyrics->lines, (int32)needed);
 }
 
 static bool
@@ -144,7 +143,7 @@ lrc_lyrics_append_line(LrcLyrics *lyrics, int32 start, int32 end) {
 
     line = &lyrics->lines[lyrics->line_count];
     lyrics->line_count += 1;
-    lrc_array_set_count(lyrics->lines, lyrics->line_count);
+    ARRAY_SET_COUNT(lyrics->lines, lyrics->line_count);
 
     line->text = lyrics->text + start;
     line->text_len = end - start;

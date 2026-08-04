@@ -2,7 +2,6 @@
 #include "ctc_tokenizer.h"
 
 #include "cbase.h"
-#include "array_util.h"
 
 #if !defined(TESTING_ctc_tokenizer)
 #define TESTING_ctc_tokenizer 0
@@ -77,7 +76,7 @@ lrc_ctc_tokenized_text_reserve(
         return false;
     }
 
-    return LRC_ARRAY_RESERVE(text->tokens, (int32)needed);
+    return ARRAY_RESERVE(text->tokens, (int32)needed);
 }
 
 static bool
@@ -98,7 +97,7 @@ lrc_ctc_tokenized_text_append(
 
     token = text->tokens + text->token_count;
     text->token_count += 1;
-    lrc_array_set_count(text->tokens, text->token_count);
+    ARRAY_SET_COUNT(text->tokens, text->token_count);
 
     token->token_id = token_id;
     token->normalized_start = start;
@@ -617,7 +616,7 @@ lrc_ctc_tokenizer_reserve_tokens(
         return false;
     }
 
-    return LRC_ARRAY_RESERVE(tokenizer->tokens, (int32)needed);
+    return ARRAY_RESERVE(tokenizer->tokens, (int32)needed);
 }
 
 static bool
@@ -827,7 +826,7 @@ lrc_ctc_tokenizer_add_token(
     token->is_unknown = is_unknown;
 
     tokenizer->token_count += 1;
-    lrc_array_set_count(tokenizer->tokens, tokenizer->token_count);
+    ARRAY_SET_COUNT(tokenizer->tokens, tokenizer->token_count);
 
     if (is_blank) {
         tokenizer->blank_id = id;
