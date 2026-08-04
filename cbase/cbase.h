@@ -526,10 +526,6 @@ CBASE_API_DECL bool command_wait(Command *);
 #define COMMAND_ENV_PUSH(...) \
     SELECT_ON_NUM_ARGS(COMMAND_ENV_PUSH_, __VA_ARGS__)
 
-#if !defined(SORT_COMPARE)
-#define SORT_COMPARE(A, B) compare_func(A, B)
-#endif
-
 #if !defined(MAX_NTHREADS)
 #define MAX_NTHREADS 64
 #endif
@@ -618,7 +614,6 @@ CBASE_API_DECL void array_sink(void);
 #undef XENUMS_LINKAGE
 
 #include "command.c"
-#include "sort.c"
 #include "cbase.h"
 #include "meta_common.c"
 #include "meta_tokenize.c"
