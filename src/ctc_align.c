@@ -76,10 +76,7 @@ lrc_ctc_align_plan_init(
 }
 
 static bool
-lrc_ctc_align_plan_missing(
-    LrcCtcAlignPlan *plan,
-    LrcCtcAlignResult *result
-) {
+lrc_ctc_align_plan_missing(LrcCtcAlignPlan *plan, LrcCtcAlignResult *result) {
     if (plan != NULL) {
         return false;
     }
@@ -591,10 +588,7 @@ lrc_ctc_required_frame_count_for_graph(LrcCtcAlignGraph *graph) {
 }
 
 static bool
-lrc_ctc_align_graph_state_valid(
-    LrcCtcAlignGraph *graph,
-    int32 state_index
-) {
+lrc_ctc_align_graph_state_valid(LrcCtcAlignGraph *graph, int32 state_index) {
     if (graph == NULL) {
         return false;
     }
