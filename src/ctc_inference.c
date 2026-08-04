@@ -40,7 +40,7 @@ lrc_ctc_inference_result_set(
     result->error = error;
     result->message = message;
 
-    result->output_index = CLAMP(output_index, INT32_MIN, INT32_MAX);
+    result->output_index = (int32)CLAMP(output_index, INT32_MIN, INT32_MAX);
 
     return;
 }
