@@ -973,7 +973,7 @@ ort_test_fail(char *name) {
     return 1;
 }
 
-static int32
+static void
 ort_test_empty_initializers(void) {
     OrtContext context;
     OrtModel model;
@@ -1011,10 +1011,10 @@ ort_test_empty_initializers(void) {
     ASSERT(tensor.data_len == 0);
     ASSERT(tensor.shape_len == 0);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ort_test_model_io_info_copy(void) {
     OrtModel model;
     OrtModelIoInfo info;
@@ -1032,7 +1032,7 @@ ort_test_model_io_info_copy(void) {
     model.output_shape[1] = 3;
 
     if (!ort_model_input_info(&model, &info)) {
-        return ort_test_fail("copy input info");
+        fatal(ort_test_fail("copy input info"));
     }
     ASSERT(strequal(info.name, "input"));
     ASSERT(info.count == 1);
@@ -1041,7 +1041,7 @@ ort_test_model_io_info_copy(void) {
     ASSERT(info.shape[1] == 3);
 
     if (!ort_model_output_info(&model, &info)) {
-        return ort_test_fail("copy output info");
+        fatal(ort_test_fail("copy output info"));
     }
     ASSERT(strequal(info.name, "output"));
     ASSERT(info.count == 1);
@@ -1049,40 +1049,40 @@ ort_test_model_io_info_copy(void) {
     ASSERT(info.shape[0] == 1);
     ASSERT(info.shape[1] == 3);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ort_test_execution_provider_parse(void) {
     enum OrtExecutionProvider provider;
 
     if (!ort_execution_provider_parse("auto", &provider)) {
-        return ort_test_fail("parse auto provider");
+        fatal(ort_test_fail("parse auto provider"));
     }
     ASSERT(provider == ORT_EXECUTION_PROVIDER_AUTO);
     ASSERT(strequal(ort_execution_provider_str(provider), "auto"));
 
     if (!ort_execution_provider_parse("cpu", &provider)) {
-        return ort_test_fail("parse cpu provider");
+        fatal(ort_test_fail("parse cpu provider"));
     }
     ASSERT(provider == ORT_EXECUTION_PROVIDER_CPU);
     ASSERT(strequal(ort_execution_provider_str(provider), "cpu"));
 
     if (!ort_execution_provider_parse("cuda", &provider)) {
-        return ort_test_fail("parse cuda provider");
+        fatal(ort_test_fail("parse cuda provider"));
     }
     ASSERT(provider == ORT_EXECUTION_PROVIDER_CUDA);
     ASSERT(strequal(ort_execution_provider_str(provider), "cuda"));
 
     if (ort_execution_provider_parse("gpu", &provider)) {
-        return ort_test_fail("parse invalid provider");
+        fatal(ort_test_fail("parse invalid provider"));
     }
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ort_test_tensor_shape_element_count(void) {
     int64 shape[3];
     int64 count;
@@ -1091,24 +1091,24 @@ ort_test_tensor_shape_element_count(void) {
     shape[1] = 3;
     shape[2] = 4;
     if (!ort_tensor_shape_element_count(shape, 3, &count)) {
-        return ort_test_fail("valid tensor shape count");
+        fatal(ort_test_fail("valid tensor shape count"));
     }
     ASSERT(count == 24);
 
     shape[1] = 0;
     if (ort_tensor_shape_element_count(shape, 3, &count)) {
-        return ort_test_fail("zero tensor dimension accepted");
+        fatal(ort_test_fail("zero tensor dimension accepted"));
     }
     ASSERT(count == 0);
 
     shape[0] = INT64_MAX;
     shape[1] = 2;
     if (ort_tensor_shape_element_count(shape, 2, &count)) {
-        return ort_test_fail("overflowing tensor shape accepted");
+        fatal(ort_test_fail("overflowing tensor shape accepted"));
     }
     ASSERT(count == 0);
 
-    return 0;
+    return;
 }
 
 static bool
@@ -1168,7 +1168,7 @@ ort_test_write_identity_model(char *path, char *temp_dir) {
     return true;
 }
 
-static int32
+static void
 ort_test_optional_identity_model(void) {
     OrtContext context;
     OrtModel model;
@@ -1188,12 +1188,12 @@ ort_test_optional_identity_model(void) {
                     temp_dir);
     if ((len <= 0) || (len >= SIZEOF(model_path))) {
         test_remove_tree(temp_dir);
-        return ort_test_fail("identity model path");
+        fatal(ort_test_fail("identity model path"));
     }
 
     if (!ort_test_write_identity_model(model_path, temp_dir)) {
         test_remove_tree(temp_dir);
-        return 0;
+        return;
     }
 
     ort_context_init_empty(&context);
@@ -1203,18 +1203,18 @@ ort_test_optional_identity_model(void) {
 
     if (!ort_context_init(&context)) {
         test_remove_tree(temp_dir);
-        return ort_test_fail("context init");
+        fatal(ort_test_fail("context init"));
     }
     if (!ort_model_load(&context, &model, model_path)) {
         ort_context_destroy(&context);
         test_remove_tree(temp_dir);
-        return ort_test_fail("identity model load");
+        fatal(ort_test_fail("identity model load"));
     }
     if (!ort_model_input_info(&model, &info)) {
         ort_model_destroy(&context, &model);
         ort_context_destroy(&context);
         test_remove_tree(temp_dir);
-        return ort_test_fail("identity input info");
+        fatal(ort_test_fail("identity input info"));
     }
     ASSERT(strequal(info.name, "input"));
     ASSERT(info.shape_len == 2);
@@ -1225,7 +1225,7 @@ ort_test_optional_identity_model(void) {
         ort_model_destroy(&context, &model);
         ort_context_destroy(&context);
         test_remove_tree(temp_dir);
-        return ort_test_fail("identity output info");
+        fatal(ort_test_fail("identity output info"));
     }
     ASSERT(strequal(info.name, "output"));
     ASSERT(info.shape_len == 2);
@@ -1241,14 +1241,14 @@ ort_test_optional_identity_model(void) {
         ort_model_destroy(&context, &model);
         ort_context_destroy(&context);
         test_remove_tree(temp_dir);
-        return ort_test_fail("identity input tensor");
+        fatal(ort_test_fail("identity input tensor"));
     }
     if (!ort_model_run_f32(&context, &model, &input, &output)) {
         ort_tensor_destroy(&context, &input);
         ort_model_destroy(&context, &model);
         ort_context_destroy(&context);
         test_remove_tree(temp_dir);
-        return ort_test_fail("identity run");
+        fatal(ort_test_fail("identity run"));
     }
 
     ASSERT(output.data_len == 3);
@@ -1265,26 +1265,16 @@ ort_test_optional_identity_model(void) {
     ort_context_destroy(&context);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
 int32
 main(void) {
-    if (ort_test_empty_initializers() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ort_test_model_io_info_copy() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ort_test_execution_provider_parse() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ort_test_tensor_shape_element_count() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ort_test_optional_identity_model() != 0) {
-        fatal(EXIT_FAILURE);
-    }
+    ort_test_empty_initializers();
+    ort_test_model_io_info_copy();
+    ort_test_execution_provider_parse();
+    ort_test_tensor_shape_element_count();
+    ort_test_optional_identity_model();
 
     exit(EXIT_SUCCESS);
 }

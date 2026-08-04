@@ -801,7 +801,7 @@ ctc_model_make_audio(
     return;
 }
 
-static int32
+static void
 ctc_model_test_defaults_and_invalid_inputs(void) {
     LrcCtcModelConfig config;
     LrcCtcModelInput input = {0};
@@ -824,34 +824,34 @@ ctc_model_test_defaults_and_invalid_inputs(void) {
     ASSERT(input.sample_count == 0);
 
     if (lrc_ctc_model_input_prepare(NULL, &audio, &config, &result)) {
-        return ctc_model_test_fail("null input destination accepted");
+        fatal(ctc_model_test_fail("null input destination accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_ARGUMENT);
 
     config.sample_rate = 0;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("invalid sample rate accepted");
+        fatal(ctc_model_test_fail("invalid sample rate accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_SAMPLE_RATE);
 
     lrc_ctc_model_config_init(&config);
     config.inputs_to_logits_ratio = 0;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("invalid stride ratio accepted");
+        fatal(ctc_model_test_fail("invalid stride ratio accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_RATIO);
 
     lrc_ctc_model_config_init(&config);
     config.sample_rate = 8000;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("mismatched audio sample rate accepted");
+        fatal(ctc_model_test_fail("mismatched audio sample rate accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_AUDIO_SAMPLE_RATE);
 
     lrc_ctc_model_config_init(&config);
     samples[1] = NAN;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("non-finite sample accepted");
+        fatal(ctc_model_test_fail("non-finite sample accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_NON_FINITE_SAMPLE);
     ASSERT(result.sample_index == 1);
@@ -859,10 +859,10 @@ ctc_model_test_defaults_and_invalid_inputs(void) {
 
     lrc_ctc_model_input_destroy(&input);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_model_test_prepares_short_input(void) {
     LrcCtcModelConfig config;
     LrcCtcModelInput input = {0};
@@ -874,7 +874,7 @@ ctc_model_test_prepares_short_input(void) {
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("prepare short input");
+        fatal(ctc_model_test_fail("prepare short input"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -921,10 +921,10 @@ ctc_model_test_prepares_short_input(void) {
 
     lrc_ctc_model_input_destroy(&input);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_model_test_prepares_chunked_input(void) {
     LrcCtcModelConfig config;
     LrcCtcModelInput input = {0};
@@ -944,7 +944,7 @@ ctc_model_test_prepares_chunked_input(void) {
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("prepare chunked input");
+        fatal(ctc_model_test_fail("prepare chunked input"));
     }
 
     ASSERT(input.chunked);
@@ -1017,44 +1017,44 @@ ctc_model_test_prepares_chunked_input(void) {
 
     lrc_ctc_model_input_destroy(&input);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_model_test_emission_frame_conversion(void) {
     int64 frames;
 
     if (!lrc_ctc_model_samples_to_emission_frames(0, 2, &frames)) {
-        return ctc_model_test_fail("ceil zero emissions");
+        fatal(ctc_model_test_fail("ceil zero emissions"));
     }
     ASSERT(frames == 0);
 
     if (!lrc_ctc_model_samples_to_emission_frames(20, 2, &frames)) {
-        return ctc_model_test_fail("exact emission frames");
+        fatal(ctc_model_test_fail("exact emission frames"));
     }
     ASSERT(frames == 10);
 
     if (!lrc_ctc_model_samples_to_emission_frames(21, 2, &frames)) {
-        return ctc_model_test_fail("partial emission frames");
+        fatal(ctc_model_test_fail("partial emission frames"));
     }
     ASSERT(frames == 11);
 
     if (!lrc_ctc_model_samples_to_emission_frames_floor(21, 2, &frames)) {
-        return ctc_model_test_fail("floor emission frames");
+        fatal(ctc_model_test_fail("floor emission frames"));
     }
     ASSERT(frames == 10);
 
     if (lrc_ctc_model_samples_to_emission_frames(-1, 2, &frames)) {
-        return ctc_model_test_fail("negative emission frames accepted");
+        fatal(ctc_model_test_fail("negative emission frames accepted"));
     }
     if (lrc_ctc_model_samples_to_emission_frames(1, 0, &frames)) {
-        return ctc_model_test_fail("zero ratio accepted");
+        fatal(ctc_model_test_fail("zero ratio accepted"));
     }
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_model_test_chunk_metadata_three_chunks(void) {
     LrcCtcModelConfig config;
     LrcCtcModelInput input = {0};
@@ -1075,7 +1075,7 @@ ctc_model_test_chunk_metadata_three_chunks(void) {
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("prepare three-chunk metadata");
+        fatal(ctc_model_test_fail("prepare three-chunk metadata"));
     }
 
     ASSERT(input.chunked);
@@ -1130,10 +1130,10 @@ ctc_model_test_chunk_metadata_three_chunks(void) {
 
     lrc_ctc_model_input_destroy(&input);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_model_test_chunk_metadata_partial_stride(void) {
     LrcCtcModelConfig config;
     LrcCtcModelInput input = {0};
@@ -1153,7 +1153,7 @@ ctc_model_test_chunk_metadata_partial_stride(void) {
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 8);
 
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("prepare partial-stride metadata");
+        fatal(ctc_model_test_fail("prepare partial-stride metadata"));
     }
 
     ASSERT(input.chunked);
@@ -1169,10 +1169,10 @@ ctc_model_test_chunk_metadata_partial_stride(void) {
 
     lrc_ctc_model_input_destroy(&input);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_model_test_rejects_unaligned_window_or_context(void) {
     LrcCtcModelConfig config;
     LrcCtcModelInput input = {0};
@@ -1189,7 +1189,7 @@ ctc_model_test_rejects_unaligned_window_or_context(void) {
     config.context_seconds = 0;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         lrc_ctc_model_input_destroy(&input);
-        return ctc_model_test_fail("unaligned window accepted");
+        fatal(ctc_model_test_fail("unaligned window accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_WINDOW);
 
@@ -1198,16 +1198,16 @@ ctc_model_test_rejects_unaligned_window_or_context(void) {
     config.context_seconds = 1;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         lrc_ctc_model_input_destroy(&input);
-        return ctc_model_test_fail("unaligned context accepted");
+        fatal(ctc_model_test_fail("unaligned context accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_CONTEXT);
 
     lrc_ctc_model_input_destroy(&input);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_model_test_validates_model_io(void) {
     LrcCtcModelConfig config;
     LrcCtcModelInput input = {0};
@@ -1219,7 +1219,7 @@ ctc_model_test_validates_model_io(void) {
     lrc_ctc_model_config_init(&config);
     ctc_model_make_audio(&audio, samples, LENGTH(samples), 16000);
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
-        return ctc_model_test_fail("prepare IO validation input");
+        fatal(ctc_model_test_fail("prepare IO validation input"));
     }
 
     info.count = 1;
@@ -1229,20 +1229,20 @@ ctc_model_test_validates_model_io(void) {
     info.shape[1] = -1;
     if (!lrc_ctc_model_input_validate_model_io(&input, &info, &result)) {
         lrc_ctc_model_input_destroy(&input);
-        return ctc_model_test_fail("dynamic IO rejected");
+        fatal(ctc_model_test_fail("dynamic IO rejected"));
     }
 
     info.shape[0] = 1;
     info.shape[1] = LENGTH(samples);
     if (!lrc_ctc_model_input_validate_model_io(&input, &info, &result)) {
         lrc_ctc_model_input_destroy(&input);
-        return ctc_model_test_fail("fixed matching IO rejected");
+        fatal(ctc_model_test_fail("fixed matching IO rejected"));
     }
 
     info.is_float32 = false;
     if (lrc_ctc_model_input_validate_model_io(&input, &info, &result)) {
         lrc_ctc_model_input_destroy(&input);
-        return ctc_model_test_fail("non-float IO accepted");
+        fatal(ctc_model_test_fail("non-float IO accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO);
 
@@ -1250,7 +1250,7 @@ ctc_model_test_validates_model_io(void) {
     info.shape_len = 3;
     if (lrc_ctc_model_input_validate_model_io(&input, &info, &result)) {
         lrc_ctc_model_input_destroy(&input);
-        return ctc_model_test_fail("rank-3 IO accepted");
+        fatal(ctc_model_test_fail("rank-3 IO accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO);
 
@@ -1259,13 +1259,13 @@ ctc_model_test_validates_model_io(void) {
     info.shape[1] = LENGTH(samples) + 1;
     if (lrc_ctc_model_input_validate_model_io(&input, &info, &result)) {
         lrc_ctc_model_input_destroy(&input);
-        return ctc_model_test_fail("mismatched IO width accepted");
+        fatal(ctc_model_test_fail("mismatched IO width accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO);
 
     lrc_ctc_model_input_destroy(&input);
 
-    return 0;
+    return;
 }
 
 static char *
@@ -1286,7 +1286,7 @@ ctc_model_maxwell_vocals_path(void) {
     return NULL;
 }
 
-static int32
+static void
 ctc_model_test_prepares_maxwell_shaped_input(void) {
     LrcCtcAudioConfig audio_config;
     LrcCtcAudioResult audio_result;
@@ -1297,25 +1297,25 @@ ctc_model_test_prepares_maxwell_shaped_input(void) {
     char *path;
 
     if (!test_command_exists("ffmpeg")) {
-        return 0;
+        return;
     }
 
     path = ctc_model_maxwell_vocals_path();
     if (path == NULL) {
-        return 0;
+        return;
     }
 
     lrc_ctc_audio_config_init(&audio_config);
     audio_config.sample_rate = 16000;
     if (!lrc_ctc_audio_decode_file(&audio, path, &audio_config,
                                     &audio_result)) {
-        return ctc_model_test_fail("decode Maxwell vocals");
+        fatal(ctc_model_test_fail("decode Maxwell vocals"));
     }
 
     lrc_ctc_model_config_init(&config);
     if (!lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         lrc_ctc_audio_destroy(&audio);
-        return ctc_model_test_fail("prepare Maxwell-shaped input");
+        fatal(ctc_model_test_fail("prepare Maxwell-shaped input"));
     }
 
     ASSERT(!input.chunked);
@@ -1329,38 +1329,20 @@ ctc_model_test_prepares_maxwell_shaped_input(void) {
     lrc_ctc_model_input_destroy(&input);
     lrc_ctc_audio_destroy(&audio);
 
-    return 0;
+    return;
 }
 
 int32
 main(void) {
-    if (ctc_model_test_defaults_and_invalid_inputs() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_prepares_short_input() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_prepares_chunked_input() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_emission_frame_conversion() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_chunk_metadata_three_chunks() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_chunk_metadata_partial_stride() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_rejects_unaligned_window_or_context() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_validates_model_io() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_model_test_prepares_maxwell_shaped_input() != 0) {
-        fatal(EXIT_FAILURE);
-    }
+    ctc_model_test_defaults_and_invalid_inputs();
+    ctc_model_test_prepares_short_input();
+    ctc_model_test_prepares_chunked_input();
+    ctc_model_test_emission_frame_conversion();
+    ctc_model_test_chunk_metadata_three_chunks();
+    ctc_model_test_chunk_metadata_partial_stride();
+    ctc_model_test_rejects_unaligned_window_or_context();
+    ctc_model_test_validates_model_io();
+    ctc_model_test_prepares_maxwell_shaped_input();
 
     exit(EXIT_SUCCESS);
 }

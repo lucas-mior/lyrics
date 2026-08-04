@@ -120,7 +120,7 @@ ctc_assets_write_file(char *path, char *text) {
 }
 
 
-static int32
+static void
 ctc_assets_test_config_defaults(void) {
     LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
@@ -137,10 +137,10 @@ ctc_assets_test_config_defaults(void) {
     ASSERT(assets.tokenizer_path == NULL);
     ASSERT(!assets.validated);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_assets_test_valid_generated_files(void) {
     LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
@@ -157,11 +157,11 @@ ctc_assets_test_valid_generated_files(void) {
 
     if (!ctc_assets_write_file(model_path, "fake model\n")) {
         test_remove_tree(temp_dir);
-        return ctc_assets_test_fail("write fake model");
+        fatal(ctc_assets_test_fail("write fake model"));
     }
     if (!ctc_assets_write_file(tokenizer_path, "<blank>\na\nb\n")) {
         test_remove_tree(temp_dir);
-        return ctc_assets_test_fail("write fake tokenizer");
+        fatal(ctc_assets_test_fail("write fake tokenizer"));
     }
 
     config.model_path = model_path;
@@ -169,7 +169,7 @@ ctc_assets_test_valid_generated_files(void) {
 
     if (!lrc_ctc_assets_validate(&assets, &config, &result)) {
         test_remove_tree(temp_dir);
-        return ctc_assets_test_fail("validate generated files");
+        fatal(ctc_assets_test_fail("validate generated files"));
     }
     ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
@@ -179,10 +179,10 @@ ctc_assets_test_valid_generated_files(void) {
 
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_assets_test_missing_model_path(void) {
     LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
@@ -191,17 +191,17 @@ ctc_assets_test_missing_model_path(void) {
     config.tokenizer_path = "tokens.txt";
 
     if (lrc_ctc_assets_validate(&assets, &config, &result)) {
-        return ctc_assets_test_fail("missing model path accepted");
+        fatal(ctc_assets_test_fail("missing model path accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ASSETS_MISSING_MODEL_PATH);
     ASSERT(strequal(result.message, "CTC model path is missing"));
     ASSERT(result.path == NULL);
     ASSERT(!assets.validated);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_assets_test_missing_tokenizer_path(void) {
     LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
@@ -210,17 +210,17 @@ ctc_assets_test_missing_tokenizer_path(void) {
     config.model_path = "model.onnx";
 
     if (lrc_ctc_assets_validate(&assets, &config, &result)) {
-        return ctc_assets_test_fail("missing tokenizer path accepted");
+        fatal(ctc_assets_test_fail("missing tokenizer path accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ASSETS_MISSING_TOKENIZER_PATH);
     ASSERT(strequal(result.message, "CTC tokenizer path is missing"));
     ASSERT(result.path == NULL);
     ASSERT(!assets.validated);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_assets_test_missing_model_file(void) {
     LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
@@ -237,7 +237,7 @@ ctc_assets_test_missing_model_file(void) {
 
     if (!ctc_assets_write_file(tokenizer_path, "<blank>\na\n")) {
         test_remove_tree(temp_dir);
-        return ctc_assets_test_fail("write tokenizer for missing model test");
+        fatal(ctc_assets_test_fail("write tokenizer for missing model test"));
     }
 
     config.model_path = model_path;
@@ -245,7 +245,7 @@ ctc_assets_test_missing_model_file(void) {
 
     if (lrc_ctc_assets_validate(&assets, &config, &result)) {
         test_remove_tree(temp_dir);
-        return ctc_assets_test_fail("missing model file accepted");
+        fatal(ctc_assets_test_fail("missing model file accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ASSETS_MODEL_NOT_FOUND);
     ASSERT(strequal(result.path, model_path));
@@ -253,10 +253,10 @@ ctc_assets_test_missing_model_file(void) {
 
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_assets_test_missing_tokenizer_file(void) {
     LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
@@ -273,7 +273,7 @@ ctc_assets_test_missing_tokenizer_file(void) {
 
     if (!ctc_assets_write_file(model_path, "fake model\n")) {
         test_remove_tree(temp_dir);
-        return ctc_assets_test_fail("write model for missing tokenizer test");
+        fatal(ctc_assets_test_fail("write model for missing tokenizer test"));
     }
 
     config.model_path = model_path;
@@ -281,7 +281,7 @@ ctc_assets_test_missing_tokenizer_file(void) {
 
     if (lrc_ctc_assets_validate(&assets, &config, &result)) {
         test_remove_tree(temp_dir);
-        return ctc_assets_test_fail("missing tokenizer file accepted");
+        fatal(ctc_assets_test_fail("missing tokenizer file accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ASSETS_TOKENIZER_NOT_FOUND);
     ASSERT(strequal(result.path, tokenizer_path));
@@ -289,10 +289,10 @@ ctc_assets_test_missing_tokenizer_file(void) {
 
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_assets_test_invalid_arguments(void) {
     LrcCtcAssetsConfig config = {0};
     LrcCtcAssetsResult result;
@@ -300,41 +300,27 @@ ctc_assets_test_invalid_arguments(void) {
 
 
     if (lrc_ctc_assets_validate(NULL, &config, &result)) {
-        return ctc_assets_test_fail("null assets accepted");
+        fatal(ctc_assets_test_fail("null assets accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ASSETS_INVALID_ARGUMENT);
 
     if (lrc_ctc_assets_validate(&assets, NULL, &result)) {
-        return ctc_assets_test_fail("null config accepted");
+        fatal(ctc_assets_test_fail("null config accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ASSETS_INVALID_ARGUMENT);
 
-    return 0;
+    return;
 }
 
 int32
 main(void) {
-    if (ctc_assets_test_config_defaults() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_assets_test_valid_generated_files() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_assets_test_missing_model_path() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_assets_test_missing_tokenizer_path() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_assets_test_missing_model_file() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_assets_test_missing_tokenizer_file() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_assets_test_invalid_arguments() != 0) {
-        fatal(EXIT_FAILURE);
-    }
+    ctc_assets_test_config_defaults();
+    ctc_assets_test_valid_generated_files();
+    ctc_assets_test_missing_model_path();
+    ctc_assets_test_missing_tokenizer_path();
+    ctc_assets_test_missing_model_file();
+    ctc_assets_test_missing_tokenizer_file();
+    ctc_assets_test_invalid_arguments();
 
     exit(EXIT_SUCCESS);
 }

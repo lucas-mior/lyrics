@@ -5397,7 +5397,7 @@ ctc_align_output_lines_from_timestamps(
     return true;
 }
 
-static int32
+static void
 ctc_align_test_empty_initializers(void) {
     LrcCtcAlignResult result;
     LrcCtcAlignGraph graph = {0};
@@ -5447,10 +5447,10 @@ ctc_align_test_empty_initializers(void) {
     ASSERT(line_timestamps.timestamped_line_count == 0);
     ASSERT(line_timestamps.blank_line_count == 0);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_graph_build_layout(void) {
     LrcCtcAlignResult result;
     LrcCtcAlignGraph graph = {0};
@@ -5459,7 +5459,7 @@ ctc_align_test_graph_build_layout(void) {
     int32 repeated_tokens[] = {3, 3};
 
     if (!lrc_ctc_align_graph_build(&graph, one_token, 1, &result)) {
-        return ctc_align_test_fail("build one-token CTC graph");
+        fatal(ctc_align_test_fail("build one-token CTC graph"));
     }
     ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 1);
@@ -5472,7 +5472,7 @@ ctc_align_test_graph_build_layout(void) {
     ASSERT(graph.states[2].kind == LRC_CTC_ALIGN_STATE_BLANK);
 
     if (!lrc_ctc_align_graph_build(&graph, two_tokens, 2, &result)) {
-        return ctc_align_test_fail("build two-token CTC graph");
+        fatal(ctc_align_test_fail("build two-token CTC graph"));
     }
     ASSERT(graph.target_token_count == 2);
     ASSERT(graph.state_count == 5);
@@ -5487,7 +5487,7 @@ ctc_align_test_graph_build_layout(void) {
     ASSERT(graph.states[4].kind == LRC_CTC_ALIGN_STATE_BLANK);
 
     if (!lrc_ctc_align_graph_build(&graph, repeated_tokens, 2, &result)) {
-        return ctc_align_test_fail("build repeated-token CTC graph");
+        fatal(ctc_align_test_fail("build repeated-token CTC graph"));
     }
     ASSERT(graph.state_count == 5);
     ASSERT(graph.states[1].kind == LRC_CTC_ALIGN_STATE_TOKEN);
@@ -5499,10 +5499,10 @@ ctc_align_test_graph_build_layout(void) {
 
     lrc_ctc_align_graph_destroy(&graph);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_graph_build_edge_stars(void) {
     LrcCtcAlignResult result;
     LrcCtcAlignGraph graph = {0};
@@ -5516,7 +5516,7 @@ ctc_align_test_graph_build_edge_stars(void) {
                                             NULL,
                                             9,
                                             &result)) {
-        return ctc_align_test_fail("build edge-star graph");
+        fatal(ctc_align_test_fail("build edge-star graph"));
     }
     ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 2);
@@ -5546,7 +5546,7 @@ ctc_align_test_graph_build_edge_stars(void) {
                                             NULL,
                                             9,
                                             &result)) {
-        return ctc_align_test_fail("build repeated edge-star graph");
+        fatal(ctc_align_test_fail("build repeated edge-star graph"));
     }
     ASSERT(lrc_ctc_align_state_can_skip(&graph, 1, 3));
     ASSERT(!lrc_ctc_align_state_can_skip(&graph, 3, 5));
@@ -5555,10 +5555,10 @@ ctc_align_test_graph_build_edge_stars(void) {
 
     lrc_ctc_align_graph_destroy(&graph);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_graph_build_segment_stars(void) {
     LrcCtcAlignResult result;
     LrcCtcAlignGraph graph = {0};
@@ -5574,7 +5574,7 @@ ctc_align_test_graph_build_segment_stars(void) {
         9,
         &result
     )) {
-        return ctc_align_test_fail("build segment-star graph");
+        fatal(ctc_align_test_fail("build segment-star graph"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -5602,10 +5602,10 @@ ctc_align_test_graph_build_segment_stars(void) {
 
     lrc_ctc_align_graph_destroy(&graph);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_graph_rejects_bad_inputs(void) {
     LrcCtcAlignResult result;
     LrcCtcAlignGraph graph = {0};
@@ -5613,38 +5613,38 @@ ctc_align_test_graph_rejects_bad_inputs(void) {
     int32 state_count;
 
     if (lrc_ctc_align_graph_build(NULL, tokens, 1, &result)) {
-        return ctc_align_test_fail("missing graph accepted");
+        fatal(ctc_align_test_fail("missing graph accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_build(&graph, NULL, 1, &result)) {
-        return ctc_align_test_fail("missing graph tokens accepted");
+        fatal(ctc_align_test_fail("missing graph tokens accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_build(&graph, tokens, 0, &result)) {
-        return ctc_align_test_fail("zero graph tokens accepted");
+        fatal(ctc_align_test_fail("zero graph tokens accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
 
     if (lrc_ctc_align_graph_state_count(1, NULL, &result)) {
-        return ctc_align_test_fail("missing state-count destination accepted");
+        fatal(ctc_align_test_fail("missing state-count destination accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_state_count(INT32_MAX/2 + 1,
                                         &state_count,
                                         &result)) {
-        return ctc_align_test_fail("huge graph state count accepted");
+        fatal(ctc_align_test_fail("huge graph state count accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
     ASSERT(state_count == 0);
     ASSERT(graph.states == NULL);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_graph_transition_rules(void) {
     LrcCtcAlignResult result;
     LrcCtcAlignGraph graph = {0};
@@ -5652,7 +5652,7 @@ ctc_align_test_graph_transition_rules(void) {
     int32 repeated_tokens[] = {1, 1};
 
     if (!lrc_ctc_align_graph_build(&graph, different_tokens, 2, &result)) {
-        return ctc_align_test_fail("build transition graph");
+        fatal(ctc_align_test_fail("build transition graph"));
     }
 
     ASSERT(lrc_ctc_align_graph_transition_allowed(&graph, 0, 0));
@@ -5666,7 +5666,7 @@ ctc_align_test_graph_transition_rules(void) {
     ASSERT(!lrc_ctc_align_graph_transition_allowed(&graph, 0, 5));
 
     if (!lrc_ctc_align_graph_build(&graph, repeated_tokens, 2, &result)) {
-        return ctc_align_test_fail("build repeated transition graph");
+        fatal(ctc_align_test_fail("build repeated transition graph"));
     }
     ASSERT(!lrc_ctc_align_state_can_skip(&graph, 1, 3));
     ASSERT(!lrc_ctc_align_graph_transition_allowed(&graph, 1, 3));
@@ -5675,10 +5675,10 @@ ctc_align_test_graph_transition_rules(void) {
 
     lrc_ctc_align_graph_destroy(&graph);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_required_frame_count_for_tokens(void) {
     int32 one_token[] = {1};
     int32 different_tokens[] = {1, 2};
@@ -5695,10 +5695,10 @@ ctc_align_test_required_frame_count_for_tokens(void) {
     ASSERT(lrc_ctc_required_frame_count_for_tokens(NULL, 1) == -1);
     ASSERT(lrc_ctc_required_frame_count_for_tokens(one_token, 0) == -1);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_score_rejects_too_few_repeated_frames(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -5716,23 +5716,23 @@ ctc_align_test_score_rejects_too_few_repeated_frames(void) {
                                        2,
                                        0,
                                        &result)) {
-        return ctc_align_test_fail("too-few repeated frames accepted");
+        fatal(ctc_align_test_fail("too-few repeated frames accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
     ASSERT(result.frame_index == 2);
     ASSERT(result.token_index == 2);
     ASSERT(trellis.scores == NULL);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_allocate_initializes_to_negative_infinity(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
 
     if (!lrc_ctc_trellis_allocate(&trellis, 3, 2, &result)) {
-        return ctc_align_test_fail("allocate 3x3 trellis");
+        fatal(ctc_align_test_fail("allocate 3x3 trellis"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -5753,44 +5753,44 @@ ctc_align_test_allocate_initializes_to_negative_infinity(void) {
 
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_rejects_invalid_dimensions(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
 
     if (lrc_ctc_trellis_allocate(NULL, 1, 1, &result)) {
-        return ctc_align_test_fail("missing trellis accepted");
+        fatal(ctc_align_test_fail("missing trellis accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_trellis_allocate(&trellis, 0, 1, &result)) {
-        return ctc_align_test_fail("zero frames accepted");
+        fatal(ctc_align_test_fail("zero frames accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
     ASSERT(result.frame_index == 0);
     ASSERT(result.token_index == 1);
 
     if (lrc_ctc_trellis_allocate(&trellis, 1, 0, &result)) {
-        return ctc_align_test_fail("zero target tokens accepted");
+        fatal(ctc_align_test_fail("zero target tokens accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
     ASSERT(result.frame_index == -1);
     ASSERT(result.token_index == 0);
 
     if (lrc_ctc_trellis_allocate(&trellis, 1, INT32_MAX/2 + 1, &result)) {
-        return ctc_align_test_fail("huge trellis accepted");
+        fatal(ctc_align_test_fail("huge trellis accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
 
     ASSERT(trellis.scores == NULL);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_prepare_initializes_start_state(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -5807,7 +5807,7 @@ ctc_align_test_prepare_initializes_start_state(void) {
                                  2,
                                  0,
                                  &result)) {
-        return ctc_align_test_fail("prepare state trellis");
+        fatal(ctc_align_test_fail("prepare state trellis"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -5834,11 +5834,11 @@ ctc_align_test_prepare_initializes_start_state(void) {
 
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_forward_scores_simple_path(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -5858,7 +5858,7 @@ ctc_align_test_forward_scores_simple_path(void) {
                                         2,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score simple forward path");
+        fatal(ctc_align_test_fail("score simple forward path"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -5880,10 +5880,10 @@ ctc_align_test_forward_scores_simple_path(void) {
 
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_forward_prefers_blank_stay(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -5902,7 +5902,7 @@ ctc_align_test_forward_prefers_blank_stay(void) {
                                         1,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score blank stay path");
+        fatal(ctc_align_test_fail("score blank stay path"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -5917,39 +5917,39 @@ ctc_align_test_forward_prefers_blank_stay(void) {
 
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_trellis_uses_graph_states(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
 
     if (!lrc_ctc_trellis_allocate(&trellis, 2, 1, &result)) {
-        return ctc_align_test_fail("allocate one-token state trellis");
+        fatal(ctc_align_test_fail("allocate one-token state trellis"));
     }
     ASSERT(trellis.state_count == 3);
     ASSERT(trellis.cell_count == 6);
     lrc_ctc_trellis_destroy(&trellis);
 
     if (!lrc_ctc_trellis_allocate(&trellis, 2, 2, &result)) {
-        return ctc_align_test_fail("allocate two-token state trellis");
+        fatal(ctc_align_test_fail("allocate two-token state trellis"));
     }
     ASSERT(trellis.state_count == 5);
     ASSERT(trellis.cell_count == 10);
     lrc_ctc_trellis_destroy(&trellis);
 
     if (!lrc_ctc_trellis_allocate(&trellis, 2, 3, &result)) {
-        return ctc_align_test_fail("allocate three-token state trellis");
+        fatal(ctc_align_test_fail("allocate three-token state trellis"));
     }
     ASSERT(trellis.state_count == 7);
     ASSERT(trellis.cell_count == 14);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_forward_scores_ctc_skip_transition(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -5967,7 +5967,7 @@ ctc_align_test_forward_scores_ctc_skip_transition(void) {
                                         2,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score CTC skip transition");
+        fatal(ctc_align_test_fail("score CTC skip transition"));
     }
 
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 3),
@@ -5977,10 +5977,10 @@ ctc_align_test_forward_scores_ctc_skip_transition(void) {
 
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_best_final_state_selection(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6002,10 +6002,10 @@ ctc_align_test_best_final_state_selection(void) {
                                         1,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score final token state");
+        fatal(ctc_align_test_fail("score final token state"));
     }
     if (!lrc_ctc_trellis_best_final_state(&trellis, &final_state, &result)) {
-        return ctc_align_test_fail("select final token state");
+        fatal(ctc_align_test_fail("select final token state"));
     }
     ASSERT(final_state == 1);
     lrc_ctc_trellis_destroy(&trellis);
@@ -6017,18 +6017,18 @@ ctc_align_test_best_final_state_selection(void) {
                                         1,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score final blank state");
+        fatal(ctc_align_test_fail("score final blank state"));
     }
     if (!lrc_ctc_trellis_best_final_state(&trellis, &final_state, &result)) {
-        return ctc_align_test_fail("select final blank state");
+        fatal(ctc_align_test_fail("select final blank state"));
     }
     ASSERT(final_state == 2);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_forward_rejects_bad_targets(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6046,7 +6046,7 @@ ctc_align_test_forward_rejects_bad_targets(void) {
                                       1,
                                       0,
                                       &result)) {
-        return ctc_align_test_fail("missing target ids accepted");
+        fatal(ctc_align_test_fail("missing target ids accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
@@ -6056,17 +6056,17 @@ ctc_align_test_forward_rejects_bad_targets(void) {
                                       2,
                                       0,
                                       &result)) {
-        return ctc_align_test_fail("bad target id accepted");
+        fatal(ctc_align_test_fail("bad target id accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
     ASSERT(result.token_index == 1);
     ASSERT(trellis.scores == NULL);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_backtracks_simple_path(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6087,7 +6087,7 @@ ctc_align_test_backtracks_simple_path(void) {
                                         2,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score simple backtrack path");
+        fatal(ctc_align_test_fail("score simple backtrack path"));
     }
     if (!lrc_ctc_trellis_backtrack(&trellis,
                                    &emissions,
@@ -6096,7 +6096,7 @@ ctc_align_test_backtracks_simple_path(void) {
                                    0,
                                    &path,
                                    &result)) {
-        return ctc_align_test_fail("backtrack simple path");
+        fatal(ctc_align_test_fail("backtrack simple path"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -6123,10 +6123,10 @@ ctc_align_test_backtracks_simple_path(void) {
     lrc_ctc_path_destroy(&path);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_backtracks_repeated_tokens(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6147,7 +6147,7 @@ ctc_align_test_backtracks_repeated_tokens(void) {
                                         2,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score repeated-token path");
+        fatal(ctc_align_test_fail("score repeated-token path"));
     }
     if (!lrc_ctc_trellis_backtrack(&trellis,
                                    &emissions,
@@ -6156,7 +6156,7 @@ ctc_align_test_backtracks_repeated_tokens(void) {
                                    0,
                                    &path,
                                    &result)) {
-        return ctc_align_test_fail("backtrack repeated-token path");
+        fatal(ctc_align_test_fail("backtrack repeated-token path"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -6179,10 +6179,10 @@ ctc_align_test_backtracks_repeated_tokens(void) {
     lrc_ctc_path_destroy(&path);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_backtracks_edge_stars(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6205,7 +6205,7 @@ ctc_align_test_backtracks_edge_stars(void) {
                                                        0,
                                                        3,
                                                        &result)) {
-        return ctc_align_test_fail("score edge-star path");
+        fatal(ctc_align_test_fail("score edge-star path"));
     }
     ASSERT(trellis.state_count == 9);
     ASSERT(trellis.has_edge_stars);
@@ -6219,7 +6219,7 @@ ctc_align_test_backtracks_edge_stars(void) {
                                                    3,
                                                    &path,
                                                    &result)) {
-        return ctc_align_test_fail("backtrack edge-star path");
+        fatal(ctc_align_test_fail("backtrack edge-star path"));
     }
     ASSERT(path.step_count == 4);
     ASSERT(path.steps[0].state_index == 1);
@@ -6247,7 +6247,7 @@ ctc_align_test_backtracks_edge_stars(void) {
                                      0.25f,
                                      &spans,
                                      &result)) {
-        return ctc_align_test_fail("edge-star path to spans");
+        fatal(ctc_align_test_fail("edge-star path to spans"));
     }
     ASSERT(spans.span_count == 2);
     ASSERT(spans.spans[0].token_index == 0);
@@ -6263,10 +6263,10 @@ ctc_align_test_backtracks_edge_stars(void) {
     lrc_ctc_path_destroy(&path);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_backtracks_segment_stars(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6297,7 +6297,7 @@ ctc_align_test_backtracks_segment_stars(void) {
         star_token_id,
         &result
     )) {
-        return ctc_align_test_fail("score segment-star path");
+        fatal(ctc_align_test_fail("score segment-star path"));
     }
     ASSERT(trellis.has_segment_stars);
     ASSERT(!trellis.has_edge_stars);
@@ -6313,7 +6313,7 @@ ctc_align_test_backtracks_segment_stars(void) {
         &path,
         &result
     )) {
-        return ctc_align_test_fail("backtrack segment-star path");
+        fatal(ctc_align_test_fail("backtrack segment-star path"));
     }
 
     ASSERT(path.step_count == 4);
@@ -6331,7 +6331,7 @@ ctc_align_test_backtracks_segment_stars(void) {
                                       0.02f,
                                       &token_spans,
                                       &result)) {
-        return ctc_align_test_fail("segment-star token spans");
+        fatal(ctc_align_test_fail("segment-star token spans"));
     }
     ASSERT(token_spans.span_count == 2);
     ASSERT(token_spans.spans[0].token_index == 0);
@@ -6341,10 +6341,10 @@ ctc_align_test_backtracks_segment_stars(void) {
     lrc_ctc_path_destroy(&path);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_edge_stars_reject_bad_star_token(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6364,7 +6364,7 @@ ctc_align_test_edge_stars_reject_bad_star_token(void) {
                                                        0,
                                                        1,
                                                        &result)) {
-        return ctc_align_test_fail("target token accepted as star");
+        fatal(ctc_align_test_fail("target token accepted as star"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
 
@@ -6375,16 +6375,16 @@ ctc_align_test_edge_stars_reject_bad_star_token(void) {
                                                        0,
                                                        3,
                                                        &result)) {
-        return ctc_align_test_fail("out-of-range star token accepted");
+        fatal(ctc_align_test_fail("out-of-range star token accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
 
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_backtrack_rejects_impossible_alignment(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6403,7 +6403,7 @@ ctc_align_test_backtrack_rejects_impossible_alignment(void) {
                                         2,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score impossible path");
+        fatal(ctc_align_test_fail("score impossible path"));
     }
     *lrc_ctc_trellis_cell(&trellis, trellis.frame_count - 1, 3) = -INFINITY;
     *lrc_ctc_trellis_cell(&trellis, trellis.frame_count - 1, 4) = -INFINITY;
@@ -6414,7 +6414,7 @@ ctc_align_test_backtrack_rejects_impossible_alignment(void) {
                                   0,
                                   &path,
                                   &result)) {
-        return ctc_align_test_fail("impossible path accepted");
+        fatal(ctc_align_test_fail("impossible path accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
@@ -6424,10 +6424,10 @@ ctc_align_test_backtrack_rejects_impossible_alignment(void) {
 
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_backtrack_rejects_invalid_trellis(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6447,16 +6447,16 @@ ctc_align_test_backtrack_rejects_invalid_trellis(void) {
                                   0,
                                   &path,
                                   &result)) {
-        return ctc_align_test_fail("unscored trellis accepted");
+        fatal(ctc_align_test_fail("unscored trellis accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TRELLIS);
     ASSERT(path.steps == NULL);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_path_segments_merge_blanks_and_tokens(void) {
     LrcCtcAlignResult result;
     LrcCtcPath path = {0};
@@ -6474,7 +6474,7 @@ ctc_align_test_path_segments_merge_blanks_and_tokens(void) {
 
     ctc_align_make_emissions(&emissions, values, 7, 3);
     if (!lrc_ctc_path_allocate(&path, 7, &result)) {
-        return ctc_align_test_fail("allocate path segment path");
+        fatal(ctc_align_test_fail("allocate path segment path"));
     }
 
     lrc_ctc_path_set_blank_step(&path, 0, 0, 0);
@@ -6489,7 +6489,7 @@ ctc_align_test_path_segments_merge_blanks_and_tokens(void) {
                                   0.10f,
                                   &segments,
                                   &result)) {
-        return ctc_align_test_fail("merge blank/token path segments");
+        fatal(ctc_align_test_fail("merge blank/token path segments"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -6533,10 +6533,10 @@ ctc_align_test_path_segments_merge_blanks_and_tokens(void) {
     lrc_ctc_path_segments_destroy(&segments);
     lrc_ctc_path_destroy(&path);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_path_segments_split_repeated_token_after_blank(void) {
     LrcCtcAlignResult result;
     LrcCtcPath path = {0};
@@ -6552,7 +6552,7 @@ ctc_align_test_path_segments_split_repeated_token_after_blank(void) {
 
     ctc_align_make_emissions(&emissions, values, 5, 2);
     if (!lrc_ctc_path_allocate(&path, 5, &result)) {
-        return ctc_align_test_fail("allocate repeated segment path");
+        fatal(ctc_align_test_fail("allocate repeated segment path"));
     }
 
     lrc_ctc_path_set_token_step(&path, 0, 1, 0, 1);
@@ -6565,7 +6565,7 @@ ctc_align_test_path_segments_split_repeated_token_after_blank(void) {
                                   0.25f,
                                   &segments,
                                   &result)) {
-        return ctc_align_test_fail("split repeated token segments");
+        fatal(ctc_align_test_fail("split repeated token segments"));
     }
 
     ASSERT(segments.segment_count == 3);
@@ -6589,10 +6589,10 @@ ctc_align_test_path_segments_split_repeated_token_after_blank(void) {
     lrc_ctc_path_segments_destroy(&segments);
     lrc_ctc_path_destroy(&path);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_path_segments_keep_stars(void) {
     LrcCtcAlignResult result;
     LrcCtcPath path = {0};
@@ -6610,7 +6610,7 @@ ctc_align_test_path_segments_keep_stars(void) {
     ctc_align_make_emissions(&emissions, values, 5, 2);
     star_token_id = (int32)emissions.vocabulary_size;
     if (!lrc_ctc_path_allocate(&path, 5, &result)) {
-        return ctc_align_test_fail("allocate star segment path");
+        fatal(ctc_align_test_fail("allocate star segment path"));
     }
 
     lrc_ctc_path_set_star_step(&path, 0, 1, star_token_id);
@@ -6623,7 +6623,7 @@ ctc_align_test_path_segments_keep_stars(void) {
                                   0.10f,
                                   &segments,
                                   &result)) {
-        return ctc_align_test_fail("keep star path segments");
+        fatal(ctc_align_test_fail("keep star path segments"));
     }
 
     ASSERT(segments.segment_count == 4);
@@ -6651,10 +6651,10 @@ ctc_align_test_path_segments_keep_stars(void) {
     lrc_ctc_path_segments_destroy(&segments);
     lrc_ctc_path_destroy(&path);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_aligned_intervals_keep_edge_star_order(void) {
     LrcCtcAlignResult result;
     LrcCtcPathSegments segments = {0};
@@ -6663,7 +6663,7 @@ ctc_align_test_aligned_intervals_keep_edge_star_order(void) {
     int32 star_token_id = 3;
 
     if (!lrc_ctc_path_segments_allocate(&segments, 5, &result)) {
-        return ctc_align_test_fail("allocate edge-star interval segments");
+        fatal(ctc_align_test_fail("allocate edge-star interval segments"));
     }
 
     ctc_align_set_path_segment(&segments, 0, -1, 0, 2, star_token_id,
@@ -6683,7 +6683,7 @@ ctc_align_test_aligned_intervals_keep_edge_star_order(void) {
         &intervals,
         &result
     )) {
-        return ctc_align_test_fail("edge-star aligned intervals");
+        fatal(ctc_align_test_fail("edge-star aligned intervals"));
     }
 
     ASSERT(intervals.interval_count == 4);
@@ -6711,10 +6711,10 @@ ctc_align_test_aligned_intervals_keep_edge_star_order(void) {
     lrc_ctc_aligned_token_intervals_destroy(&intervals);
     lrc_ctc_path_segments_destroy(&segments);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_aligned_intervals_keep_segment_star_order(void) {
     LrcCtcAlignResult result;
     LrcCtcPathSegments segments = {0};
@@ -6724,7 +6724,7 @@ ctc_align_test_aligned_intervals_keep_segment_star_order(void) {
     int32 star_token_id = 4;
 
     if (!lrc_ctc_path_segments_allocate(&segments, 6, &result)) {
-        return ctc_align_test_fail("allocate segment-star intervals");
+        fatal(ctc_align_test_fail("allocate segment-star intervals"));
     }
 
     ctc_align_set_path_segment(&segments, 0, -1, 0, 1, star_token_id,
@@ -6745,7 +6745,7 @@ ctc_align_test_aligned_intervals_keep_segment_star_order(void) {
         &intervals,
         &result
     )) {
-        return ctc_align_test_fail("segment-star aligned intervals");
+        fatal(ctc_align_test_fail("segment-star aligned intervals"));
     }
 
     ASSERT(intervals.interval_count == 5);
@@ -6766,11 +6766,11 @@ ctc_align_test_aligned_intervals_keep_segment_star_order(void) {
     lrc_ctc_aligned_token_intervals_destroy(&intervals);
     lrc_ctc_path_segments_destroy(&segments);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_pad_intervals_distributes_blank_frames(void) {
     LrcCtcAlignResult result;
     LrcCtcPathSegments segments = {0};
@@ -6778,7 +6778,7 @@ ctc_align_test_pad_intervals_distributes_blank_frames(void) {
     int32 target_token_ids[] = {1, 2};
 
     if (!lrc_ctc_path_segments_allocate(&segments, 5, &result)) {
-        return ctc_align_test_fail("allocate padded intervals segments");
+        fatal(ctc_align_test_fail("allocate padded intervals segments"));
     }
 
     ctc_align_set_path_segment(&segments, 0, -1, 0, 10, 0, true, false);
@@ -6796,13 +6796,13 @@ ctc_align_test_pad_intervals_distributes_blank_frames(void) {
         &intervals,
         &result
     )) {
-        return ctc_align_test_fail("build padded intervals");
+        fatal(ctc_align_test_fail("build padded intervals"));
     }
     if (!lrc_ctc_pad_token_intervals_with_blanks(&segments,
                                                  0.10f,
                                                  &intervals,
                                                  &result)) {
-        return ctc_align_test_fail("pad intervals with blanks");
+        fatal(ctc_align_test_fail("pad intervals with blanks"));
     }
 
     ASSERT(intervals.interval_count == 2);
@@ -6830,10 +6830,10 @@ ctc_align_test_pad_intervals_distributes_blank_frames(void) {
     lrc_ctc_aligned_token_intervals_destroy(&intervals);
     lrc_ctc_path_segments_destroy(&segments);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_pad_intervals_counts_initial_star(void) {
     LrcCtcAlignResult result;
     LrcCtcPathSegments segments = {0};
@@ -6842,7 +6842,7 @@ ctc_align_test_pad_intervals_counts_initial_star(void) {
     int32 star_token_id = 2;
 
     if (!lrc_ctc_path_segments_allocate(&segments, 6, &result)) {
-        return ctc_align_test_fail("allocate star padding segments");
+        fatal(ctc_align_test_fail("allocate star padding segments"));
     }
 
     ctc_align_set_path_segment(&segments, 0, -1, 0, 10, 0, true, false);
@@ -6863,13 +6863,13 @@ ctc_align_test_pad_intervals_counts_initial_star(void) {
         &intervals,
         &result
     )) {
-        return ctc_align_test_fail("build star padded intervals");
+        fatal(ctc_align_test_fail("build star padded intervals"));
     }
     if (!lrc_ctc_pad_token_intervals_with_blanks(&segments,
                                                  0.10f,
                                                  &intervals,
                                                  &result)) {
-        return ctc_align_test_fail("pad star intervals with blanks");
+        fatal(ctc_align_test_fail("pad star intervals with blanks"));
     }
 
     ASSERT(intervals.interval_count == 3);
@@ -6895,10 +6895,10 @@ ctc_align_test_pad_intervals_counts_initial_star(void) {
     lrc_ctc_aligned_token_intervals_destroy(&intervals);
     lrc_ctc_path_segments_destroy(&segments);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_token_spans_from_backtracked_path(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6920,7 +6920,7 @@ ctc_align_test_token_spans_from_backtracked_path(void) {
                                         2,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score span path");
+        fatal(ctc_align_test_fail("score span path"));
     }
     if (!lrc_ctc_trellis_backtrack(&trellis,
                                    &emissions,
@@ -6929,14 +6929,14 @@ ctc_align_test_token_spans_from_backtracked_path(void) {
                                    0,
                                    &path,
                                    &result)) {
-        return ctc_align_test_fail("backtrack span path");
+        fatal(ctc_align_test_fail("backtrack span path"));
     }
     if (!lrc_ctc_path_to_token_spans(&path,
                                      &emissions,
                                      0.5f,
                                      &spans,
                                      &result)) {
-        return ctc_align_test_fail("path to token spans");
+        fatal(ctc_align_test_fail("path to token spans"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -6972,10 +6972,10 @@ ctc_align_test_token_spans_from_backtracked_path(void) {
     lrc_ctc_path_destroy(&path);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_token_spans_preserve_repeated_tokens(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -6997,7 +6997,7 @@ ctc_align_test_token_spans_preserve_repeated_tokens(void) {
                                         2,
                                         0,
                                         &result)) {
-        return ctc_align_test_fail("score repeated spans");
+        fatal(ctc_align_test_fail("score repeated spans"));
     }
     if (!lrc_ctc_trellis_backtrack(&trellis,
                                    &emissions,
@@ -7006,14 +7006,14 @@ ctc_align_test_token_spans_preserve_repeated_tokens(void) {
                                    0,
                                    &path,
                                    &result)) {
-        return ctc_align_test_fail("backtrack repeated spans");
+        fatal(ctc_align_test_fail("backtrack repeated spans"));
     }
     if (!lrc_ctc_path_to_token_spans(&path,
                                      &emissions,
                                      0.25f,
                                      &spans,
                                      &result)) {
-        return ctc_align_test_fail("repeated path to spans");
+        fatal(ctc_align_test_fail("repeated path to spans"));
     }
 
     ASSERT(spans.span_count == 2);
@@ -7034,10 +7034,10 @@ ctc_align_test_token_spans_preserve_repeated_tokens(void) {
     lrc_ctc_path_destroy(&path);
     lrc_ctc_trellis_destroy(&trellis);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_token_spans_collapse_contiguous_steps(void) {
     LrcCtcAlignResult result;
     LrcCtcPath path = {0};
@@ -7052,7 +7052,7 @@ ctc_align_test_token_spans_collapse_contiguous_steps(void) {
 
     ctc_align_make_emissions(&emissions, values, 4, 3);
     if (!lrc_ctc_path_allocate(&path, 4, &result)) {
-        return ctc_align_test_fail("allocate manual span path");
+        fatal(ctc_align_test_fail("allocate manual span path"));
     }
 
     lrc_ctc_path_set_token_step(&path, 0, 1, 0, 1);
@@ -7064,7 +7064,7 @@ ctc_align_test_token_spans_collapse_contiguous_steps(void) {
                                      0.1f,
                                      &spans,
                                      &result)) {
-        return ctc_align_test_fail("collapse contiguous spans");
+        fatal(ctc_align_test_fail("collapse contiguous spans"));
     }
 
     ASSERT(spans.span_count == 2);
@@ -7089,10 +7089,10 @@ ctc_align_test_token_spans_collapse_contiguous_steps(void) {
     lrc_ctc_token_spans_destroy(&spans);
     lrc_ctc_path_destroy(&path);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_token_spans_reject_bad_inputs(void) {
     LrcCtcAlignResult result;
     LrcCtcPath path = {0};
@@ -7109,7 +7109,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     0.1f,
                                     &spans,
                                     &result)) {
-        return ctc_align_test_fail("missing path accepted");
+        fatal(ctc_align_test_fail("missing path accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
@@ -7118,12 +7118,12 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     0.1f,
                                     &spans,
                                     &result)) {
-        return ctc_align_test_fail("empty path accepted");
+        fatal(ctc_align_test_fail("empty path accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
 
     if (!lrc_ctc_path_allocate(&path, 2, &result)) {
-        return ctc_align_test_fail("allocate invalid span path");
+        fatal(ctc_align_test_fail("allocate invalid span path"));
     }
     lrc_ctc_path_set_blank_step(&path, 0, 0, 0);
     lrc_ctc_path_set_token_step(&path, 1, 1, 0, 1);
@@ -7132,7 +7132,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     0.0f,
                                     &spans,
                                     &result)) {
-        return ctc_align_test_fail("zero frame duration accepted");
+        fatal(ctc_align_test_fail("zero frame duration accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_FRAME_DURATION);
 
@@ -7142,18 +7142,18 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     0.1f,
                                     &spans,
                                     &result)) {
-        return ctc_align_test_fail("bad path token id accepted");
+        fatal(ctc_align_test_fail("bad path token id accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
     ASSERT(spans.spans == NULL);
 
     lrc_ctc_path_destroy(&path);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_token_spans_reject_out_of_order_targets(void) {
     LrcCtcAlignResult result;
     LrcCtcPath path = {0};
@@ -7165,7 +7165,7 @@ ctc_align_test_token_spans_reject_out_of_order_targets(void) {
 
     ctc_align_make_emissions(&emissions, values, 1, 2);
     if (!lrc_ctc_path_allocate(&path, 1, &result)) {
-        return ctc_align_test_fail("allocate out-of-order span path");
+        fatal(ctc_align_test_fail("allocate out-of-order span path"));
     }
 
     lrc_ctc_path_set_token_step(&path, 0, 3, 1, 1);
@@ -7174,20 +7174,20 @@ ctc_align_test_token_spans_reject_out_of_order_targets(void) {
                                     0.1f,
                                     &spans,
                                     &result)) {
-        return ctc_align_test_fail("out-of-order path target accepted");
+        fatal(ctc_align_test_fail("out-of-order path target accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
     ASSERT(spans.spans == NULL);
 
     lrc_ctc_path_destroy(&path);
 
-    return 0;
+    return;
 }
 
 
 
 
-static int32
+static void
 ctc_align_test_padded_token_spans_use_blank_boundaries(void) {
     LrcCtcAlignResult result;
     LrcCtcPath path = {0};
@@ -7202,7 +7202,7 @@ ctc_align_test_padded_token_spans_use_blank_boundaries(void) {
 
     ctc_align_make_emissions(&emissions, values, 30, 3);
     if (!lrc_ctc_path_allocate(&path, 30, &result)) {
-        return ctc_align_test_fail("allocate padded token path");
+        fatal(ctc_align_test_fail("allocate padded token path"));
     }
 
     for (int32 i = 0; i < path.step_count; i += 1) {
@@ -7222,7 +7222,7 @@ ctc_align_test_padded_token_spans_use_blank_boundaries(void) {
                                             0.01f,
                                             &spans,
                                             &result)) {
-        return ctc_align_test_fail("convert padded token spans");
+        fatal(ctc_align_test_fail("convert padded token spans"));
     }
 
     ASSERT(spans.span_count == 2);
@@ -7250,11 +7250,11 @@ ctc_align_test_padded_token_spans_use_blank_boundaries(void) {
     lrc_ctc_token_spans_destroy(&spans);
     lrc_ctc_path_destroy(&path);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     LrcLyrics lyrics = {0};
     LrcLyricsNormalized normalized = {0};
@@ -7479,13 +7479,13 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     test_remove_tree(temp_dir);
 
     if (!ok) {
-        return ctc_align_test_fail("synthetic active lrc timing");
+        fatal(ctc_align_test_fail("synthetic active lrc timing"));
     }
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_word_spans_use_active_token_boundaries(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -7502,13 +7502,13 @@ ctc_align_test_word_spans_use_active_token_boundaries(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load active word lyrics");
+        fatal(ctc_align_test_fail("load active word lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make active word token spans");
+        fatal(ctc_align_test_fail("make active word token spans"));
     }
 
     ASSERT(tokens.token_count == 5);
@@ -7524,7 +7524,7 @@ ctc_align_test_word_spans_use_active_token_boundaries(void) {
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert active word spans");
+        fatal(ctc_align_test_fail("convert active word spans"));
     }
 
     ASSERT(word_spans.span_count == 2);
@@ -7554,10 +7554,10 @@ ctc_align_test_word_spans_use_active_token_boundaries(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_segment_word_spans_use_active_token_boundaries(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized = {0};
@@ -7572,28 +7572,28 @@ ctc_align_test_segment_word_spans_use_active_token_boundaries(void) {
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
-        return ctc_align_test_fail("load active segment lyrics");
+        fatal(ctc_align_test_fail("load active segment lyrics"));
     }
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
-        return ctc_align_test_fail("normalize active segment lyrics");
+        fatal(ctc_align_test_fail("normalize active segment lyrics"));
     }
     if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load active segment tokenizer");
+        fatal(ctc_align_test_fail("load active segment tokenizer"));
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize active segment lyrics");
+        fatal(ctc_align_test_fail("tokenize active segment lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make active segment token spans");
+        fatal(ctc_align_test_fail("make active segment token spans"));
     }
 
     ASSERT(tokens.token_count == 11);
@@ -7613,7 +7613,7 @@ ctc_align_test_segment_word_spans_use_active_token_boundaries(void) {
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert active segment word spans");
+        fatal(ctc_align_test_fail("convert active segment word spans"));
     }
 
     ASSERT(word_spans.span_count == 2);
@@ -7643,10 +7643,10 @@ ctc_align_test_segment_word_spans_use_active_token_boundaries(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_word_spans_group_generated_words(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -7663,20 +7663,20 @@ ctc_align_test_word_spans_group_generated_words(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load generated word lyrics");
+        fatal(ctc_align_test_fail("load generated word lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make generated token spans");
+        fatal(ctc_align_test_fail("make generated token spans"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert generated word spans");
+        fatal(ctc_align_test_fail("convert generated word spans"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -7724,11 +7724,11 @@ ctc_align_test_word_spans_group_generated_words(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_word_spans_use_skipped_space_gaps(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized = {0};
@@ -7742,32 +7742,32 @@ ctc_align_test_word_spans_use_skipped_space_gaps(void) {
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
-        return ctc_align_test_fail("load skipped-space lyrics");
+        fatal(ctc_align_test_fail("load skipped-space lyrics"));
     }
     if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
-        return ctc_align_test_fail("normalize skipped-space lyrics");
+        fatal(ctc_align_test_fail("normalize skipped-space lyrics"));
     }
     if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load no-space word tokenizer");
+        fatal(ctc_align_test_fail("load no-space word tokenizer"));
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize skipped-space lyrics");
+        fatal(ctc_align_test_fail("tokenize skipped-space lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make skipped-space token spans");
+        fatal(ctc_align_test_fail("make skipped-space token spans"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert skipped-space word spans");
+        fatal(ctc_align_test_fail("convert skipped-space word spans"));
     }
 
     ASSERT(strequal2(normalized.text, normalized.text_len, "hi bob", 6));
@@ -7797,10 +7797,10 @@ ctc_align_test_word_spans_use_skipped_space_gaps(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_word_spans_handle_removed_punctuation(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -7817,21 +7817,21 @@ ctc_align_test_word_spans_handle_removed_punctuation(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load punctuation word lyrics");
+        fatal(ctc_align_test_fail("load punctuation word lyrics"));
     }
     ASSERT(strequal2(normalized.text, normalized.text_len, "ab c", 4));
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.5f,
                                                 0.25f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make punctuation token spans");
+        fatal(ctc_align_test_fail("make punctuation token spans"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert punctuation word spans");
+        fatal(ctc_align_test_fail("convert punctuation word spans"));
     }
 
     ASSERT(word_spans.span_count == 2);
@@ -7860,11 +7860,11 @@ ctc_align_test_word_spans_handle_removed_punctuation(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_word_spans_follow_reference_segments(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized = {0};
@@ -7879,35 +7879,35 @@ ctc_align_test_word_spans_follow_reference_segments(void) {
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
-        return ctc_align_test_fail("load reference segment lyrics");
+        fatal(ctc_align_test_fail("load reference segment lyrics"));
     }
 
     lrc_lyrics_preprocess_options_init(&options);
     options.split_size = LRC_LYRICS_PREPROCESS_SPLIT_SIZE_WORD;
     if (!lrc_lyrics_normalize_with_options(&lyrics, &normalized, &options)) {
-        return ctc_align_test_fail("normalize reference segment lyrics");
+        fatal(ctc_align_test_fail("normalize reference segment lyrics"));
     }
     if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load reference segment tokenizer");
+        fatal(ctc_align_test_fail("load reference segment tokenizer"));
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize reference segment lyrics");
+        fatal(ctc_align_test_fail("tokenize reference segment lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make reference segment token spans");
+        fatal(ctc_align_test_fail("make reference segment token spans"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert reference segment word spans");
+        fatal(ctc_align_test_fail("convert reference segment word spans"));
     }
 
     ASSERT(strequal2(normalized.text,
@@ -7943,10 +7943,10 @@ ctc_align_test_word_spans_follow_reference_segments(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_word_spans_keep_repeated_token_positions(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -7963,14 +7963,14 @@ ctc_align_test_word_spans_keep_repeated_token_positions(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load repeated word lyrics");
+        fatal(ctc_align_test_fail("load repeated word lyrics"));
     }
     ASSERT(tokens.token_count == 2);
     ASSERT(tokens.tokens[0].token_id == tokens.tokens[1].token_id);
     if (!lrc_ctc_token_spans_allocate(&token_spans,
                                       tokens.token_count,
                                       &result)) {
-        return ctc_align_test_fail("allocate repeated word token spans");
+        fatal(ctc_align_test_fail("allocate repeated word token spans"));
     }
 
     token_spans.spans[0].token_index = 0;
@@ -7994,7 +7994,7 @@ ctc_align_test_word_spans_keep_repeated_token_positions(void) {
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert repeated word spans");
+        fatal(ctc_align_test_fail("convert repeated word spans"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -8023,10 +8023,10 @@ ctc_align_test_word_spans_keep_repeated_token_positions(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized = {0};
@@ -8050,19 +8050,19 @@ ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
-        return ctc_align_test_fail("load repeated boundary lyrics");
+        fatal(ctc_align_test_fail("load repeated boundary lyrics"));
     }
     if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
-        return ctc_align_test_fail("normalize repeated boundary lyrics");
+        fatal(ctc_align_test_fail("normalize repeated boundary lyrics"));
     }
     if (!ctc_align_load_no_space_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load repeated boundary tokenizer");
+        fatal(ctc_align_test_fail("load repeated boundary tokenizer"));
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize repeated boundary lyrics");
+        fatal(ctc_align_test_fail("tokenize repeated boundary lyrics"));
     }
     ASSERT(tokens.token_count == 2);
     ASSERT(tokens.tokens[0].token_id == tokens.tokens[1].token_id);
@@ -8096,7 +8096,7 @@ ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
                                         token_count,
                                         tokenizer.blank_id,
                                         &result)) {
-        return ctc_align_test_fail("score repeated boundary path");
+        fatal(ctc_align_test_fail("score repeated boundary path"));
     }
     if (!lrc_ctc_trellis_backtrack(&trellis,
                                    &emissions,
@@ -8105,27 +8105,27 @@ ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
                                    tokenizer.blank_id,
                                    &path,
                                    &result)) {
-        return ctc_align_test_fail("backtrack repeated boundary path");
+        fatal(ctc_align_test_fail("backtrack repeated boundary path"));
     }
     if (!lrc_ctc_path_to_token_spans(&path,
                                      &emissions,
                                      0.10f,
                                      &token_spans,
                                      &result)) {
-        return ctc_align_test_fail("span repeated boundary path");
+        fatal(ctc_align_test_fail("span repeated boundary path"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("word repeated boundary path");
+        fatal(ctc_align_test_fail("word repeated boundary path"));
     }
     if (!lrc_ctc_word_spans_to_line_timestamps(&word_spans,
                                                &normalized,
                                                &line_timestamps,
                                                &result)) {
-        return ctc_align_test_fail("line repeated boundary path");
+        fatal(ctc_align_test_fail("line repeated boundary path"));
     }
 
     ASSERT(path.step_count == 5);
@@ -8172,10 +8172,10 @@ ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_word_spans_reject_bad_inputs(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -8191,7 +8191,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &normalized,
                                           &word_spans,
                                           &result)) {
-        return ctc_align_test_fail("missing token spans accepted");
+        fatal(ctc_align_test_fail("missing token spans accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
@@ -8201,13 +8201,13 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load bad-input word lyrics");
+        fatal(ctc_align_test_fail("load bad-input word lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make bad-input token spans");
+        fatal(ctc_align_test_fail("make bad-input token spans"));
     }
 
     token_spans.span_count -= 1;
@@ -8216,7 +8216,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &normalized,
                                           &word_spans,
                                           &result)) {
-        return ctc_align_test_fail("short token spans accepted");
+        fatal(ctc_align_test_fail("short token spans accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
     token_spans.span_count += 1;
@@ -8227,7 +8227,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &normalized,
                                           &word_spans,
                                           &result)) {
-        return ctc_align_test_fail("mismatched token span accepted");
+        fatal(ctc_align_test_fail("mismatched token span accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
     token_spans.spans[0].token_id = tokens.tokens[0].token_id;
@@ -8238,7 +8238,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &normalized,
                                           &word_spans,
                                           &result)) {
-        return ctc_align_test_fail("mixed word/space token accepted");
+        fatal(ctc_align_test_fail("mixed word/space token accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT);
 
@@ -8249,10 +8249,10 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_maxwell_word_line_mapping(void) {
     LrcLyrics lyrics = {0};
     LrcLyricsNormalized normalized = {0};
@@ -8274,37 +8274,37 @@ ctc_align_test_maxwell_word_line_mapping(void) {
 
     lyrics_path = getenv("LRC_TEST_MAXWELL_TXT");
     if (lyrics_path == NULL) {
-        return 0;
+        return;
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
-        return ctc_align_test_fail("load maxwell word lyrics");
+        fatal(ctc_align_test_fail("load maxwell word lyrics"));
     }
     if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
-        return ctc_align_test_fail("normalize maxwell word lyrics");
+        fatal(ctc_align_test_fail("normalize maxwell word lyrics"));
     }
     if (!ctc_align_load_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load maxwell word tokenizer");
+        fatal(ctc_align_test_fail("load maxwell word tokenizer"));
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize maxwell word lyrics");
+        fatal(ctc_align_test_fail("tokenize maxwell word lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.02f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make maxwell word token spans");
+        fatal(ctc_align_test_fail("make maxwell word token spans"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert maxwell word spans");
+        fatal(ctc_align_test_fail("convert maxwell word spans"));
     }
 
     ASSERT(word_spans.span_count == LENGTH(expected_lines));
@@ -8339,12 +8339,12 @@ ctc_align_test_maxwell_word_line_mapping(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
 
 
-static int32
+static void
 ctc_align_test_line_timestamps_from_generated_words(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -8362,26 +8362,26 @@ ctc_align_test_line_timestamps_from_generated_words(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load generated line lyrics");
+        fatal(ctc_align_test_fail("load generated line lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make generated line token spans");
+        fatal(ctc_align_test_fail("make generated line token spans"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert generated line word spans");
+        fatal(ctc_align_test_fail("convert generated line word spans"));
     }
     if (!lrc_ctc_word_spans_to_line_timestamps(&word_spans,
                                                &normalized,
                                                &line_timestamps,
                                                &result)) {
-        return ctc_align_test_fail("convert generated line timestamps");
+        fatal(ctc_align_test_fail("convert generated line timestamps"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -8433,10 +8433,10 @@ ctc_align_test_line_timestamps_from_generated_words(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_line_timestamps_reject_bad_inputs(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized;
@@ -8452,7 +8452,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &normalized,
                                               &line_timestamps,
                                               &result)) {
-        return ctc_align_test_fail("missing word spans accepted");
+        fatal(ctc_align_test_fail("missing word spans accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
@@ -8462,20 +8462,20 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                          &normalized,
                                          &tokenizer,
                                          &tokens)) {
-        return ctc_align_test_fail("load bad line lyrics");
+        fatal(ctc_align_test_fail("load bad line lyrics"));
     }
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.0f,
                                                 0.10f,
                                                 &token_spans)) {
-        return ctc_align_test_fail("make bad line token spans");
+        fatal(ctc_align_test_fail("make bad line token spans"));
     }
     if (!lrc_ctc_token_spans_to_word_spans(&token_spans,
                                            &tokens,
                                            &normalized,
                                            &word_spans,
                                            &result)) {
-        return ctc_align_test_fail("convert bad line word spans");
+        fatal(ctc_align_test_fail("convert bad line word spans"));
     }
 
     word_spans.spans[0].line_index = -1;
@@ -8483,7 +8483,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &normalized,
                                               &line_timestamps,
                                               &result)) {
-        return ctc_align_test_fail("bad word line accepted");
+        fatal(ctc_align_test_fail("bad word line accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
     word_spans.spans[0].line_index = 0;
@@ -8494,7 +8494,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &normalized,
                                               &line_timestamps,
                                               &result)) {
-        return ctc_align_test_fail("bad word timing accepted");
+        fatal(ctc_align_test_fail("bad word timing accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
 
@@ -8506,10 +8506,10 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_maxwell_line_timestamp_comparison(void) {
     LrcLyrics lyrics = {0};
     LrcLyricsNormalized normalized = {0};
@@ -8534,28 +8534,28 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
         lrc_path = "next-phase/maxwell.lrc";
     }
     if (!util_file_exists(lyrics_path) || !util_file_exists(lrc_path)) {
-        return 0;
+        return;
     }
 
     if (!lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
-        return ctc_align_test_fail("load maxwell line lyrics");
+        fatal(ctc_align_test_fail("load maxwell line lyrics"));
     }
     if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
-        return ctc_align_test_fail("normalize maxwell line lyrics");
+        fatal(ctc_align_test_fail("normalize maxwell line lyrics"));
     }
 
     if (!read_entire_file(lrc_path, &lrc_text, &lrc_text_len)) {
-        return ctc_align_test_fail("read maxwell expected lrc");
+        fatal(ctc_align_test_fail("read maxwell expected lrc"));
     }
     if (!lrc_parse_text(&parsed, lrc_text, lrc_text_len, &parse_result)) {
         free2(lrc_text, ((int32)lrc_text_len + 1)*SIZEOF(*lrc_text));
-        return ctc_align_test_fail("parse maxwell expected lrc");
+        fatal(ctc_align_test_fail("parse maxwell expected lrc"));
     }
     if (!lrc_ctc_word_spans_allocate(&word_spans,
                                      parsed.timestamped_line_count,
                                      &align_result)) {
         free2(lrc_text, ((int32)lrc_text_len + 1)*SIZEOF(*lrc_text));
-        return ctc_align_test_fail("allocate maxwell expected words");
+        fatal(ctc_align_test_fail("allocate maxwell expected words"));
     }
 
     word_index = 0;
@@ -8594,7 +8594,7 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
                                                &line_timestamps,
                                                &align_result)) {
         free2(lrc_text, ((int32)lrc_text_len + 1)*SIZEOF(*lrc_text));
-        return ctc_align_test_fail("convert maxwell line timestamps");
+        fatal(ctc_align_test_fail("convert maxwell line timestamps"));
     }
 
     ASSERT(line_timestamps.line_count == parsed.line_count);
@@ -8626,10 +8626,10 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_full_synthetic_alignment_pipeline(void) {
     LrcLyrics lyrics;
     LrcLyricsNormalized normalized = {0};
@@ -8652,21 +8652,21 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!ctc_align_load_lyrics_text(&lyrics, text, strlen32(text))) {
-        return ctc_align_test_fail("load synthetic lyrics");
+        fatal(ctc_align_test_fail("load synthetic lyrics"));
     }
     if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
-        return ctc_align_test_fail("normalize synthetic lyrics");
+        fatal(ctc_align_test_fail("normalize synthetic lyrics"));
     }
     ASSERT(strequal2(normalized.text, normalized.text_len, "ab cab", 6));
 
     if (!ctc_align_load_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load synthetic tokenizer");
+        fatal(ctc_align_test_fail("load synthetic tokenizer"));
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize synthetic lyrics");
+        fatal(ctc_align_test_fail("tokenize synthetic lyrics"));
     }
 
     ASSERT(tokens.token_count == normalized.text_len);
@@ -8698,7 +8698,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
                                         token_count,
                                         tokenizer.blank_id,
                                         &align_result)) {
-        return ctc_align_test_fail("score synthetic full path");
+        fatal(ctc_align_test_fail("score synthetic full path"));
     }
     if (!lrc_ctc_trellis_backtrack(&trellis,
                                    &emissions,
@@ -8707,7 +8707,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
                                    tokenizer.blank_id,
                                    &path,
                                    &align_result)) {
-        return ctc_align_test_fail("backtrack synthetic full path");
+        fatal(ctc_align_test_fail("backtrack synthetic full path"));
     }
 
     frame_duration_seconds = 0.125f;
@@ -8716,7 +8716,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
                                      frame_duration_seconds,
                                      &spans,
                                      &align_result)) {
-        return ctc_align_test_fail("span synthetic full path");
+        fatal(ctc_align_test_fail("span synthetic full path"));
     }
 
     ASSERT(align_result.error == LS_ERROR_NONE);
@@ -8752,10 +8752,10 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_maxwell_fake_token_timing(void) {
     LrcLyrics lyrics = {0};
     LrcLyricsNormalized normalized = {0};
@@ -8778,24 +8778,24 @@ ctc_align_test_maxwell_fake_token_timing(void) {
 
     lyrics_path = getenv("LRC_TEST_MAXWELL_TXT");
     if (lyrics_path == NULL) {
-        return 0;
+        return;
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!lrc_lyrics_load_file(&lyrics, lyrics_path, &lyrics_result)) {
-        return ctc_align_test_fail("load maxwell lyrics");
+        fatal(ctc_align_test_fail("load maxwell lyrics"));
     }
     if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
-        return ctc_align_test_fail("normalize maxwell lyrics");
+        fatal(ctc_align_test_fail("normalize maxwell lyrics"));
     }
     if (!ctc_align_load_alphabet_tokenizer(&tokenizer)) {
-        return ctc_align_test_fail("load maxwell test tokenizer");
+        fatal(ctc_align_test_fail("load maxwell test tokenizer"));
     }
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
                                                &tokens,
                                                &tokenize_result)) {
-        return ctc_align_test_fail("tokenize maxwell lyrics");
+        fatal(ctc_align_test_fail("tokenize maxwell lyrics"));
     }
     ASSERT(tokens.token_count > 0);
 
@@ -8821,7 +8821,7 @@ ctc_align_test_maxwell_fake_token_timing(void) {
                                         token_count,
                                         tokenizer.blank_id,
                                         &align_result)) {
-        return ctc_align_test_fail("score maxwell fake path");
+        fatal(ctc_align_test_fail("score maxwell fake path"));
     }
     if (!lrc_ctc_trellis_backtrack(&trellis,
                                    &emissions,
@@ -8830,14 +8830,14 @@ ctc_align_test_maxwell_fake_token_timing(void) {
                                    tokenizer.blank_id,
                                    &path,
                                    &align_result)) {
-        return ctc_align_test_fail("backtrack maxwell fake path");
+        fatal(ctc_align_test_fail("backtrack maxwell fake path"));
     }
     if (!lrc_ctc_path_to_token_spans(&path,
                                      &emissions,
                                      0.02f,
                                      &spans,
                                      &align_result)) {
-        return ctc_align_test_fail("maxwell fake path to spans");
+        fatal(ctc_align_test_fail("maxwell fake path to spans"));
     }
 
     ASSERT(spans.span_count == token_count);
@@ -8862,11 +8862,11 @@ ctc_align_test_maxwell_fake_token_timing(void) {
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_align_test_full_synthetic_lrc_pipeline(void) {
     AudioTestSineOptions sine_options;
     LrcCtcAudioConfig audio_config;
@@ -8911,7 +8911,7 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     bool ok;
 
     if (!test_command_exists("ffmpeg")) {
-        return 0;
+        return;
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
@@ -9125,13 +9125,13 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     test_remove_tree(temp_dir);
 
     if (!ok) {
-        return ctc_align_test_fail("full synthetic lrc pipeline");
+        fatal(ctc_align_test_fail("full synthetic lrc pipeline"));
     }
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     LrcCtcAudioConfig audio_config;
     LrcCtcAudioResult audio_result;
@@ -9193,7 +9193,7 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     if (!test_command_exists("ffmpeg") || !util_file_exists(lyrics_path)
         || !util_file_exists(vocals_path)
         || !util_file_exists(expected_lrc_path)) {
-        return 0;
+        return;
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
@@ -9421,10 +9421,10 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     test_remove_tree(temp_dir);
 
     if (!ok) {
-        return ctc_align_test_fail("maxwell fixture lrc pipeline");
+        fatal(ctc_align_test_fail("maxwell fixture lrc pipeline"));
     }
 
-    return 0;
+    return;
 }
 
 
@@ -9443,7 +9443,7 @@ ctc_align_set_rank3_row_preference(
     return;
 }
 
-static int32
+static void
 ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
     LrcCtcAudio audio = {0};
     LrcCtcModelConfig model_config;
@@ -9659,13 +9659,13 @@ ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
     free2(values, raw_value_count*SIZEOF(*values));
 
     if (!ok) {
-        return ctc_align_test_fail("rank-3 trimmed fake inference pipeline");
+        fatal(ctc_align_test_fail("rank-3 trimmed fake inference pipeline"));
     }
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_align_test_prepare_rejects_invalid_emissions(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
@@ -9673,202 +9673,88 @@ ctc_align_test_prepare_rejects_invalid_emissions(void) {
     float values[] = {-0.1f, -0.2f};
 
     if (lrc_ctc_trellis_prepare(&trellis, NULL, 1, 0, &result)) {
-        return ctc_align_test_fail("missing emissions accepted");
+        fatal(ctc_align_test_fail("missing emissions accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     ctc_align_make_emissions(&emissions, values, 1, 2);
     emissions.value_count = 1;
     if (lrc_ctc_trellis_prepare(&trellis, &emissions, 1, 0, &result)) {
-        return ctc_align_test_fail("bad emissions value count accepted");
+        fatal(ctc_align_test_fail("bad emissions value count accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_EMISSIONS);
 
     ctc_align_make_emissions(&emissions, values, 1, 2);
     if (lrc_ctc_trellis_prepare(&trellis, &emissions, 1, 2, &result)) {
-        return ctc_align_test_fail("bad blank token accepted");
+        fatal(ctc_align_test_fail("bad blank token accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_BLANK_TOKEN);
     ASSERT(result.token_index == 2);
 
     ASSERT(trellis.scores == NULL);
 
-    return 0;
+    return;
 }
 
 int32
 main(void) {
-    if (ctc_align_test_empty_initializers() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_graph_build_layout() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_graph_build_edge_stars() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_graph_build_segment_stars() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_graph_rejects_bad_inputs() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_graph_transition_rules() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_required_frame_count_for_tokens() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_score_rejects_too_few_repeated_frames() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_allocate_initializes_to_negative_infinity() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_rejects_invalid_dimensions() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_prepare_initializes_start_state() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_prepare_rejects_invalid_emissions() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_trellis_uses_graph_states() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_forward_scores_ctc_skip_transition() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_best_final_state_selection() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_forward_scores_simple_path() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_forward_prefers_blank_stay() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_forward_rejects_bad_targets() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_backtracks_simple_path() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_backtracks_repeated_tokens() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_backtracks_edge_stars() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_backtracks_segment_stars() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_edge_stars_reject_bad_star_token() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_backtrack_rejects_impossible_alignment() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_backtrack_rejects_invalid_trellis() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_path_segments_merge_blanks_and_tokens() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_path_segments_split_repeated_token_after_blank() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_path_segments_keep_stars() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_aligned_intervals_keep_edge_star_order() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_aligned_intervals_keep_segment_star_order() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_pad_intervals_distributes_blank_frames() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_pad_intervals_counts_initial_star() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_token_spans_from_backtracked_path() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_token_spans_preserve_repeated_tokens() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_token_spans_collapse_contiguous_steps() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_token_spans_reject_bad_inputs() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_token_spans_reject_out_of_order_targets() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_padded_token_spans_use_blank_boundaries() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_synthetic_lrc_uses_active_token_boundaries() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_word_spans_use_active_token_boundaries() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_segment_word_spans_use_active_token_boundaries() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_word_spans_group_generated_words() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_word_spans_use_skipped_space_gaps() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_word_spans_handle_removed_punctuation() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_word_spans_follow_reference_segments() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_word_spans_keep_repeated_token_positions() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_word_spans_reject_bad_inputs() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_line_timestamps_from_generated_words() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_line_timestamps_reject_bad_inputs() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_line_timestamps_repeated_boundary_alignment() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_maxwell_line_timestamp_comparison() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_full_synthetic_alignment_pipeline() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_full_synthetic_lrc_pipeline() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_rank3_trimmed_fake_inference_pipeline() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_maxwell_fixture_lrc_pipeline() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_maxwell_fake_token_timing() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_align_test_maxwell_word_line_mapping() != 0) {
-        fatal(EXIT_FAILURE);
-    }
+    ctc_align_test_empty_initializers();
+    ctc_align_test_graph_build_layout();
+    ctc_align_test_graph_build_edge_stars();
+    ctc_align_test_graph_build_segment_stars();
+    ctc_align_test_graph_rejects_bad_inputs();
+    ctc_align_test_graph_transition_rules();
+    ctc_align_test_required_frame_count_for_tokens();
+    ctc_align_test_score_rejects_too_few_repeated_frames();
+    ctc_align_test_allocate_initializes_to_negative_infinity();
+    ctc_align_test_rejects_invalid_dimensions();
+    ctc_align_test_prepare_initializes_start_state();
+    ctc_align_test_prepare_rejects_invalid_emissions();
+    ctc_align_test_trellis_uses_graph_states();
+    ctc_align_test_forward_scores_ctc_skip_transition();
+    ctc_align_test_best_final_state_selection();
+    ctc_align_test_forward_scores_simple_path();
+    ctc_align_test_forward_prefers_blank_stay();
+    ctc_align_test_forward_rejects_bad_targets();
+    ctc_align_test_backtracks_simple_path();
+    ctc_align_test_backtracks_repeated_tokens();
+    ctc_align_test_backtracks_edge_stars();
+    ctc_align_test_backtracks_segment_stars();
+    ctc_align_test_edge_stars_reject_bad_star_token();
+    ctc_align_test_backtrack_rejects_impossible_alignment();
+    ctc_align_test_backtrack_rejects_invalid_trellis();
+    ctc_align_test_path_segments_merge_blanks_and_tokens();
+    ctc_align_test_path_segments_split_repeated_token_after_blank();
+    ctc_align_test_path_segments_keep_stars();
+    ctc_align_test_aligned_intervals_keep_edge_star_order();
+    ctc_align_test_aligned_intervals_keep_segment_star_order();
+    ctc_align_test_pad_intervals_distributes_blank_frames();
+    ctc_align_test_pad_intervals_counts_initial_star();
+    ctc_align_test_token_spans_from_backtracked_path();
+    ctc_align_test_token_spans_preserve_repeated_tokens();
+    ctc_align_test_token_spans_collapse_contiguous_steps();
+    ctc_align_test_token_spans_reject_bad_inputs();
+    ctc_align_test_token_spans_reject_out_of_order_targets();
+    ctc_align_test_padded_token_spans_use_blank_boundaries();
+    ctc_align_test_synthetic_lrc_uses_active_token_boundaries();
+    ctc_align_test_word_spans_use_active_token_boundaries();
+    ctc_align_test_segment_word_spans_use_active_token_boundaries();
+    ctc_align_test_word_spans_group_generated_words();
+    ctc_align_test_word_spans_use_skipped_space_gaps();
+    ctc_align_test_word_spans_handle_removed_punctuation();
+    ctc_align_test_word_spans_follow_reference_segments();
+    ctc_align_test_word_spans_keep_repeated_token_positions();
+    ctc_align_test_word_spans_reject_bad_inputs();
+    ctc_align_test_line_timestamps_from_generated_words();
+    ctc_align_test_line_timestamps_reject_bad_inputs();
+    ctc_align_test_line_timestamps_repeated_boundary_alignment();
+    ctc_align_test_maxwell_line_timestamp_comparison();
+    ctc_align_test_full_synthetic_alignment_pipeline();
+    ctc_align_test_full_synthetic_lrc_pipeline();
+    ctc_align_test_rank3_trimmed_fake_inference_pipeline();
+    ctc_align_test_maxwell_fixture_lrc_pipeline();
+    ctc_align_test_maxwell_fake_token_timing();
+    ctc_align_test_maxwell_word_line_mapping();
 
     exit(EXIT_SUCCESS);
 }

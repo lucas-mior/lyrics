@@ -1113,7 +1113,7 @@ ctc_tokenizer_normalize_lyrics_text(
     return lrc_lyrics_normalize_with_options(lyrics, normalized, &options);
 }
 
-static int32
+static void
 ctc_tokenizer_test_load_minimal_vocabulary(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizerResult result;
@@ -1127,13 +1127,13 @@ ctc_tokenizer_test_load_minimal_vocabulary(void) {
     if (!ctc_tokenizer_write_file(path,
                                   "<blank>\n<space>\na\nb\nc\n<unk>\n")) {
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("write minimal vocabulary");
+        fatal(ctc_tokenizer_test_fail("write minimal vocabulary"));
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (!lrc_ctc_tokenizer_load_file(&tokenizer, path, &result)) {
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("load minimal vocabulary");
+        fatal(ctc_tokenizer_test_fail("load minimal vocabulary"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -1169,10 +1169,10 @@ ctc_tokenizer_test_load_minimal_vocabulary(void) {
     lrc_ctc_tokenizer_destroy(&tokenizer);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_rejects_duplicate_tokens(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizerResult result;
@@ -1183,14 +1183,14 @@ ctc_tokenizer_test_rejects_duplicate_tokens(void) {
     test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path, "<blank>\na\n<space>\na\n")) {
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("write duplicate vocabulary");
+        fatal(ctc_tokenizer_test_fail("write duplicate vocabulary"));
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (lrc_ctc_tokenizer_load_file(&tokenizer, path, &result)) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("duplicate vocabulary accepted");
+        fatal(ctc_tokenizer_test_fail("duplicate vocabulary accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_DUPLICATE_TOKEN);
@@ -1201,10 +1201,10 @@ ctc_tokenizer_test_rejects_duplicate_tokens(void) {
     lrc_ctc_tokenizer_destroy(&tokenizer);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_requires_blank_token(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizerResult result;
@@ -1215,14 +1215,14 @@ ctc_tokenizer_test_requires_blank_token(void) {
     test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path, "a\nb\n<space>\n")) {
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("write no-blank vocabulary");
+        fatal(ctc_tokenizer_test_fail("write no-blank vocabulary"));
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (lrc_ctc_tokenizer_load_file(&tokenizer, path, &result)) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("no-blank vocabulary accepted");
+        fatal(ctc_tokenizer_test_fail("no-blank vocabulary accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_MISSING_BLANK);
@@ -1231,10 +1231,10 @@ ctc_tokenizer_test_requires_blank_token(void) {
     lrc_ctc_tokenizer_destroy(&tokenizer);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_rejects_empty_token_line(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizerResult result;
@@ -1245,14 +1245,14 @@ ctc_tokenizer_test_rejects_empty_token_line(void) {
     test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!ctc_tokenizer_write_file(path, "<blank>\na\n\nb\n")) {
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("write empty-token vocabulary");
+        fatal(ctc_tokenizer_test_fail("write empty-token vocabulary"));
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (lrc_ctc_tokenizer_load_file(&tokenizer, path, &result)) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("empty-token vocabulary accepted");
+        fatal(ctc_tokenizer_test_fail("empty-token vocabulary accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_EMPTY_TOKEN);
@@ -1262,10 +1262,10 @@ ctc_tokenizer_test_rejects_empty_token_line(void) {
     lrc_ctc_tokenizer_destroy(&tokenizer);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_rejects_invalid_utf8(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizerResult result;
@@ -1282,14 +1282,14 @@ ctc_tokenizer_test_rejects_invalid_utf8(void) {
     test_join_path(path, SIZEOF(path), temp_dir, "tokens.txt");
     if (!write_entire_file(path, invalid, SIZEOF(invalid) - 1)) {
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("write invalid UTF-8 vocabulary");
+        fatal(ctc_tokenizer_test_fail("write invalid UTF-8 vocabulary"));
     }
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (lrc_ctc_tokenizer_load_file(&tokenizer, path, &result)) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
         test_remove_tree(temp_dir);
-        return ctc_tokenizer_test_fail("invalid UTF-8 vocabulary accepted");
+        fatal(ctc_tokenizer_test_fail("invalid UTF-8 vocabulary accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_INVALID_UTF8);
@@ -1299,11 +1299,11 @@ ctc_tokenizer_test_rejects_invalid_utf8(void) {
     lrc_ctc_tokenizer_destroy(&tokenizer);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_tokenizer_test_tokenizes_normalized_text(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizedText tokens = {0};
@@ -1316,14 +1316,14 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
     if (!ctc_tokenizer_load_from_text(&tokenizer,
                                       tokenizer_text,
                                       "ctc_tokenizer_tokenize")) {
-        return ctc_tokenizer_test_fail("load tokenization vocabulary");
+        fatal(ctc_tokenizer_test_fail("load tokenization vocabulary"));
     }
     if (!ctc_tokenizer_normalize_lyrics_text(&lyrics,
                                              &normalized,
                                              lyrics_text,
                                              "ctc_tokenizer_lyrics")) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize tokenization lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize tokenization lyrics"));
     }
 
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
@@ -1333,7 +1333,7 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("tokenize normalized lyrics");
+        fatal(ctc_tokenizer_test_fail("tokenize normalized lyrics"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -1360,10 +1360,10 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
     lrc_lyrics_destroy(&lyrics);
     lrc_ctc_tokenizer_destroy(&tokenizer);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizedText tokens = {0};
@@ -1376,14 +1376,14 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
     if (!ctc_tokenizer_load_from_text(&tokenizer,
                                       tokenizer_text,
                                       "ctc_tokenizer_bad_token")) {
-        return ctc_tokenizer_test_fail("load unsupported vocabulary");
+        fatal(ctc_tokenizer_test_fail("load unsupported vocabulary"));
     }
     if (!ctc_tokenizer_normalize_lyrics_text(&lyrics,
                                              &normalized,
                                              lyrics_text,
                                              "ctc_tokenizer_bad_lyrics")) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize unsupported lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize unsupported lyrics"));
     }
 
     if (lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
@@ -1394,7 +1394,7 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("unsupported token accepted");
+        fatal(ctc_tokenizer_test_fail("unsupported token accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_TOKENIZE_UNSUPPORTED_TOKEN);
@@ -1408,10 +1408,10 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
     lrc_lyrics_destroy(&lyrics);
     lrc_ctc_tokenizer_destroy(&tokenizer);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizedText tokens = {0};
@@ -1424,14 +1424,14 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
     if (!ctc_tokenizer_load_from_text(&tokenizer,
                                       tokenizer_text,
                                       "ctc_tokenizer_unknown")) {
-        return ctc_tokenizer_test_fail("load unknown vocabulary");
+        fatal(ctc_tokenizer_test_fail("load unknown vocabulary"));
     }
     if (!ctc_tokenizer_normalize_lyrics_text(&lyrics,
                                              &normalized,
                                              lyrics_text,
                                              "ctc_tokenizer_unknown_lyrics")) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize unknown lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize unknown lyrics"));
     }
 
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
@@ -1442,7 +1442,7 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("tokenize unknown lyrics");
+        fatal(ctc_tokenizer_test_fail("tokenize unknown lyrics"));
     }
 
     ASSERT(tokens.token_count == 3);
@@ -1462,11 +1462,11 @@ ctc_tokenizer_test_unknown_token_covers_one_utf8_rune(void) {
     lrc_lyrics_destroy(&lyrics);
     lrc_ctc_tokenizer_destroy(&tokenizer);
 
-    return 0;
+    return;
 }
 
 
-static int32
+static void
 ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizedText tokens = {0};
@@ -1480,7 +1480,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
     if (!ctc_tokenizer_load_from_text(&tokenizer,
                                       tokenizer_text,
                                       "ctc_tokenizer_word_target")) {
-        return ctc_tokenizer_test_fail("load word target vocabulary");
+        fatal(ctc_tokenizer_test_fail("load word target vocabulary"));
     }
     if (!ctc_tokenizer_normalize_lyrics_text(
         &lyrics,
@@ -1489,7 +1489,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
         "ctc_tokenizer_word_target_lyrics"
     )) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize word target lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize word target lyrics"));
     }
 
     lrc_lyrics_preprocess_options_init(&options);
@@ -1498,7 +1498,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize word target option lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize word target option lyrics"));
     }
 
     ASSERT(strequal2(normalized.text, normalized.text_len, STRLIT("cat")));
@@ -1514,7 +1514,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("tokenize word target lyrics");
+        fatal(ctc_tokenizer_test_fail("tokenize word target lyrics"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -1534,10 +1534,10 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
     lrc_lyrics_destroy(&lyrics);
     lrc_ctc_tokenizer_destroy(&tokenizer);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_marks_segment_starts(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizedText tokens = {0};
@@ -1551,7 +1551,7 @@ ctc_tokenizer_test_marks_segment_starts(void) {
     if (!ctc_tokenizer_load_from_text(&tokenizer,
                                       tokenizer_text,
                                       "ctc_tokenizer_segments")) {
-        return ctc_tokenizer_test_fail("load segment start vocabulary");
+        fatal(ctc_tokenizer_test_fail("load segment start vocabulary"));
     }
     if (!ctc_tokenizer_normalize_lyrics_text(
         &lyrics,
@@ -1560,7 +1560,7 @@ ctc_tokenizer_test_marks_segment_starts(void) {
         "ctc_tokenizer_segment_lyrics"
     )) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize segment start lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize segment start lyrics"));
     }
 
     lrc_lyrics_preprocess_options_init(&options);
@@ -1569,7 +1569,7 @@ ctc_tokenizer_test_marks_segment_starts(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize segment word lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize segment word lyrics"));
     }
 
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
@@ -1580,7 +1580,7 @@ ctc_tokenizer_test_marks_segment_starts(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("tokenize segment start lyrics");
+        fatal(ctc_tokenizer_test_fail("tokenize segment start lyrics"));
     }
 
     ASSERT(tokens.token_count == 4);
@@ -1598,10 +1598,10 @@ ctc_tokenizer_test_marks_segment_starts(void) {
     lrc_lyrics_destroy(&lyrics);
     lrc_ctc_tokenizer_destroy(&tokenizer);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_skips_unmatched_spaces(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizedText tokens = {0};
@@ -1614,14 +1614,14 @@ ctc_tokenizer_test_skips_unmatched_spaces(void) {
     if (!ctc_tokenizer_load_from_text(&tokenizer,
                                       tokenizer_text,
                                       "ctc_tokenizer_skip_spaces")) {
-        return ctc_tokenizer_test_fail("load no-space vocabulary");
+        fatal(ctc_tokenizer_test_fail("load no-space vocabulary"));
     }
     if (!ctc_tokenizer_normalize_lyrics_text(&lyrics,
                                              &normalized,
                                              lyrics_text,
                                              "ctc_tokenizer_skip_lyrics")) {
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("normalize no-space lyrics");
+        fatal(ctc_tokenizer_test_fail("normalize no-space lyrics"));
     }
 
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
@@ -1632,7 +1632,7 @@ ctc_tokenizer_test_skips_unmatched_spaces(void) {
         lrc_lyrics_normalized_destroy(&normalized);
         lrc_lyrics_destroy(&lyrics);
         lrc_ctc_tokenizer_destroy(&tokenizer);
-        return ctc_tokenizer_test_fail("tokenize no-space lyrics");
+        fatal(ctc_tokenizer_test_fail("tokenize no-space lyrics"));
     }
 
     ASSERT(result.error == LS_ERROR_NONE);
@@ -1652,17 +1652,17 @@ ctc_tokenizer_test_skips_unmatched_spaces(void) {
     lrc_lyrics_destroy(&lyrics);
     lrc_ctc_tokenizer_destroy(&tokenizer);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_tokenizer_test_missing_path(void) {
     LrcCtcTokenizer tokenizer;
     LrcCtcTokenizerResult result;
 
     lrc_ctc_tokenizer_init(&tokenizer);
     if (lrc_ctc_tokenizer_load_file(&tokenizer, NULL, &result)) {
-        return ctc_tokenizer_test_fail("missing path accepted");
+        fatal(ctc_tokenizer_test_fail("missing path accepted"));
     }
 
     ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_MISSING_PATH);
@@ -1671,48 +1671,23 @@ ctc_tokenizer_test_missing_path(void) {
 
     lrc_ctc_tokenizer_destroy(&tokenizer);
 
-    return 0;
+    return;
 }
 
 int32
 main(void) {
-    if (ctc_tokenizer_test_load_minimal_vocabulary() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_rejects_duplicate_tokens() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_requires_blank_token() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_rejects_empty_token_line() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_rejects_invalid_utf8() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_missing_path() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_tokenizes_normalized_text() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_rejects_unsupported_normalized_token() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_unknown_token_covers_one_utf8_rune() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_word_target_prevents_multi_character_match()
-        != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_marks_segment_starts() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_tokenizer_test_skips_unmatched_spaces() != 0) {
-        fatal(EXIT_FAILURE);
-    }
+    ctc_tokenizer_test_load_minimal_vocabulary();
+    ctc_tokenizer_test_rejects_duplicate_tokens();
+    ctc_tokenizer_test_requires_blank_token();
+    ctc_tokenizer_test_rejects_empty_token_line();
+    ctc_tokenizer_test_rejects_invalid_utf8();
+    ctc_tokenizer_test_missing_path();
+    ctc_tokenizer_test_tokenizes_normalized_text();
+    ctc_tokenizer_test_rejects_unsupported_normalized_token();
+    ctc_tokenizer_test_unknown_token_covers_one_utf8_rune();
+    ctc_tokenizer_test_word_target_prevents_multi_character_match();
+    ctc_tokenizer_test_marks_segment_starts();
+    ctc_tokenizer_test_skips_unmatched_spaces();
 
     exit(EXIT_SUCCESS);
 }

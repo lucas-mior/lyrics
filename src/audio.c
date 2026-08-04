@@ -1213,7 +1213,7 @@ audio_test_buffer(
     return;
 }
 
-static int32
+static void
 audio_test_compare_helpers(void) {
     AudioBuffer actual;
     AudioBuffer expected;
@@ -1248,35 +1248,35 @@ audio_test_compare_helpers(void) {
     mode_name = AUDIO_COMPARE_MODE_str(AUDIO_COMPARE_MODE_OFFSET_TOLERANT);
     if (!strequal(mode_name, "AUDIO_COMPARE_MODE_OFFSET_TOLERANT")) {
         AUDIO_COMPARE_MODE_str_free(mode_name);
-        return audio_test_fail("compare mode string");
+        fatal(audio_test_fail("compare mode string"));
     }
     AUDIO_COMPARE_MODE_str_free(mode_name);
     if (AUDIO_COMPARE_MODE_parse("SNR") != AUDIO_COMPARE_MODE_SNR) {
-        return audio_test_fail("compare mode parse");
+        fatal(audio_test_fail("compare mode parse"));
     }
 
     audio_compare_options_init(&options);
     options.mode = AUDIO_COMPARE_MODE_STRICT;
     if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
         audio_compare_result_print(&result, "strict equal");
-        return audio_test_fail("strict compare equal buffers");
+        fatal(audio_test_fail("strict compare equal buffers"));
     }
     if (result.max_abs_error != 0.0f) {
         audio_compare_result_print(&result, "strict metric");
-        return audio_test_fail("strict compare metric");
+        fatal(audio_test_fail("strict compare metric"));
     }
 
     actual_left[1] += 0.000001f;
     audio_compare_options_init(&options);
     if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
         audio_compare_result_print(&result, "tolerant close");
-        return audio_test_fail("tolerant compare close buffers");
+        fatal(audio_test_fail("tolerant compare close buffers"));
     }
 
     actual_left[1] += 0.01f;
     if (audio_compare_buffers(&result, &expected, &actual, &options)) {
         audio_compare_result_print(&result, "tolerant far");
-        return audio_test_fail("tolerant compare far buffers");
+        fatal(audio_test_fail("tolerant compare far buffers"));
     }
     actual_left[1] = expected_left[1];
 
@@ -1289,11 +1289,11 @@ audio_test_compare_helpers(void) {
     options.max_offset_frames = 1;
     if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
         audio_compare_result_print(&result, "offset");
-        return audio_test_fail("offset compare shifted buffers");
+        fatal(audio_test_fail("offset compare shifted buffers"));
     }
     if (result.best_offset_frames != 1) {
         audio_compare_result_print(&result, "offset metric");
-        return audio_test_fail("offset compare selected offset");
+        fatal(audio_test_fail("offset compare selected offset"));
     }
 
     audio_test_buffer(&mixture,
@@ -1316,7 +1316,7 @@ audio_test_compare_helpers(void) {
                                                &stem_b,
                                                &options)) {
         audio_compare_result_print(&result, "reconstruction");
-        return audio_test_fail("reconstruction compare");
+        fatal(audio_test_fail("reconstruction compare"));
     }
 
     audio_test_buffer(&actual,
@@ -1328,10 +1328,10 @@ audio_test_compare_helpers(void) {
     options.min_snr_db = 200.0;
     if (!audio_compare_buffers(&result, &expected, &actual, &options)) {
         audio_compare_result_print(&result, "snr equal");
-        return audio_test_fail("snr compare equal buffers");
+        fatal(audio_test_fail("snr compare equal buffers"));
     }
 
-    return 0;
+    return;
 }
 
 static bool
@@ -1343,7 +1343,7 @@ audio_test_double_close(double a, double b, double max_error) {
     return diff <= max_error;
 }
 
-static int32
+static void
 audio_test_generated_wave_helpers(void) {
     AudioBuffer decoded;
     AudioFileInfo info;
@@ -1354,7 +1354,7 @@ audio_test_generated_wave_helpers(void) {
     char temp_dir[PATH_MAX];
 
     if (!test_command_exists("ffmpeg") || !test_command_exists("ffprobe")) {
-        return 0;
+        return;
     }
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "audio_generated");
@@ -1369,29 +1369,29 @@ audio_test_generated_wave_helpers(void) {
     options.amplitude = 0.5f;
     if (!audio_test_generate_sine_wav(mono_path, &options, "ffmpeg")) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generate mono sine wav");
+        fatal(audio_test_fail("generate mono sine wav"));
     }
 
     if (!audio_file_info_read(&info, mono_path, "ffprobe")) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("probe generated mono wav");
+        fatal(audio_test_fail("probe generated mono wav"));
     }
     if (info.sample_rate != 16000) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generated mono sample rate");
+        fatal(audio_test_fail("generated mono sample rate"));
     }
     if (info.channel_count != 1) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generated mono channels");
+        fatal(audio_test_fail("generated mono channels"));
     }
     if (!audio_test_double_close(info.duration_seconds, 0.20, 0.02)) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generated mono duration");
+        fatal(audio_test_fail("generated mono duration"));
     }
     if ((info.estimated_frame_count < 3000)
         || (info.estimated_frame_count > 3400)) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generated mono estimated frames");
+        fatal(audio_test_fail("generated mono estimated frames"));
     }
 
     audio_test_sine_options_init(&options);
@@ -1401,24 +1401,24 @@ audio_test_generated_wave_helpers(void) {
     options.frequency_hz = 880.0;
     if (!audio_test_generate_sine_wav(stereo_path, &options, "ffmpeg")) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generate stereo sine wav");
+        fatal(audio_test_fail("generate stereo sine wav"));
     }
 
     if (!audio_file_info_read(&info, stereo_path, "ffprobe")) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("probe generated stereo wav");
+        fatal(audio_test_fail("probe generated stereo wav"));
     }
     if (info.sample_rate != 48000) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generated stereo sample rate");
+        fatal(audio_test_fail("generated stereo sample rate"));
     }
     if (info.channel_count != 2) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generated stereo channels");
+        fatal(audio_test_fail("generated stereo channels"));
     }
     if (!audio_test_double_close(info.duration_seconds, 0.125, 0.02)) {
         test_remove_tree(temp_dir);
-        return audio_test_fail("generated stereo duration");
+        fatal(audio_test_fail("generated stereo duration"));
     }
 
     audio_buffer_init(&decoded);
@@ -1431,29 +1431,29 @@ audio_test_generated_wave_helpers(void) {
                                 "ffmpeg")) {
         audio_buffer_destroy(&decoded);
         test_remove_tree(temp_dir);
-        return audio_test_fail("decode generated stereo wav");
+        fatal(audio_test_fail("decode generated stereo wav"));
     }
     if (decoded.frame_count != 6000) {
         audio_buffer_destroy(&decoded);
         test_remove_tree(temp_dir);
-        return audio_test_fail("decoded generated stereo frames");
+        fatal(audio_test_fail("decoded generated stereo frames"));
     }
     if ((decoded.sample_rate != 48000) || (decoded.channel_count != 2)) {
         audio_buffer_destroy(&decoded);
         test_remove_tree(temp_dir);
-        return audio_test_fail("decoded generated stereo format");
+        fatal(audio_test_fail("decoded generated stereo format"));
     }
     if ((decoded.left[0] < -1.0f) || (decoded.left[0] > 1.0f)
         || (decoded.right[100] < -1.0f) || (decoded.right[100] > 1.0f)) {
         audio_buffer_destroy(&decoded);
         test_remove_tree(temp_dir);
-        return audio_test_fail("decoded generated stereo range");
+        fatal(audio_test_fail("decoded generated stereo range"));
     }
 
     audio_buffer_destroy(&decoded);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
 int32
@@ -1520,12 +1520,8 @@ main(void) {
     }
     audio_buffer_destroy(&audio);
 
-    if (audio_test_compare_helpers() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (audio_test_generated_wave_helpers() != 0) {
-        fatal(EXIT_FAILURE);
-    }
+    audio_test_compare_helpers();
+    audio_test_generated_wave_helpers();
 
     if (audio_check_ffmpeg("/definitely/missing/ffmpeg")) {
         fatal(audio_test_fail("missing ffmpeg accepted"));

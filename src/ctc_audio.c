@@ -240,7 +240,7 @@ ctc_audio_double_close(double a, double b, double max_error) {
     return diff <= max_error;
 }
 
-static int32
+static void
 ctc_audio_test_defaults_and_invalid_inputs(void) {
     LrcCtcAudio audio = {0};
     LrcCtcAudioConfig config;
@@ -261,34 +261,34 @@ ctc_audio_test_defaults_and_invalid_inputs(void) {
     ASSERT(audio.channel_count == 0);
 
     if (lrc_ctc_audio_decode_file(NULL, "song.wav", &config, &result)) {
-        return ctc_audio_test_fail("invalid null audio accepted");
+        fatal(ctc_audio_test_fail("invalid null audio accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_AUDIO_INVALID_ARGUMENT);
 
     if (lrc_ctc_audio_decode_file(&audio, NULL, &config, &result)) {
-        return ctc_audio_test_fail("missing path accepted");
+        fatal(ctc_audio_test_fail("missing path accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_AUDIO_MISSING_PATH);
 
     config.ffmpeg_path = "";
     if (lrc_ctc_audio_decode_file(&audio, "song.wav", &config, &result)) {
-        return ctc_audio_test_fail("missing ffmpeg accepted");
+        fatal(ctc_audio_test_fail("missing ffmpeg accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_AUDIO_MISSING_FFMPEG);
 
     lrc_ctc_audio_config_init(&config);
     config.sample_rate = 0;
     if (lrc_ctc_audio_decode_file(&audio, "song.wav", &config, &result)) {
-        return ctc_audio_test_fail("invalid sample rate accepted");
+        fatal(ctc_audio_test_fail("invalid sample rate accepted"));
     }
     ASSERT(result.error == LS_ERROR_CTC_AUDIO_INVALID_SAMPLE_RATE);
 
     lrc_ctc_audio_destroy(&audio);
 
-    return 0;
+    return;
 }
 
-static int32
+static void
 ctc_audio_test_generated_decode(
     int32 source_sample_rate,
     int32 source_channel_count,
@@ -307,7 +307,7 @@ ctc_audio_test_generated_decode(
     int64 delta;
 
     if (!test_command_exists("ffmpeg") || !test_command_exists("ffprobe")) {
-        return 0;
+        return;
     }
 
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), name);
@@ -321,33 +321,33 @@ ctc_audio_test_generated_decode(
     sine.amplitude = 0.45f;
     if (!audio_test_generate_sine_wav(wav_path, &sine, "ffmpeg")) {
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("generate sine fixture");
+        fatal(ctc_audio_test_fail("generate sine fixture"));
     }
 
     if (!audio_file_info_read(&info, wav_path, "ffprobe")) {
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("probe generated fixture");
+        fatal(ctc_audio_test_fail("probe generated fixture"));
     }
     if (info.sample_rate != source_sample_rate) {
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("source sample rate");
+        fatal(ctc_audio_test_fail("source sample rate"));
     }
     if (info.channel_count != source_channel_count) {
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("source channel count");
+        fatal(ctc_audio_test_fail("source channel count"));
     }
     if (!ctc_audio_double_close(info.duration_seconds,
                                 duration_seconds,
                                 0.02)) {
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("source duration");
+        fatal(ctc_audio_test_fail("source duration"));
     }
 
     lrc_ctc_audio_config_init(&config);
     config.sample_rate = target_sample_rate;
     if (!lrc_ctc_audio_decode_file(&audio, wav_path, &config, &result)) {
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("decode generated fixture");
+        fatal(ctc_audio_test_fail("decode generated fixture"));
     }
 
     expected_samples = (int64)(duration_seconds*(double)target_sample_rate
@@ -359,35 +359,35 @@ ctc_audio_test_generated_decode(
     if (delta > 2) {
         lrc_ctc_audio_destroy(&audio);
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("decoded sample count");
+        fatal(ctc_audio_test_fail("decoded sample count"));
     }
     if (audio.sample_rate != target_sample_rate) {
         lrc_ctc_audio_destroy(&audio);
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("decoded sample rate");
+        fatal(ctc_audio_test_fail("decoded sample rate"));
     }
     if (audio.channel_count != 1) {
         lrc_ctc_audio_destroy(&audio);
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("decoded channel count");
+        fatal(ctc_audio_test_fail("decoded channel count"));
     }
     if (!ctc_audio_double_close(audio.duration_seconds,
                                 duration_seconds,
                                 0.01)) {
         lrc_ctc_audio_destroy(&audio);
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("decoded duration");
+        fatal(ctc_audio_test_fail("decoded duration"));
     }
     if ((audio.max_abs_sample <= 0.0f) || (audio.max_abs_sample > 1.0f)) {
         lrc_ctc_audio_destroy(&audio);
         test_remove_tree(temp_dir);
-        return ctc_audio_test_fail("decoded float range");
+        fatal(ctc_audio_test_fail("decoded float range"));
     }
 
     lrc_ctc_audio_destroy(&audio);
     test_remove_tree(temp_dir);
 
-    return 0;
+    return;
 }
 
 static char *
@@ -408,7 +408,7 @@ ctc_audio_maxwell_vocals_path(void) {
     return NULL;
 }
 
-static int32
+static void
 ctc_audio_test_maxwell_vocals(void) {
     AudioFileInfo info;
     LrcCtcAudio audio = {0};
@@ -417,76 +417,68 @@ ctc_audio_test_maxwell_vocals(void) {
     char *path;
 
     if (!test_command_exists("ffmpeg") || !test_command_exists("ffprobe")) {
-        return 0;
+        return;
     }
 
     path = ctc_audio_maxwell_vocals_path();
     if (path == NULL) {
-        return 0;
+        return;
     }
 
     if (!audio_file_info_read(&info, path, "ffprobe")) {
-        return ctc_audio_test_fail("probe Maxwell vocals");
+        fatal(ctc_audio_test_fail("probe Maxwell vocals"));
     }
     if (info.sample_rate != 48000) {
-        return ctc_audio_test_fail("Maxwell source sample rate");
+        fatal(ctc_audio_test_fail("Maxwell source sample rate"));
     }
     if (info.channel_count != 2) {
-        return ctc_audio_test_fail("Maxwell source channels");
+        fatal(ctc_audio_test_fail("Maxwell source channels"));
     }
     if (!ctc_audio_double_close(info.duration_seconds, 21.37, 0.10)) {
-        return ctc_audio_test_fail("Maxwell source duration");
+        fatal(ctc_audio_test_fail("Maxwell source duration"));
     }
 
     lrc_ctc_audio_config_init(&config);
     config.sample_rate = 16000;
     if (!lrc_ctc_audio_decode_file(&audio, path, &config, &result)) {
-        return ctc_audio_test_fail("decode Maxwell vocals");
+        fatal(ctc_audio_test_fail("decode Maxwell vocals"));
     }
     if (audio.sample_rate != 16000) {
         lrc_ctc_audio_destroy(&audio);
-        return ctc_audio_test_fail("Maxwell decoded sample rate");
+        fatal(ctc_audio_test_fail("Maxwell decoded sample rate"));
     }
     if (audio.channel_count != 1) {
         lrc_ctc_audio_destroy(&audio);
-        return ctc_audio_test_fail("Maxwell decoded channels");
+        fatal(ctc_audio_test_fail("Maxwell decoded channels"));
     }
     if ((audio.sample_count < 340000) || (audio.sample_count > 343000)) {
         lrc_ctc_audio_destroy(&audio);
-        return ctc_audio_test_fail("Maxwell decoded sample count");
+        fatal(ctc_audio_test_fail("Maxwell decoded sample count"));
     }
     if ((audio.max_abs_sample <= 0.0f) || !isfinite(audio.max_abs_sample)) {
         lrc_ctc_audio_destroy(&audio);
-        return ctc_audio_test_fail("Maxwell decoded float range");
+        fatal(ctc_audio_test_fail("Maxwell decoded float range"));
     }
 
     lrc_ctc_audio_destroy(&audio);
 
-    return 0;
+    return;
 }
 
 int32
 main(void) {
-    if (ctc_audio_test_defaults_and_invalid_inputs() != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_audio_test_generated_decode(48000,
-                                        2,
-                                        0.125,
-                                        16000,
-                                        "ctc_audio_stereo") != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_audio_test_generated_decode(22050,
-                                        1,
-                                        0.20,
-                                        8000,
-                                        "ctc_audio_mono") != 0) {
-        fatal(EXIT_FAILURE);
-    }
-    if (ctc_audio_test_maxwell_vocals() != 0) {
-        fatal(EXIT_FAILURE);
-    }
+    ctc_audio_test_defaults_and_invalid_inputs();
+    ctc_audio_test_generated_decode(48000,
+                                    2,
+                                    0.125,
+                                    16000,
+                                    "ctc_audio_stereo");
+    ctc_audio_test_generated_decode(22050,
+                                    1,
+                                    0.20,
+                                    8000,
+                                    "ctc_audio_mono");
+    ctc_audio_test_maxwell_vocals();
 
     exit(EXIT_SUCCESS);
 }
