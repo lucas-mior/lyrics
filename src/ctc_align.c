@@ -9485,7 +9485,7 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
 static void
 ctc_align_set_rank3_row_preference(
     float *values,
-    int32 row_index,
+    int64 row_index,
     int32 vocabulary_size,
     int32 token_id
 ) {
@@ -9590,13 +9590,13 @@ ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
         output_frame = 0;
         for (int32 i = 0; i < input.chunk_count; i += 1) {
             LrcCtcModelChunk *chunk;
-            int32 kept_offset;
+            int64 kept_offset;
 
             chunk = &input.chunks[i];
             kept_offset = chunk->kept_emission_start
                           - chunk->raw_emission_start;
             for (int32 j = 0; j < chunk->kept_emission_count; j += 1) {
-                int32 raw_frame;
+                int64 raw_frame;
                 int32 preferred_token;
 
                 if (output_frame >= input.original_emission_count) {
