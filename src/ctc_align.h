@@ -10,17 +10,17 @@ typedef struct LrcCtcAlignResult {
     enum LsError error;
     char *message;
 
-    int64 frame_index;
-    int64 token_index;
+    int32 frame_index;
+    int32 token_index;
 } LrcCtcAlignResult;
 
 typedef struct LrcCtcTrellis {
     float *scores;
-    int64 *previous_states;
+    int32 *previous_states;
 
-    int64 frame_count;
-    int64 target_token_count;
-    int64 state_count;
+    int32 frame_count;
+    int32 target_token_count;
+    int32 state_count;
     int64 cell_count;
 
     int32 star_token_id;
@@ -29,9 +29,9 @@ typedef struct LrcCtcTrellis {
 } LrcCtcTrellis;
 
 typedef struct LrcCtcPathStep {
-    int64 frame_index;
-    int64 state_index;
-    int64 token_index;
+    int32 frame_index;
+    int32 state_index;
+    int32 token_index;
     int32 token_id;
 
     bool is_blank;
@@ -41,14 +41,14 @@ typedef struct LrcCtcPathStep {
 typedef struct LrcCtcPath {
     LrcCtcPathStep *steps;
 
-    int64 step_count;
-    int64 step_cap;
+    int32 step_count;
+    int32 step_cap;
 } LrcCtcPath;
 
 typedef struct LrcCtcPathSegment {
-    int64 token_index;
-    int64 start_frame;
-    int64 end_frame;
+    int32 token_index;
+    int32 start_frame;
+    int32 end_frame;
 
     float start_seconds;
     float end_seconds;
@@ -63,18 +63,18 @@ typedef struct LrcCtcPathSegment {
 typedef struct LrcCtcPathSegments {
     LrcCtcPathSegment *segments;
 
-    int64 segment_count;
-    int64 segment_cap;
+    int32 segment_count;
+    int32 segment_cap;
 } LrcCtcPathSegments;
 
 typedef struct LrcCtcAlignedTokenInterval {
-    int64 target_token_index;
-    int64 segment_start_index;
-    int64 segment_end_index;
-    int64 token_start_frame;
-    int64 token_end_frame;
-    int64 padded_start_frame;
-    int64 padded_end_frame;
+    int32 target_token_index;
+    int32 segment_start_index;
+    int32 segment_end_index;
+    int32 token_start_frame;
+    int32 token_end_frame;
+    int32 padded_start_frame;
+    int32 padded_end_frame;
 
     float padded_start_seconds;
     float padded_end_seconds;
@@ -85,16 +85,16 @@ typedef struct LrcCtcAlignedTokenInterval {
 typedef struct LrcCtcAlignedTokenIntervals {
     LrcCtcAlignedTokenInterval *intervals;
 
-    int64 interval_count;
-    int64 interval_cap;
+    int32 interval_count;
+    int32 interval_cap;
 } LrcCtcAlignedTokenIntervals;
 
 typedef struct LrcCtcTokenSpan {
-    int64 token_index;
-    int64 start_frame;
-    int64 end_frame;
-    int64 padded_start_frame;
-    int64 padded_end_frame;
+    int32 token_index;
+    int32 start_frame;
+    int32 end_frame;
+    int32 padded_start_frame;
+    int32 padded_end_frame;
 
     float start_seconds;
     float end_seconds;
@@ -108,16 +108,16 @@ typedef struct LrcCtcTokenSpan {
 typedef struct LrcCtcTokenSpans {
     LrcCtcTokenSpan *spans;
 
-    int64 span_count;
-    int64 span_cap;
+    int32 span_count;
+    int32 span_cap;
 } LrcCtcTokenSpans;
 
 typedef struct LrcCtcWordSpan {
-    int64 word_index;
-    int64 token_start_index;
-    int64 token_end_index;
-    int64 span_start_index;
-    int64 span_end_index;
+    int32 word_index;
+    int32 token_start_index;
+    int32 token_end_index;
+    int32 span_start_index;
+    int32 span_end_index;
 
     int32 normalized_start;
     int32 normalized_end;
@@ -131,8 +131,8 @@ typedef struct LrcCtcWordSpan {
 typedef struct LrcCtcWordSpans {
     LrcCtcWordSpan *spans;
 
-    int64 span_count;
-    int64 span_cap;
+    int32 span_count;
+    int32 span_cap;
 } LrcCtcWordSpans;
 
 enum LrcCtcLineTimestampKind {
@@ -141,8 +141,8 @@ enum LrcCtcLineTimestampKind {
 };
 
 typedef struct LrcCtcLineTimestamp {
-    int64 word_start_index;
-    int64 word_end_index;
+    int32 word_start_index;
+    int32 word_end_index;
 
     int32 line_index;
 
@@ -156,10 +156,10 @@ typedef struct LrcCtcLineTimestamp {
 typedef struct LrcCtcLineTimestamps {
     LrcCtcLineTimestamp *lines;
 
-    int64 line_count;
-    int64 line_cap;
-    int64 timestamped_line_count;
-    int64 blank_line_count;
+    int32 line_count;
+    int32 line_cap;
+    int32 timestamped_line_count;
+    int32 blank_line_count;
 } LrcCtcLineTimestamps;
 
 static void lrc_ctc_align_result_init(LrcCtcAlignResult *result);
@@ -180,19 +180,19 @@ static void lrc_ctc_word_spans_destroy(LrcCtcWordSpans *spans);
 static void lrc_ctc_line_timestamps_destroy(LrcCtcLineTimestamps *timestamps);
 static float *lrc_ctc_trellis_cell(
     LrcCtcTrellis *trellis,
-    int64 frame_index,
-    int64 state_index
+    int32 frame_index,
+    int32 state_index
 );
 static bool lrc_ctc_trellis_allocate(
     LrcCtcTrellis *trellis,
-    int64 frame_count,
-    int64 target_token_count,
+    int32 frame_count,
+    int32 target_token_count,
     LrcCtcAlignResult *result
 );
 static bool lrc_ctc_trellis_prepare(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcAlignResult *result
 );
@@ -200,7 +200,7 @@ static bool lrc_ctc_trellis_score_forward(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcAlignResult *result
 );
@@ -208,7 +208,7 @@ static bool lrc_ctc_trellis_score_forward_with_edge_stars(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcAlignResult *result
@@ -218,7 +218,7 @@ static bool lrc_ctc_trellis_score_forward_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcAlignResult *result
@@ -227,7 +227,7 @@ static bool lrc_ctc_trellis_backtrack(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcPath *path,
     LrcCtcAlignResult *result
@@ -236,7 +236,7 @@ static bool lrc_ctc_trellis_backtrack_with_edge_stars(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
@@ -247,7 +247,7 @@ static bool lrc_ctc_trellis_backtrack_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
@@ -271,7 +271,7 @@ static bool lrc_ctc_path_to_padded_token_spans(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
@@ -280,7 +280,7 @@ static bool lrc_ctc_path_to_padded_token_spans_with_edge_stars(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
@@ -291,7 +291,7 @@ static bool lrc_ctc_path_to_padded_token_spans_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,

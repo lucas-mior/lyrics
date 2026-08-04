@@ -22,6 +22,18 @@ lrc_ctc_align_result_init(LrcCtcAlignResult *result) {
     return;
 }
 
+static int32
+lrc_ctc_align_result_context_int32(int64 value) {
+    if (value < INT32_MIN) {
+        return INT32_MIN;
+    }
+    if (value > INT32_MAX) {
+        return INT32_MAX;
+    }
+
+    return (int32)value;
+}
+
 static void
 lrc_ctc_align_result_set(
     LrcCtcAlignResult *result,
@@ -37,8 +49,8 @@ lrc_ctc_align_result_set(
     result->error = error;
     result->message = message;
 
-    result->frame_index = frame_index;
-    result->token_index = token_index;
+    result->frame_index = lrc_ctc_align_result_context_int32(frame_index);
+    result->token_index = lrc_ctc_align_result_context_int32(token_index);
 
     return;
 }
@@ -59,15 +71,15 @@ enum LrcCtcAlignStarMode {
 typedef struct LrcCtcAlignState {
     enum LrcCtcAlignStateKind kind;
 
-    int64 token_index;
+    int32 token_index;
     int32 token_id;
 } LrcCtcAlignState;
 
 typedef struct LrcCtcAlignGraph {
     LrcCtcAlignState *states;
 
-    int64 state_count;
-    int64 target_token_count;
+    int32 state_count;
+    int32 target_token_count;
 } LrcCtcAlignGraph;
 
 
@@ -89,8 +101,8 @@ lrc_ctc_align_graph_destroy(LrcCtcAlignGraph *graph) {
 static bool
 lrc_ctc_align_segment_star_count(
     bool *target_segment_starts,
-    int64 target_token_count,
-    int64 *star_count,
+    int32 target_token_count,
+    int32 *star_count,
     LrcCtcAlignResult *result
 ) {
     ASSERT(star_count);
@@ -107,7 +119,7 @@ lrc_ctc_align_segment_star_count(
         return false;
     }
 
-    for (int64 i = 0; i < target_token_count; i += 1) {
+    for (int32 i = 0; i < target_token_count; i += 1) {
         if (target_segment_starts[i]) {
             *star_count += 1;
         }
@@ -120,8 +132,8 @@ static bool
 lrc_ctc_align_star_mode_extra_labels(
     enum LrcCtcAlignStarMode star_mode,
     bool *target_segment_starts,
-    int64 target_token_count,
-    int64 *extra_labels,
+    int32 target_token_count,
+    int32 *extra_labels,
     LrcCtcAlignResult *result
 ) {
     if (extra_labels == NULL) {
@@ -161,13 +173,13 @@ lrc_ctc_align_star_mode_extra_labels(
 
 static bool
 lrc_ctc_align_graph_label_count(
-    int64 target_token_count,
+    int32 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
     bool *target_segment_starts,
-    int64 *label_count,
+    int32 *label_count,
     LrcCtcAlignResult *result
 ) {
-    int64 extra_labels;
+    int32 extra_labels;
 
     if (label_count == NULL) {
         lrc_ctc_align_result_set(
@@ -199,7 +211,7 @@ lrc_ctc_align_graph_label_count(
                                               result)) {
         return false;
     }
-    if (target_token_count > INT64_MAX - extra_labels) {
+    if (target_token_count > INT32_MAX - extra_labels) {
         lrc_ctc_align_result_set(
             result,
             LS_ERROR_CTC_ALIGN_TOO_LARGE,
@@ -217,13 +229,13 @@ lrc_ctc_align_graph_label_count(
 
 static bool
 lrc_ctc_align_graph_state_count_for_mode(
-    int64 target_token_count,
+    int32 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
     bool *target_segment_starts,
-    int64 *state_count,
+    int32 *state_count,
     LrcCtcAlignResult *result
 ) {
-    int64 label_count;
+    int32 label_count;
 
     if (state_count == NULL) {
         lrc_ctc_align_result_set(
@@ -244,7 +256,7 @@ lrc_ctc_align_graph_state_count_for_mode(
                                          result)) {
         return false;
     }
-    if (label_count > (INT64_MAX - 1)/2) {
+    if (label_count > (INT32_MAX - 1)/2) {
         lrc_ctc_align_result_set(
             result,
             LS_ERROR_CTC_ALIGN_TOO_LARGE,
@@ -262,8 +274,8 @@ lrc_ctc_align_graph_state_count_for_mode(
 
 static bool
 lrc_ctc_align_graph_state_count(
-    int64 target_token_count,
-    int64 *state_count,
+    int32 target_token_count,
+    int32 *state_count,
     LrcCtcAlignResult *result
 ) {
     return lrc_ctc_align_graph_state_count_for_mode(
@@ -275,23 +287,23 @@ lrc_ctc_align_graph_state_count(
     );
 }
 
-static int64
+static int32
 lrc_ctc_required_frame_count_for_tokens(
     int32 *target_token_ids,
-    int64 target_token_count
+    int32 target_token_count
 ) {
-    int64 frame_count;
+    int32 frame_count;
 
     if ((target_token_ids == NULL) || (target_token_count <= 0)) {
         return -1;
     }
 
     frame_count = target_token_count;
-    for (int64 i = 1; i < target_token_count; i += 1) {
+    for (int32 i = 1; i < target_token_count; i += 1) {
         if (target_token_ids[i] != target_token_ids[i - 1]) {
             continue;
         }
-        if (frame_count >= INT64_MAX) {
+        if (frame_count >= INT32_MAX) {
             return -1;
         }
         frame_count += 1;
@@ -362,7 +374,7 @@ static void
 lrc_ctc_align_graph_set_token_state(
     LrcCtcAlignState *state,
     int32 *target_token_ids,
-    int64 token_index
+    int32 token_index
 ) {
     state->kind = LRC_CTC_ALIGN_STATE_TOKEN;
     state->token_index = token_index;
@@ -373,8 +385,8 @@ lrc_ctc_align_graph_set_token_state(
 
 static bool
 lrc_ctc_align_graph_label_is_edge_star(
-    int64 label_index,
-    int64 label_count,
+    int32 label_index,
+    int32 label_count,
     enum LrcCtcAlignStarMode star_mode
 ) {
     if (star_mode != LRC_CTC_ALIGN_STAR_MODE_EDGES) {
@@ -388,16 +400,16 @@ static bool
 lrc_ctc_align_graph_build_for_mode(
     LrcCtcAlignGraph *graph,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
     bool *target_segment_starts,
     int32 star_token_id,
     LrcCtcAlignResult *result
 ) {
-    int64 state_count;
-    int64 label_count;
+    int32 state_count;
+    int32 label_count;
     int64 alloc_size;
-    int64 token_index;
+    int32 token_index;
     bool segment_star_pending;
 
     if (result) {
@@ -453,7 +465,7 @@ lrc_ctc_align_graph_build_for_mode(
     graph->state_count = state_count;
     graph->target_token_count = target_token_count;
 
-    for (int64 i = 0; i < graph->state_count; i += 1) {
+    for (int32 i = 0; i < graph->state_count; i += 1) {
         LrcCtcAlignState *state = graph->states + i;
 
         state->kind = LRC_CTC_ALIGN_STATE_BLANK;
@@ -463,9 +475,9 @@ lrc_ctc_align_graph_build_for_mode(
 
     token_index = 0;
     segment_star_pending = false;
-    for (int64 label_index = 0; label_index < label_count; label_index += 1) {
+    for (int32 label_index = 0; label_index < label_count; label_index += 1) {
         LrcCtcAlignState *state;
-        int64 state_index;
+        int32 state_index;
         bool is_star;
 
         state_index = 2*label_index + 1;
@@ -502,7 +514,7 @@ static bool
 lrc_ctc_align_graph_build(
     LrcCtcAlignGraph *graph,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     LrcCtcAlignResult *result
 ) {
     return lrc_ctc_align_graph_build_for_mode(
@@ -516,10 +528,10 @@ lrc_ctc_align_graph_build(
     );
 }
 
-static int64
+static int32
 lrc_ctc_required_frame_count_for_graph(LrcCtcAlignGraph *graph) {
-    int64 label_count;
-    int64 frame_count;
+    int32 label_count;
+    int32 frame_count;
     int32 previous_token_id;
 
     if ((graph == NULL) || (graph->states == NULL)
@@ -530,12 +542,12 @@ lrc_ctc_required_frame_count_for_graph(LrcCtcAlignGraph *graph) {
     label_count = (graph->state_count - 1)/2;
     frame_count = label_count;
     previous_token_id = -1;
-    for (int64 i = 1; i < graph->state_count; i += 2) {
+    for (int32 i = 1; i < graph->state_count; i += 2) {
         LrcCtcAlignState *state = graph->states + i;
 
         if ((previous_token_id >= 0)
             && (state->token_id == previous_token_id)) {
-            if (frame_count >= INT64_MAX) {
+            if (frame_count >= INT32_MAX) {
                 return -1;
             }
             frame_count += 1;
@@ -549,7 +561,7 @@ lrc_ctc_required_frame_count_for_graph(LrcCtcAlignGraph *graph) {
 static bool
 lrc_ctc_align_graph_state_valid(
     LrcCtcAlignGraph *graph,
-    int64 state_index
+    int32 state_index
 ) {
     if (graph == NULL) {
         return false;
@@ -567,8 +579,8 @@ lrc_ctc_align_graph_state_valid(
 static bool
 lrc_ctc_align_state_can_skip(
     LrcCtcAlignGraph *graph,
-    int64 from_state,
-    int64 to_state
+    int32 from_state,
+    int32 to_state
 ) {
     LrcCtcAlignState *from;
     LrcCtcAlignState *to;
@@ -596,8 +608,8 @@ lrc_ctc_align_state_can_skip(
 static bool
 lrc_ctc_align_graph_transition_allowed(
     LrcCtcAlignGraph *graph,
-    int64 from_state,
-    int64 to_state
+    int32 from_state,
+    int32 to_state
 ) {
     if (!lrc_ctc_align_graph_state_valid(graph, from_state)
         || !lrc_ctc_align_graph_state_valid(graph, to_state)) {
@@ -739,7 +751,7 @@ lrc_ctc_line_timestamps_destroy(LrcCtcLineTimestamps *timestamps) {
 static bool
 lrc_ctc_token_spans_allocate(
     LrcCtcTokenSpans *spans,
-    int64 span_count,
+    int32 span_count,
     LrcCtcAlignResult *result
 ) {
     int64 alloc_size;
@@ -779,7 +791,7 @@ lrc_ctc_token_spans_allocate(
     spans->span_count = span_count;
     spans->span_cap = span_count;
 
-    for (int64 i = 0; i < spans->span_count; i += 1) {
+    for (int32 i = 0; i < spans->span_count; i += 1) {
         spans->spans[i].token_index = -1;
         spans->spans[i].start_frame = -1;
         spans->spans[i].end_frame = -1;
@@ -799,7 +811,7 @@ lrc_ctc_token_spans_allocate(
 static bool
 lrc_ctc_path_segments_allocate(
     LrcCtcPathSegments *segments,
-    int64 segment_count,
+    int32 segment_count,
     LrcCtcAlignResult *result
 ) {
     int64 alloc_size;
@@ -839,7 +851,7 @@ lrc_ctc_path_segments_allocate(
     segments->segment_count = segment_count;
     segments->segment_cap = segment_count;
 
-    for (int64 i = 0; i < segments->segment_count; i += 1) {
+    for (int32 i = 0; i < segments->segment_count; i += 1) {
         segments->segments[i].token_index = -1;
         segments->segments[i].start_frame = -1;
         segments->segments[i].end_frame = -1;
@@ -857,7 +869,7 @@ lrc_ctc_path_segments_allocate(
 static bool
 lrc_ctc_aligned_token_intervals_allocate(
     LrcCtcAlignedTokenIntervals *intervals,
-    int64 interval_count,
+    int32 interval_count,
     LrcCtcAlignResult *result
 ) {
     int64 alloc_size;
@@ -897,7 +909,7 @@ lrc_ctc_aligned_token_intervals_allocate(
     intervals->interval_count = interval_count;
     intervals->interval_cap = interval_count;
 
-    for (int64 i = 0; i < intervals->interval_count; i += 1) {
+    for (int32 i = 0; i < intervals->interval_count; i += 1) {
         intervals->intervals[i].target_token_index = -1;
         intervals->intervals[i].segment_start_index = -1;
         intervals->intervals[i].segment_end_index = -1;
@@ -916,7 +928,7 @@ lrc_ctc_aligned_token_intervals_allocate(
 static bool
 lrc_ctc_path_allocate(
     LrcCtcPath *path,
-    int64 step_count,
+    int32 step_count,
     LrcCtcAlignResult *result
 ) {
     int64 alloc_size;
@@ -956,7 +968,7 @@ lrc_ctc_path_allocate(
     path->step_count = step_count;
     path->step_cap = step_count;
 
-    for (int64 i = 0; i < path->step_count; i += 1) {
+    for (int32 i = 0; i < path->step_count; i += 1) {
         path->steps[i].frame_index = -1;
         path->steps[i].state_index = -1;
         path->steps[i].token_index = -1;
@@ -970,9 +982,9 @@ lrc_ctc_path_allocate(
 
 static bool
 lrc_ctc_trellis_dimensions_valid(
-    int64 frame_count,
-    int64 target_token_count,
-    int64 state_count,
+    int32 frame_count,
+    int32 target_token_count,
+    int32 state_count,
     int64 *cell_count,
     LrcCtcAlignResult *result
 ) {
@@ -1025,11 +1037,11 @@ lrc_ctc_trellis_dimensions_valid(
     return true;
 }
 
-static int64 *
+static int32 *
 lrc_ctc_trellis_previous_state_cell(
     LrcCtcTrellis *trellis,
-    int64 frame_index,
-    int64 state_index
+    int32 frame_index,
+    int32 state_index
 ) {
     if (trellis == NULL) {
         return NULL;
@@ -1045,15 +1057,15 @@ lrc_ctc_trellis_previous_state_cell(
     }
 
     return trellis->previous_states
-           + frame_index*trellis->state_count
+           + (int64)frame_index*(int64)trellis->state_count
            + state_index;
 }
 
 static float *
 lrc_ctc_trellis_cell(
     LrcCtcTrellis *trellis,
-    int64 frame_index,
-    int64 state_index
+    int32 frame_index,
+    int32 state_index
 ) {
     if (trellis == NULL) {
         return NULL;
@@ -1068,15 +1080,17 @@ lrc_ctc_trellis_cell(
         return NULL;
     }
 
-    return trellis->scores + frame_index*trellis->state_count + state_index;
+    return trellis->scores
+           + (int64)frame_index*(int64)trellis->state_count
+           + state_index;
 }
 
 static bool
 lrc_ctc_trellis_allocate_for_state_count(
     LrcCtcTrellis *trellis,
-    int64 frame_count,
-    int64 target_token_count,
-    int64 state_count,
+    int32 frame_count,
+    int32 target_token_count,
+    int32 state_count,
     enum LrcCtcAlignStarMode star_mode,
     int32 star_token_id,
     LrcCtcAlignResult *result
@@ -1148,11 +1162,11 @@ lrc_ctc_trellis_allocate_for_state_count(
 static bool
 lrc_ctc_trellis_allocate(
     LrcCtcTrellis *trellis,
-    int64 frame_count,
-    int64 target_token_count,
+    int32 frame_count,
+    int32 target_token_count,
     LrcCtcAlignResult *result
 ) {
-    int64 state_count;
+    int32 state_count;
 
     if (!lrc_ctc_align_graph_state_count(target_token_count,
                                           &state_count,
@@ -1197,6 +1211,17 @@ lrc_ctc_align_emissions_ready(
         );
         return false;
     }
+    if ((emissions->frame_count > INT32_MAX)
+        || (emissions->vocabulary_size > INT32_MAX)) {
+        lrc_ctc_align_result_set(
+            result,
+            LS_ERROR_CTC_ALIGN_TOO_LARGE,
+            "CTC emissions dimensions exceed alignment index range",
+            emissions->frame_count,
+            emissions->vocabulary_size
+        );
+        return false;
+    }
     if (emissions->frame_count > INT64_MAX/emissions->vocabulary_size) {
         lrc_ctc_align_result_set(
             result,
@@ -1232,7 +1257,7 @@ lrc_ctc_trellis_emissions_ready(
         return false;
     }
     if ((blank_token_id < 0)
-        || ((int64)blank_token_id >= emissions->vocabulary_size)) {
+        || ((int32)blank_token_id >= emissions->vocabulary_size)) {
         lrc_ctc_align_result_set(
             result,
             LS_ERROR_CTC_ALIGN_INVALID_BLANK_TOKEN,
@@ -1277,7 +1302,7 @@ lrc_ctc_trellis_prepare_for_graph(
         return false;
     }
     if (!lrc_ctc_trellis_allocate_for_state_count(trellis,
-                                                  emissions->frame_count,
+                                                  (int32)emissions->frame_count,
                                                   graph->target_token_count,
                                                   graph->state_count,
                                                   star_mode,
@@ -1289,7 +1314,7 @@ lrc_ctc_trellis_prepare_for_graph(
     cell = lrc_ctc_trellis_cell(trellis, 0, 0);
     ASSERT(cell);
     *cell = emissions->values[blank_token_id];
-    for (int64 frame = 1; frame < trellis->frame_count; frame += 1) {
+    for (int32 frame = 1; frame < trellis->frame_count; frame += 1) {
         float previous;
         float blank_score;
 
@@ -1313,11 +1338,11 @@ static bool
 lrc_ctc_trellis_prepare(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcAlignResult *result
 ) {
-    int64 state_count;
+    int32 state_count;
     float *cell;
 
     if (result) {
@@ -1335,7 +1360,7 @@ lrc_ctc_trellis_prepare(
     }
     if (!lrc_ctc_trellis_allocate_for_state_count(
         trellis,
-        emissions->frame_count,
+        (int32)emissions->frame_count,
         target_token_count,
         state_count,
         LRC_CTC_ALIGN_STAR_MODE_NONE,
@@ -1348,7 +1373,7 @@ lrc_ctc_trellis_prepare(
     cell = lrc_ctc_trellis_cell(trellis, 0, 0);
     ASSERT(cell);
     *cell = emissions->values[blank_token_id];
-    for (int64 frame = 1; frame < trellis->frame_count; frame += 1) {
+    for (int32 frame = 1; frame < trellis->frame_count; frame += 1) {
         float previous;
         float blank_score;
 
@@ -1371,7 +1396,7 @@ lrc_ctc_trellis_prepare(
 static float
 lrc_ctc_emission_value(
     LrcCtcEmissions *emissions,
-    int64 frame_index,
+    int32 frame_index,
     int32 token_id
 ) {
     int64 index;
@@ -1381,10 +1406,10 @@ lrc_ctc_emission_value(
     ASSERT(frame_index >= 0);
     ASSERT(frame_index < emissions->frame_count);
     ASSERT(token_id >= 0);
-    if ((int64)token_id == emissions->vocabulary_size) {
+    if ((int32)token_id == emissions->vocabulary_size) {
         return 0.0f;
     }
-    ASSERT((int64)token_id < emissions->vocabulary_size);
+    ASSERT((int32)token_id < emissions->vocabulary_size);
 
     index = frame_index*emissions->vocabulary_size + token_id;
 
@@ -1395,7 +1420,7 @@ static bool
 lrc_ctc_target_tokens_valid(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcAlignResult *result
 ) {
@@ -1420,9 +1445,9 @@ lrc_ctc_target_tokens_valid(
         return false;
     }
 
-    for (int64 i = 0; i < target_token_count; i += 1) {
+    for (int32 i = 0; i < target_token_count; i += 1) {
         if ((target_token_ids[i] < 0)
-            || ((int64)target_token_ids[i] >= emissions->vocabulary_size)
+            || ((int32)target_token_ids[i] >= emissions->vocabulary_size)
             || (target_token_ids[i] == blank_token_id)) {
             lrc_ctc_align_result_set(
                 result,
@@ -1450,7 +1475,7 @@ lrc_ctc_star_token_valid(
         return true;
     }
     if ((star_token_id < 0)
-        || ((int64)star_token_id != emissions->vocabulary_size)
+        || ((int32)star_token_id != emissions->vocabulary_size)
         || (star_token_id == blank_token_id)) {
         lrc_ctc_align_result_set(
             result,
@@ -1469,7 +1494,7 @@ static bool
 lrc_ctc_target_tokens_valid_for_mode(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     enum LrcCtcAlignStarMode star_mode,
     int32 star_token_id,
@@ -1490,7 +1515,7 @@ lrc_ctc_target_tokens_valid_for_mode(
         return false;
     }
 
-    for (int64 i = 0; i < target_token_count; i += 1) {
+    for (int32 i = 0; i < target_token_count; i += 1) {
         if ((star_mode != LRC_CTC_ALIGN_STAR_MODE_NONE)
             && (target_token_ids[i] == star_token_id)) {
             lrc_ctc_align_result_set(
@@ -1510,7 +1535,7 @@ lrc_ctc_target_tokens_valid_for_mode(
 static int32
 lrc_ctc_align_graph_emission_token_id(
     LrcCtcAlignGraph *graph,
-    int64 state_index,
+    int32 state_index,
     int32 blank_token_id
 ) {
     LrcCtcAlignState *state;
@@ -1531,12 +1556,12 @@ static void
 lrc_ctc_trellis_try_candidate(
     LrcCtcTrellis *trellis,
     LrcCtcAlignGraph *graph,
-    int64 frame,
-    int64 state,
-    int64 previous_state,
+    int32 frame,
+    int32 state,
+    int32 previous_state,
     float emission,
     float *best_score,
-    int64 *best_previous_state
+    int32 *best_previous_state
 ) {
     float *previous_cell;
     float candidate;
@@ -1573,16 +1598,16 @@ lrc_ctc_trellis_score_forward_for_mode(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     enum LrcCtcAlignStarMode star_mode,
     int32 star_token_id,
     LrcCtcAlignResult *result
 ) {
     LrcCtcAlignGraph graph = {0};
-    int64 required_frame_count;
+    int32 required_frame_count;
     float *cell;
-    int64 *previous_state_cell;
+    int32 *previous_state_cell;
     bool ok;
 
     if (result) {
@@ -1657,11 +1682,11 @@ lrc_ctc_trellis_score_forward_for_mode(
         lrc_ctc_align_graph_emission_token_id(&graph, 1, blank_token_id)
     );
 
-    for (int64 frame = 1; frame < trellis->frame_count; frame += 1) {
-        for (int64 state = 1; state < trellis->state_count; state += 1) {
+    for (int32 frame = 1; frame < trellis->frame_count; frame += 1) {
+        for (int32 state = 1; state < trellis->state_count; state += 1) {
             float emission;
             float best_score;
-            int64 best_previous_state;
+            int32 best_previous_state;
             int32 token_id;
 
             token_id = lrc_ctc_align_graph_emission_token_id(&graph,
@@ -1720,7 +1745,7 @@ lrc_ctc_trellis_score_forward(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcAlignResult *result
 ) {
@@ -1742,7 +1767,7 @@ lrc_ctc_trellis_score_forward_with_edge_stars(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcAlignResult *result
@@ -1767,7 +1792,7 @@ lrc_ctc_trellis_score_forward_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcAlignResult *result
@@ -1789,13 +1814,13 @@ static bool
 lrc_ctc_trellis_ready_for_backtracking(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
-    int64 target_token_count,
+    int32 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
     bool *target_segment_starts,
     int32 star_token_id,
     LrcCtcAlignResult *result
 ) {
-    int64 state_count;
+    int32 state_count;
     int64 expected_cell_count;
     bool has_edge_stars;
     bool has_segment_stars;
@@ -1871,8 +1896,8 @@ lrc_ctc_trellis_ready_for_backtracking(
 static void
 lrc_ctc_path_set_blank_step(
     LrcCtcPath *path,
-    int64 frame_index,
-    int64 state_index,
+    int32 frame_index,
+    int32 state_index,
     int32 blank_token_id
 ) {
     ASSERT(path);
@@ -1894,8 +1919,8 @@ lrc_ctc_path_set_blank_step(
 static void
 lrc_ctc_path_set_star_step(
     LrcCtcPath *path,
-    int64 frame_index,
-    int64 state_index,
+    int32 frame_index,
+    int32 state_index,
     int32 star_token_id
 ) {
     ASSERT(path);
@@ -1918,9 +1943,9 @@ lrc_ctc_path_set_star_step(
 static void
 lrc_ctc_path_set_token_step(
     LrcCtcPath *path,
-    int64 frame_index,
-    int64 state_index,
-    int64 token_index,
+    int32 frame_index,
+    int32 state_index,
+    int32 token_index,
     int32 token_id
 ) {
     ASSERT(path);
@@ -1944,8 +1969,8 @@ static void
 lrc_ctc_path_set_graph_state_step(
     LrcCtcPath *path,
     LrcCtcAlignGraph *graph,
-    int64 frame_index,
-    int64 state_index,
+    int32 frame_index,
+    int32 state_index,
     int32 blank_token_id
 ) {
     LrcCtcAlignState *state;
@@ -1986,11 +2011,11 @@ lrc_ctc_path_set_graph_state_step(
 static bool
 lrc_ctc_trellis_best_final_state(
     LrcCtcTrellis *trellis,
-    int64 *final_state,
+    int32 *final_state,
     LrcCtcAlignResult *result
 ) {
-    int64 final_blank_state;
-    int64 final_token_state;
+    int32 final_blank_state;
+    int32 final_token_state;
     float *blank_cell;
     float *token_cell;
 
@@ -2035,7 +2060,7 @@ lrc_ctc_trellis_backtrack_for_mode(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     enum LrcCtcAlignStarMode star_mode,
     int32 star_token_id,
@@ -2043,8 +2068,8 @@ lrc_ctc_trellis_backtrack_for_mode(
     LrcCtcAlignResult *result
 ) {
     LrcCtcAlignGraph graph = {0};
-    int64 state;
-    int64 frame;
+    int32 state;
+    int32 frame;
 
     if (result) {
         lrc_ctc_align_result_init(result);
@@ -2094,8 +2119,8 @@ lrc_ctc_trellis_backtrack_for_mode(
 
     frame = trellis->frame_count - 1;
     while (true) {
-        int64 *previous_state_cell;
-        int64 previous_state;
+        int32 *previous_state_cell;
+        int32 previous_state;
 
         lrc_ctc_path_set_graph_state_step(path,
                                           &graph,
@@ -2140,7 +2165,7 @@ lrc_ctc_trellis_backtrack(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcPath *path,
     LrcCtcAlignResult *result
@@ -2164,7 +2189,7 @@ lrc_ctc_trellis_backtrack_with_edge_stars(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
@@ -2191,7 +2216,7 @@ lrc_ctc_trellis_backtrack_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
@@ -2243,7 +2268,7 @@ lrc_ctc_path_step_valid(
     }
     if (step->is_star) {
         if ((step->token_index != -1)
-            || ((int64)step->token_id != emissions->vocabulary_size)) {
+            || ((int32)step->token_id != emissions->vocabulary_size)) {
             lrc_ctc_align_result_set(
                 result,
                 LS_ERROR_CTC_ALIGN_INVALID_PATH,
@@ -2266,7 +2291,7 @@ lrc_ctc_path_step_valid(
         return false;
     }
     if ((step->token_id < 0)
-        || ((int64)step->token_id >= emissions->vocabulary_size)) {
+        || ((int32)step->token_id >= emissions->vocabulary_size)) {
         lrc_ctc_align_result_set(
             result,
             LS_ERROR_CTC_ALIGN_INVALID_PATH,
@@ -2322,7 +2347,7 @@ lrc_ctc_path_ready_for_spans(
         return false;
     }
 
-    for (int64 i = 0; i < path->step_count; i += 1) {
+    for (int32 i = 0; i < path->step_count; i += 1) {
         if (!lrc_ctc_path_step_valid(path->steps + i, emissions, result)) {
             return false;
         }
@@ -2352,16 +2377,16 @@ lrc_ctc_path_steps_share_label(
     return a->token_id == b->token_id;
 }
 
-static int64
+static int32
 lrc_ctc_path_count_segments(LrcCtcPath *path) {
-    int64 count;
+    int32 count;
 
     ASSERT(path);
     ASSERT(path->steps);
     ASSERT(path->step_count > 0);
 
     count = 1;
-    for (int64 i = 1; i < path->step_count; i += 1) {
+    for (int32 i = 1; i < path->step_count; i += 1) {
         if (!lrc_ctc_path_steps_share_label(path->steps + i - 1,
                                             path->steps + i)) {
             count += 1;
@@ -2392,9 +2417,9 @@ lrc_ctc_path_step_score(
         );
         return false;
     }
-    if (((int64)step->token_id > emissions->vocabulary_size)
+    if (((int32)step->token_id > emissions->vocabulary_size)
         || (!step->is_star
-            && ((int64)step->token_id >= emissions->vocabulary_size))) {
+            && ((int32)step->token_id >= emissions->vocabulary_size))) {
         lrc_ctc_align_result_set(
             result,
             LS_ERROR_CTC_ALIGN_INVALID_PATH,
@@ -2415,7 +2440,7 @@ lrc_ctc_path_step_score(
 static void
 lrc_ctc_path_segment_finish(
     LrcCtcPathSegment *segment,
-    int64 score_count,
+    int32 score_count,
     float score_sum,
     float frame_duration_seconds
 ) {
@@ -2439,9 +2464,9 @@ lrc_ctc_path_to_segments(
     LrcCtcPathSegments *segments,
     LrcCtcAlignResult *result
 ) {
-    int64 segment_count;
-    int64 segment_index;
-    int64 score_count;
+    int32 segment_count;
+    int32 segment_index;
+    int32 score_count;
     float score_sum;
     LrcCtcPathSegment *segment;
 
@@ -2464,7 +2489,7 @@ lrc_ctc_path_to_segments(
     score_count = 0;
     score_sum = 0.0f;
     segment = NULL;
-    for (int64 i = 0; i < path->step_count; i += 1) {
+    for (int32 i = 0; i < path->step_count; i += 1) {
         LrcCtcPathStep *step = path->steps + i;
         float score;
 
@@ -2517,8 +2542,8 @@ lrc_ctc_path_to_segments(
 static bool
 lrc_ctc_path_segment_valid_for_intervals(
     LrcCtcPathSegment *segment,
-    int64 segment_index,
-    int64 previous_end_frame,
+    int32 segment_index,
+    int32 previous_end_frame,
     LrcCtcAlignResult *result
 ) {
     if ((segment->start_frame < 0)
@@ -2579,7 +2604,7 @@ lrc_ctc_path_segments_ready_for_intervals(
     LrcCtcAlignedTokenIntervals *intervals,
     LrcCtcAlignResult *result
 ) {
-    int64 previous_end_frame;
+    int32 previous_end_frame;
 
     if ((segments == NULL) || (intervals == NULL)) {
         lrc_ctc_align_result_set(
@@ -2603,7 +2628,7 @@ lrc_ctc_path_segments_ready_for_intervals(
     }
 
     previous_end_frame = -1;
-    for (int64 i = 0; i < segments->segment_count; i += 1) {
+    for (int32 i = 0; i < segments->segment_count; i += 1) {
         LrcCtcPathSegment *segment = segments->segments + i;
 
         if (!lrc_ctc_path_segment_valid_for_intervals(segment,
@@ -2622,8 +2647,8 @@ static bool
 lrc_ctc_interval_segment_matches_state(
     LrcCtcPathSegment *segment,
     LrcCtcAlignState *state,
-    int64 segment_index,
-    int64 label_index,
+    int32 segment_index,
+    int32 label_index,
     LrcCtcAlignResult *result
 ) {
     if (state->kind == LRC_CTC_ALIGN_STATE_STAR) {
@@ -2669,15 +2694,15 @@ lrc_ctc_path_segments_to_aligned_token_intervals(
     LrcCtcPathSegments *segments,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
     int32 star_token_id,
     LrcCtcAlignedTokenIntervals *intervals,
     LrcCtcAlignResult *result
 ) {
     LrcCtcAlignGraph graph = {0};
-    int64 label_count;
-    int64 label_index;
+    int32 label_count;
+    int32 label_index;
     bool ok;
 
     if (result) {
@@ -2721,7 +2746,7 @@ lrc_ctc_path_segments_to_aligned_token_intervals(
 
     ok = true;
     label_index = 0;
-    for (int64 i = 0; i < segments->segment_count; i += 1) {
+    for (int32 i = 0; i < segments->segment_count; i += 1) {
         LrcCtcAlignedTokenInterval *interval;
         LrcCtcPathSegment *segment = segments->segments + i;
         LrcCtcAlignState *state;
@@ -2788,8 +2813,8 @@ lrc_ctc_path_segments_to_aligned_token_intervals(
 static bool
 lrc_ctc_aligned_token_interval_valid_for_padding(
     LrcCtcAlignedTokenInterval *interval,
-    int64 interval_index,
-    int64 segment_count,
+    int32 interval_index,
+    int32 segment_count,
     LrcCtcAlignResult *result
 ) {
     if ((interval->segment_start_index < 0)
@@ -2877,7 +2902,7 @@ lrc_ctc_aligned_token_intervals_ready_for_padding(
         return false;
     }
 
-    for (int64 i = 0; i < intervals->interval_count; i += 1) {
+    for (int32 i = 0; i < intervals->interval_count; i += 1) {
         if (!lrc_ctc_aligned_token_interval_valid_for_padding(
             intervals->intervals + i,
             i,
@@ -2891,7 +2916,7 @@ lrc_ctc_aligned_token_intervals_ready_for_padding(
     return true;
 }
 
-static int64
+static int32
 lrc_ctc_blank_midpoint_frame(LrcCtcPathSegment *segment) {
     ASSERT(segment);
     ASSERT(segment->is_blank);
@@ -2934,12 +2959,12 @@ lrc_ctc_pad_token_intervals_with_blanks(
         return false;
     }
 
-    for (int64 i = 0; i < intervals->interval_count; i += 1) {
+    for (int32 i = 0; i < intervals->interval_count; i += 1) {
         LrcCtcAlignedTokenInterval *interval;
         LrcCtcPathSegment *previous;
         LrcCtcPathSegment *next;
-        int64 padded_start_frame;
-        int64 padded_end_frame;
+        int32 padded_start_frame;
+        int32 padded_end_frame;
 
         interval = intervals->intervals + i;
         padded_start_frame = interval->token_start_frame;
@@ -2996,7 +3021,7 @@ lrc_ctc_pad_token_intervals_with_blanks(
 static bool
 lrc_ctc_path_step_starts_span(
     LrcCtcPath *path,
-    int64 step_index
+    int32 step_index
 ) {
     LrcCtcPathStep *step;
     LrcCtcPathStep *previous;
@@ -3022,15 +3047,15 @@ lrc_ctc_path_step_starts_span(
     return previous->token_index != step->token_index;
 }
 
-static int64
+static int32
 lrc_ctc_path_count_token_spans(LrcCtcPath *path) {
-    int64 count;
+    int32 count;
 
     ASSERT(path);
     ASSERT(path->steps);
 
     count = 0;
-    for (int64 i = 0; i < path->step_count; i += 1) {
+    for (int32 i = 0; i < path->step_count; i += 1) {
         if (lrc_ctc_path_step_starts_span(path, i)) {
             count += 1;
         }
@@ -3042,7 +3067,7 @@ lrc_ctc_path_count_token_spans(LrcCtcPath *path) {
 static void
 lrc_ctc_token_span_finish(
     LrcCtcTokenSpan *span,
-    int64 score_count,
+    int32 score_count,
     float score_sum,
     float frame_duration_seconds
 ) {
@@ -3070,10 +3095,10 @@ lrc_ctc_path_to_token_spans(
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
 ) {
-    int64 span_count;
-    int64 span_index;
-    int64 score_count;
-    int64 previous_token_index;
+    int32 span_count;
+    int32 span_index;
+    int32 score_count;
+    int32 previous_token_index;
     float score_sum;
     LrcCtcTokenSpan *span;
 
@@ -3097,7 +3122,7 @@ lrc_ctc_path_to_token_spans(
     previous_token_index = -1;
     score_sum = 0.0f;
     span = NULL;
-    for (int64 i = 0; i < path->step_count; i += 1) {
+    for (int32 i = 0; i < path->step_count; i += 1) {
         LrcCtcPathStep *step = path->steps + i;
         float score;
 
@@ -3197,7 +3222,7 @@ lrc_ctc_token_span_end_seconds(LrcCtcTokenSpan *span) {
 static bool
 lrc_ctc_token_span_padded_timing_valid(
     LrcCtcTokenSpan *span,
-    int64 span_index,
+    int32 span_index,
     LrcCtcAlignResult *result
 ) {
     if (!lrc_ctc_token_span_has_padded_timing(span)) {
@@ -3225,8 +3250,8 @@ static bool
 lrc_ctc_token_span_apply_padded_interval(
     LrcCtcTokenSpan *span,
     LrcCtcAlignedTokenInterval *interval,
-    int64 span_index,
-    int64 interval_index,
+    int32 span_index,
+    int32 interval_index,
     LrcCtcAlignResult *result
 ) {
     if ((span->token_index != interval->target_token_index)
@@ -3270,7 +3295,7 @@ lrc_ctc_token_spans_apply_padded_intervals(
     LrcCtcAlignedTokenIntervals *intervals,
     LrcCtcAlignResult *result
 ) {
-    int64 span_index;
+    int32 span_index;
 
     if ((token_spans == NULL) || (intervals == NULL)) {
         lrc_ctc_align_result_set(
@@ -3304,7 +3329,7 @@ lrc_ctc_token_spans_apply_padded_intervals(
     }
 
     span_index = 0;
-    for (int64 i = 0; i < intervals->interval_count; i += 1) {
+    for (int32 i = 0; i < intervals->interval_count; i += 1) {
         LrcCtcAlignedTokenInterval *interval = intervals->intervals + i;
         LrcCtcTokenSpan *span;
 
@@ -3352,7 +3377,7 @@ lrc_ctc_path_to_padded_token_spans_for_mode(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     enum LrcCtcAlignStarMode star_mode,
     int32 star_token_id,
     float frame_duration_seconds,
@@ -3430,7 +3455,7 @@ lrc_ctc_path_to_padded_token_spans(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
@@ -3454,7 +3479,7 @@ lrc_ctc_path_to_padded_token_spans_with_edge_stars(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
@@ -3480,7 +3505,7 @@ lrc_ctc_path_to_padded_token_spans_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
@@ -3503,7 +3528,7 @@ lrc_ctc_path_to_padded_token_spans_with_segment_stars(
 static bool
 lrc_ctc_word_spans_allocate(
     LrcCtcWordSpans *spans,
-    int64 span_count,
+    int32 span_count,
     LrcCtcAlignResult *result
 ) {
     int64 alloc_size;
@@ -3543,7 +3568,7 @@ lrc_ctc_word_spans_allocate(
     spans->span_count = span_count;
     spans->span_cap = span_count;
 
-    for (int64 i = 0; i < spans->span_count; i += 1) {
+    for (int32 i = 0; i < spans->span_count; i += 1) {
         spans->spans[i].word_index = -1;
         spans->spans[i].token_start_index = -1;
         spans->spans[i].token_end_index = -1;
@@ -3630,7 +3655,7 @@ static bool
 lrc_ctc_token_range_valid(
     LrcCtcTextToken *token,
     LrcLyricsNormalized *normalized,
-    int64 token_index,
+    int32 token_index,
     LrcCtcAlignResult *result
 ) {
     if ((token->normalized_start < 0)
@@ -3664,8 +3689,8 @@ static bool
 lrc_ctc_token_span_resolve_token(
     LrcCtcTokenSpan *span,
     LrcCtcTokenizedText *tokens,
-    int64 span_index,
-    int64 previous_token_index,
+    int32 span_index,
+    int32 previous_token_index,
     LrcCtcTextToken **token_out,
     LrcCtcAlignResult *result
 ) {
@@ -3809,7 +3834,7 @@ static bool
 lrc_ctc_token_segment_valid(
     LrcCtcTextToken *token,
     LrcLyricsNormalized *normalized,
-    int64 token_index,
+    int32 token_index,
     CtcTextSegment **segment_out,
     LrcCtcAlignResult *result
 ) {
@@ -3886,10 +3911,10 @@ lrc_ctc_segment_word_count(
     LrcCtcTokenSpans *token_spans,
     LrcCtcTokenizedText *tokens,
     LrcLyricsNormalized *normalized,
-    int64 *word_count,
+    int32 *word_count,
     LrcCtcAlignResult *result
 ) {
-    int64 previous_token_index;
+    int32 previous_token_index;
     int32 previous_segment_index;
 
     ASSERT(word_count);
@@ -3897,7 +3922,7 @@ lrc_ctc_segment_word_count(
     *word_count = 0;
     previous_token_index = -1;
     previous_segment_index = -1;
-    for (int64 i = 0; i < token_spans->span_count; i += 1) {
+    for (int32 i = 0; i < token_spans->span_count; i += 1) {
         LrcCtcTokenSpan *span;
         LrcCtcTextToken *token;
         CtcTextSegment *segment;
@@ -3949,8 +3974,8 @@ lrc_ctc_segment_word_count(
 static void
 lrc_ctc_segment_word_span_start(
     LrcCtcWordSpan *word,
-    int64 word_index,
-    int64 span_index,
+    int32 word_index,
+    int32 span_index,
     LrcCtcTokenSpan *token_span,
     CtcTextSegment *segment
 ) {
@@ -3974,10 +3999,10 @@ lrc_ctc_segment_word_span_start(
 static bool
 lrc_ctc_segment_word_span_extend(
     LrcCtcWordSpan *word,
-    int64 span_index,
+    int32 span_index,
     LrcCtcTokenSpan *token_span,
     CtcTextSegment *segment,
-    int64 score_count,
+    int32 score_count,
     float *score_sum,
     LrcCtcAlignResult *result
 ) {
@@ -4023,10 +4048,10 @@ lrc_ctc_token_spans_to_segment_word_spans(
     LrcCtcAlignResult *result
 ) {
     LrcCtcWordSpan *word;
-    int64 word_count;
-    int64 word_index;
-    int64 score_count;
-    int64 previous_token_index;
+    int32 word_count;
+    int32 word_index;
+    int32 score_count;
+    int32 previous_token_index;
     int32 previous_segment_index;
     float score_sum;
 
@@ -4048,7 +4073,7 @@ lrc_ctc_token_spans_to_segment_word_spans(
     score_sum = 0.0f;
     previous_token_index = -1;
     previous_segment_index = -1;
-    for (int64 i = 0; i < token_spans->span_count; i += 1) {
+    for (int32 i = 0; i < token_spans->span_count; i += 1) {
         LrcCtcTokenSpan *token_span;
         LrcCtcTextToken *token;
         CtcTextSegment *segment;
@@ -4122,11 +4147,11 @@ lrc_ctc_word_count(
     LrcCtcTokenSpans *token_spans,
     LrcCtcTokenizedText *tokens,
     LrcLyricsNormalized *normalized,
-    int64 *word_count,
+    int32 *word_count,
     LrcCtcAlignResult *result
 ) {
     bool in_word;
-    int64 previous_token_index;
+    int32 previous_token_index;
     int32 previous_end;
 
     ASSERT(word_count);
@@ -4143,7 +4168,7 @@ lrc_ctc_word_count(
     in_word = false;
     previous_token_index = -1;
     previous_end = -1;
-    for (int64 i = 0; i < token_spans->span_count; i += 1) {
+    for (int32 i = 0; i < token_spans->span_count; i += 1) {
         LrcCtcTokenSpan *span;
         LrcCtcTextToken *token;
 
@@ -4203,8 +4228,8 @@ lrc_ctc_word_count(
 static void
 lrc_ctc_word_span_start(
     LrcCtcWordSpan *word,
-    int64 word_index,
-    int64 span_index,
+    int32 word_index,
+    int32 span_index,
     LrcCtcTokenSpan *token_span,
     LrcCtcTextToken *token
 ) {
@@ -4228,10 +4253,10 @@ lrc_ctc_word_span_start(
 static bool
 lrc_ctc_word_span_extend(
     LrcCtcWordSpan *word,
-    int64 span_index,
+    int32 span_index,
     LrcCtcTokenSpan *token_span,
     LrcCtcTextToken *token,
-    int64 score_count,
+    int32 score_count,
     float *score_sum,
     LrcCtcAlignResult *result
 ) {
@@ -4276,10 +4301,10 @@ lrc_ctc_token_spans_to_word_spans(
     LrcCtcAlignResult *result
 ) {
     LrcCtcWordSpan *word;
-    int64 word_count;
-    int64 word_index;
-    int64 score_count;
-    int64 previous_token_index;
+    int32 word_count;
+    int32 word_index;
+    int32 score_count;
+    int32 previous_token_index;
     int32 previous_end;
     float score_sum;
 
@@ -4320,7 +4345,7 @@ lrc_ctc_token_spans_to_word_spans(
     score_sum = 0.0f;
     previous_token_index = -1;
     previous_end = -1;
-    for (int64 i = 0; i < token_spans->span_count; i += 1) {
+    for (int32 i = 0; i < token_spans->span_count; i += 1) {
         LrcCtcTokenSpan *token_span;
         LrcCtcTextToken *token;
 
@@ -4392,7 +4417,7 @@ lrc_ctc_token_spans_to_word_spans(
 static bool
 lrc_ctc_line_timestamps_allocate(
     LrcCtcLineTimestamps *timestamps,
-    int64 line_count,
+    int32 line_count,
     LrcCtcAlignResult *result
 ) {
     int64 alloc_size;
@@ -4434,7 +4459,7 @@ lrc_ctc_line_timestamps_allocate(
     timestamps->timestamped_line_count = 0;
     timestamps->blank_line_count = 0;
 
-    for (int64 i = 0; i < timestamps->line_count; i += 1) {
+    for (int32 i = 0; i < timestamps->line_count; i += 1) {
         timestamps->lines[i].word_start_index = -1;
         timestamps->lines[i].word_end_index = -1;
         timestamps->lines[i].line_index = -1;
@@ -4451,7 +4476,7 @@ static bool
 lrc_ctc_word_span_valid_for_lines(
     LrcCtcWordSpan *word,
     LrcLyricsNormalized *normalized,
-    int64 word_index,
+    int32 word_index,
     LrcCtcAlignResult *result
 ) {
     int32 line_start;
@@ -4567,7 +4592,7 @@ lrc_ctc_line_inputs_ready(
 
     previous_line = -1;
     previous_start = -INFINITY;
-    for (int64 i = 0; i < word_spans->span_count; i += 1) {
+    for (int32 i = 0; i < word_spans->span_count; i += 1) {
         LrcCtcWordSpan *word;
         LrcCtcWordSpan *previous;
 
@@ -4625,15 +4650,15 @@ static bool
 lrc_ctc_line_has_words(
     LrcCtcWordSpans *word_spans,
     int32 line_index,
-    int64 *first_word_index,
-    int64 *end_word_index
+    int32 *first_word_index,
+    int32 *end_word_index
 ) {
-    int64 first;
-    int64 end;
+    int32 first;
+    int32 end;
 
     first = -1;
     end = -1;
-    for (int64 i = 0; i < word_spans->span_count; i += 1) {
+    for (int32 i = 0; i < word_spans->span_count; i += 1) {
         if (word_spans->spans[i].line_index != line_index) {
             continue;
         }
@@ -4657,7 +4682,7 @@ static bool
 lrc_ctc_count_line_timestamp_entries(
     LrcCtcWordSpans *word_spans,
     LrcLyricsNormalized *normalized,
-    int64 *line_count,
+    int32 *line_count,
     LrcCtcAlignResult *result
 ) {
     enum LrcLyricsNormalizedLineKind kind;
@@ -4693,7 +4718,7 @@ lrc_ctc_count_line_timestamp_entries(
 static void
 lrc_ctc_line_timestamp_set_blank(
     LrcCtcLineTimestamps *timestamps,
-    int64 index,
+    int32 index,
     int32 line_index
 ) {
     LrcCtcLineTimestamp *line;
@@ -4718,11 +4743,11 @@ lrc_ctc_line_timestamp_set_blank(
 static void
 lrc_ctc_line_timestamp_set_timed(
     LrcCtcLineTimestamps *timestamps,
-    int64 index,
+    int32 index,
     int32 line_index,
     LrcCtcWordSpans *word_spans,
-    int64 first_word_index,
-    int64 end_word_index
+    int32 first_word_index,
+    int32 end_word_index
 ) {
     LrcCtcLineTimestamp *line;
     LrcCtcWordSpan *first;
@@ -4739,7 +4764,7 @@ lrc_ctc_line_timestamp_set_timed(
     first = word_spans->spans + first_word_index;
     last = word_spans->spans + end_word_index - 1;
     score_sum = 0.0f;
-    for (int64 i = first_word_index; i < end_word_index; i += 1) {
+    for (int32 i = first_word_index; i < end_word_index; i += 1) {
         score_sum += word_spans->spans[i].score;
     }
 
@@ -4763,8 +4788,8 @@ lrc_ctc_word_spans_to_line_timestamps(
     LrcCtcLineTimestamps *line_timestamps,
     LrcCtcAlignResult *result
 ) {
-    int64 line_count;
-    int64 out_index;
+    int32 line_count;
+    int32 out_index;
 
     if (result) {
         lrc_ctc_align_result_init(result);
@@ -4791,8 +4816,8 @@ lrc_ctc_word_spans_to_line_timestamps(
     out_index = 0;
     for (int32 i = 0; i < normalized->line_count; i += 1) {
         enum LrcLyricsNormalizedLineKind kind;
-        int64 first_word_index;
-        int64 end_word_index;
+        int32 first_word_index;
+        int32 end_word_index;
 
         kind = lrc_lyrics_normalized_line_kind(normalized, i);
         if (kind == LRC_LYRICS_NORMALIZED_LINE_KIND_BLANK) {
@@ -4868,13 +4893,13 @@ static void
 ctc_align_make_emissions(
     LrcCtcEmissions *emissions,
     float *values,
-    int64 frame_count,
-    int64 vocabulary_size
+    int32 frame_count,
+    int32 vocabulary_size
 ) {
     memset64(emissions, 0, SIZEOF(*emissions));
 
     emissions->values = values;
-    emissions->value_count = frame_count*vocabulary_size;
+    emissions->value_count = (int64)frame_count*(int64)vocabulary_size;
     emissions->row_count = 1;
     emissions->row_frame_count = frame_count;
     emissions->frame_count = frame_count;
@@ -4890,10 +4915,10 @@ ctc_align_make_emissions(
 static void
 ctc_align_set_path_segment(
     LrcCtcPathSegments *segments,
-    int64 segment_index,
-    int64 token_index,
-    int64 start_frame,
-    int64 end_frame,
+    int32 segment_index,
+    int32 token_index,
+    int32 start_frame,
+    int32 end_frame,
     int32 token_id,
     bool is_blank,
     bool is_star
@@ -5096,21 +5121,21 @@ ctc_align_assert_word_text(
 static void
 ctc_align_fill_predictable_values(
     float *values,
-    int64 frame_count,
-    int64 vocabulary_size,
+    int32 frame_count,
+    int32 vocabulary_size,
     int32 blank_token_id,
     int32 *token_ids,
-    int64 token_count
+    int32 token_count
 ) {
-    for (int64 i = 0; i < frame_count*vocabulary_size; i += 1) {
+    for (int32 i = 0; i < frame_count*vocabulary_size; i += 1) {
         values[i] = -12.0f;
     }
 
-    for (int64 frame = 0; frame < frame_count; frame += 1) {
+    for (int32 frame = 0; frame < frame_count; frame += 1) {
         values[frame*vocabulary_size + blank_token_id] = -0.05f;
     }
-    for (int64 i = 0; i < token_count; i += 1) {
-        int64 frame = i + 1;
+    for (int32 i = 0; i < token_count; i += 1) {
+        int32 frame = i + 1;
 
         values[frame*vocabulary_size + blank_token_id] = -6.0f;
         values[frame*vocabulary_size + token_ids[i]] = -0.05f;
@@ -5142,7 +5167,7 @@ ctc_align_parse_lrc_file(
         return false;
     }
     if (!lrc_parse_text(parsed, *file_text, *file_text_len, &result)) {
-        free2(*file_text, ((int64)*file_text_len + 1)*SIZEOF(**file_text));
+        free2(*file_text, ((int32)*file_text_len + 1)*SIZEOF(**file_text));
         *file_text = NULL;
         *file_text_len = 0;
         return false;
@@ -5177,7 +5202,7 @@ ctc_align_expected_line_timestamp(
     return false;
 }
 
-static int64
+static int32
 ctc_align_seconds_to_frame(float seconds, float frame_duration_seconds) {
     double frame;
 
@@ -5191,7 +5216,7 @@ ctc_align_seconds_to_frame(float seconds, float frame_duration_seconds) {
         return -1;
     }
 
-    return (int64)frame;
+    return (int32)frame;
 }
 
 static bool
@@ -5199,13 +5224,13 @@ ctc_align_make_line_timed_token_frames(
     LrcParsedFile *expected,
     LrcCtcTokenizedText *tokens,
     float frame_duration_seconds,
-    int64 *token_frames,
-    int64 *frame_count
+    int32 *token_frames,
+    int32 *frame_count
 ) {
     int32 current_line;
-    int64 previous_frame;
-    int64 line_start_frame;
-    int64 line_token_offset;
+    int32 previous_frame;
+    int32 line_start_frame;
+    int32 line_token_offset;
 
     if ((expected == NULL) || (tokens == NULL) || (token_frames == NULL)
         || (frame_count == NULL) || (tokens->tokens == NULL)
@@ -5220,9 +5245,9 @@ ctc_align_make_line_timed_token_frames(
     line_start_frame = -1;
     line_token_offset = 0;
     *frame_count = 0;
-    for (int64 i = 0; i < tokens->token_count; i += 1) {
+    for (int32 i = 0; i < tokens->token_count; i += 1) {
         LrcCtcTextToken *token = tokens->tokens + i;
-        int64 frame;
+        int32 frame;
 
         if (token->line_index != current_line) {
             float timestamp_seconds;
@@ -5259,7 +5284,7 @@ ctc_align_make_line_timed_token_frames(
         line_token_offset += 1;
     }
 
-    if (previous_frame > INT64_MAX - 2) {
+    if (previous_frame > INT32_MAX - 2) {
         return false;
     }
     *frame_count = previous_frame + 2;
@@ -5270,21 +5295,21 @@ ctc_align_make_line_timed_token_frames(
 static void
 ctc_align_fill_token_frame_values(
     float *values,
-    int64 frame_count,
-    int64 vocabulary_size,
+    int32 frame_count,
+    int32 vocabulary_size,
     int32 blank_token_id,
     int32 *token_ids,
-    int64 *token_frames,
-    int64 token_count
+    int32 *token_frames,
+    int32 token_count
 ) {
-    for (int64 i = 0; i < frame_count*vocabulary_size; i += 1) {
+    for (int32 i = 0; i < frame_count*vocabulary_size; i += 1) {
         values[i] = -12.0f;
     }
-    for (int64 frame = 0; frame < frame_count; frame += 1) {
+    for (int32 frame = 0; frame < frame_count; frame += 1) {
         values[frame*vocabulary_size + blank_token_id] = -0.05f;
     }
-    for (int64 i = 0; i < token_count; i += 1) {
-        int64 frame = token_frames[i];
+    for (int32 i = 0; i < token_count; i += 1) {
+        int32 frame = token_frames[i];
 
         ASSERT(frame >= 0);
         ASSERT(frame < frame_count);
@@ -5362,7 +5387,7 @@ ctc_align_output_lines_from_timestamps(
         return false;
     }
 
-    for (int64 i = 0; i < timestamps->line_count; i += 1) {
+    for (int32 i = 0; i < timestamps->line_count; i += 1) {
         LrcCtcLineTimestamp *timestamp;
         LrcLyricsLine *lyrics_line;
         LrcFormatResult result;
@@ -5615,7 +5640,7 @@ ctc_align_test_graph_rejects_bad_inputs(void) {
     LrcCtcAlignResult result;
     LrcCtcAlignGraph graph = {0};
     int32 tokens[] = {1};
-    int64 state_count;
+    int32 state_count;
 
     if (lrc_ctc_align_graph_build(NULL, tokens, 1, &result)) {
         return ctc_align_test_fail("missing graph accepted");
@@ -5637,7 +5662,7 @@ ctc_align_test_graph_rejects_bad_inputs(void) {
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
-    if (lrc_ctc_align_graph_state_count(INT64_MAX/2 + 1,
+    if (lrc_ctc_align_graph_state_count(INT32_MAX/2 + 1,
                                         &state_count,
                                         &result)) {
         return ctc_align_test_fail("huge graph state count accepted");
@@ -5785,7 +5810,7 @@ ctc_align_test_rejects_invalid_dimensions(void) {
     ASSERT(result.frame_index == -1);
     ASSERT(result.token_index == 0);
 
-    if (lrc_ctc_trellis_allocate(&trellis, INT64_MAX, 2, &result)) {
+    if (lrc_ctc_trellis_allocate(&trellis, 1, INT32_MAX/2 + 1, &result)) {
         return ctc_align_test_fail("huge trellis accepted");
     }
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
@@ -5990,7 +6015,7 @@ ctc_align_test_best_final_state_selection(void) {
     LrcCtcAlignResult result;
     LrcCtcTrellis trellis = {0};
     LrcCtcEmissions emissions;
-    int64 final_state;
+    int32 final_state;
     int32 target_token_ids[] = {1};
     float token_values[] = {
         -5.00f, -0.10f,
@@ -6323,7 +6348,7 @@ ctc_align_test_backtracks_segment_stars(void) {
 
     ASSERT(path.step_count == 4);
     saw_star = false;
-    for (int64 i = 0; i < path.step_count; i += 1) {
+    for (int32 i = 0; i < path.step_count; i += 1) {
         if (path.steps[i].is_star) {
             saw_star = true;
             ASSERT(path.steps[i].token_id == star_token_id);
@@ -7201,7 +7226,7 @@ ctc_align_test_padded_token_spans_use_blank_boundaries(void) {
     int32 target_token_ids[] = {1, 2};
     float values[30*3];
 
-    for (int64 i = 0; i < LENGTH(values); i += 1) {
+    for (int32 i = 0; i < LENGTH(values); i += 1) {
         values[i] = -0.10f;
     }
 
@@ -7210,7 +7235,7 @@ ctc_align_test_padded_token_spans_use_blank_boundaries(void) {
         return ctc_align_test_fail("allocate padded token path");
     }
 
-    for (int64 i = 0; i < path.step_count; i += 1) {
+    for (int32 i = 0; i < path.step_count; i += 1) {
         if ((i >= 10) && (i < 12)) {
             lrc_ctc_path_set_token_step(&path, i, 1, 0, 1);
         } else if ((i >= 20) && (i < 22)) {
@@ -7282,14 +7307,14 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     int32 written_lrc_len;
     int32 target_token_ids[3];
     float *values;
-    int64 first_start;
-    int64 first_end;
-    int64 second_start;
-    int64 second_end;
-    int64 third_start;
-    int64 third_end;
-    int64 frame_count;
-    int64 vocabulary_size;
+    int32 first_start;
+    int32 first_end;
+    int32 second_start;
+    int32 second_end;
+    int32 third_start;
+    int32 third_end;
+    int32 frame_count;
+    int32 vocabulary_size;
     int64 value_count;
     bool ok;
 
@@ -7338,13 +7363,13 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     }
 
     vocabulary_size = tokenizer.token_count;
-    if (ok && (frame_count > INT64_MAX/vocabulary_size)) {
+    if (ok && ((int64)frame_count > INT64_MAX/vocabulary_size)) {
         ok = false;
     }
     if (ok) {
-        value_count = frame_count*vocabulary_size;
+        value_count = (int64)frame_count*(int64)vocabulary_size;
         values = malloc2(value_count*SIZEOF(*values));
-        for (int64 i = 0; i < value_count; i += 1) {
+        for (int32 i = 0; i < value_count; i += 1) {
             values[i] = -0.10f;
         }
         ctc_align_make_emissions(&emissions,
@@ -7357,7 +7382,7 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
         ok = false;
     }
     if (ok) {
-        for (int64 i = 0; i < path.step_count; i += 1) {
+        for (int32 i = 0; i < path.step_count; i += 1) {
             if ((i >= first_start) && (i < first_end)) {
                 lrc_ctc_path_set_token_step(&path,
                                             i,
@@ -7472,7 +7497,7 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     }
 
     if (written_lrc) {
-        free2(written_lrc, ((int64)written_lrc_len + 1)*SIZEOF(*written_lrc));
+        free2(written_lrc, ((int32)written_lrc_len + 1)*SIZEOF(*written_lrc));
     }
     lrc_ctc_line_timestamps_destroy(&line_timestamps);
     lrc_ctc_word_spans_destroy(&word_spans);
@@ -8052,9 +8077,9 @@ ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
     int32 *target_token_ids;
     float *values;
     char text[] = "a\na\n";
-    int64 token_count;
-    int64 frame_count;
-    int64 vocabulary_size;
+    int32 token_count;
+    int32 frame_count;
+    int32 vocabulary_size;
     int64 value_count;
 
     lrc_ctc_tokenizer_init(&tokenizer);
@@ -8081,16 +8106,16 @@ ctc_align_test_line_timestamps_repeated_boundary_alignment(void) {
     token_count = tokens.token_count;
     frame_count = 5;
     vocabulary_size = tokenizer.token_count;
-    value_count = frame_count*vocabulary_size;
+    value_count = (int64)frame_count*(int64)vocabulary_size;
     target_token_ids = malloc2(token_count*SIZEOF(*target_token_ids));
     values = malloc2(value_count*SIZEOF(*values));
-    for (int64 i = 0; i < token_count; i += 1) {
+    for (int32 i = 0; i < token_count; i += 1) {
         target_token_ids[i] = tokens.tokens[i].token_id;
     }
-    for (int64 i = 0; i < value_count; i += 1) {
+    for (int32 i = 0; i < value_count; i += 1) {
         values[i] = -12.0f;
     }
-    for (int64 frame = 0; frame < frame_count; frame += 1) {
+    for (int32 frame = 0; frame < frame_count; frame += 1) {
         values[frame*vocabulary_size + tokenizer.blank_id] = -0.05f;
     }
     values[1*vocabulary_size + tokenizer.blank_id] = -6.0f;
@@ -8317,7 +8342,7 @@ ctc_align_test_maxwell_word_line_mapping(void) {
     }
 
     ASSERT(word_spans.span_count == LENGTH(expected_lines));
-    for (int64 i = 0; i < word_spans.span_count; i += 1) {
+    for (int32 i = 0; i < word_spans.span_count; i += 1) {
         LrcCtcWordSpan *word;
         int32 line_start;
         int32 line_end;
@@ -8532,7 +8557,7 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
     char *lrc_path;
     char *lrc_text;
     int32 lrc_text_len;
-    int64 word_index;
+    int32 word_index;
 
     lyrics_path = getenv("LRC_TEST_MAXWELL_TXT");
     if (lyrics_path == NULL) {
@@ -8557,13 +8582,13 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
         return ctc_align_test_fail("read maxwell expected lrc");
     }
     if (!lrc_parse_text(&parsed, lrc_text, lrc_text_len, &parse_result)) {
-        free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+        free2(lrc_text, ((int32)lrc_text_len + 1)*SIZEOF(*lrc_text));
         return ctc_align_test_fail("parse maxwell expected lrc");
     }
     if (!lrc_ctc_word_spans_allocate(&word_spans,
                                      parsed.timestamped_line_count,
                                      &align_result)) {
-        free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+        free2(lrc_text, ((int32)lrc_text_len + 1)*SIZEOF(*lrc_text));
         return ctc_align_test_fail("allocate maxwell expected words");
     }
 
@@ -8602,7 +8627,7 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
                                                &normalized,
                                                &line_timestamps,
                                                &align_result)) {
-        free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+        free2(lrc_text, ((int32)lrc_text_len + 1)*SIZEOF(*lrc_text));
         return ctc_align_test_fail("convert maxwell line timestamps");
     }
 
@@ -8631,7 +8656,7 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
     lrc_ctc_line_timestamps_destroy(&line_timestamps);
     lrc_ctc_word_spans_destroy(&word_spans);
     lrc_parsed_file_destroy(&parsed);
-    free2(lrc_text, ((int64)lrc_text_len + 1)*SIZEOF(*lrc_text));
+    free2(lrc_text, ((int32)lrc_text_len + 1)*SIZEOF(*lrc_text));
     lrc_lyrics_normalized_destroy(&normalized);
     lrc_lyrics_destroy(&lyrics);
 
@@ -8654,9 +8679,9 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
     float *values;
     char text[] = "AB, cab!\n";
     float frame_duration_seconds;
-    int64 token_count;
-    int64 frame_count;
-    int64 vocabulary_size;
+    int32 token_count;
+    int32 frame_count;
+    int32 vocabulary_size;
     int64 value_count;
 
     lrc_ctc_tokenizer_init(&tokenizer);
@@ -8688,10 +8713,10 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
     token_count = tokens.token_count;
     frame_count = token_count + 2;
     vocabulary_size = tokenizer.token_count;
-    value_count = frame_count*vocabulary_size;
+    value_count = (int64)frame_count*(int64)vocabulary_size;
     target_token_ids = malloc2(token_count*SIZEOF(*target_token_ids));
     values = malloc2(value_count*SIZEOF(*values));
-    for (int64 i = 0; i < token_count; i += 1) {
+    for (int32 i = 0; i < token_count; i += 1) {
         target_token_ids[i] = tokens.tokens[i].token_id;
     }
     ctc_align_fill_predictable_values(values,
@@ -8730,7 +8755,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
 
     ASSERT(align_result.error == LS_ERROR_NONE);
     ASSERT(spans.span_count == token_count);
-    for (int64 i = 0; i < spans.span_count; i += 1) {
+    for (int32 i = 0; i < spans.span_count; i += 1) {
         float expected_start;
         float expected_end;
 
@@ -8780,9 +8805,9 @@ ctc_align_test_maxwell_fake_token_timing(void) {
     int32 *target_token_ids;
     float *values;
     char *lyrics_path;
-    int64 token_count;
-    int64 frame_count;
-    int64 vocabulary_size;
+    int32 token_count;
+    int32 frame_count;
+    int32 vocabulary_size;
     int64 value_count;
 
     lyrics_path = getenv("LRC_TEST_MAXWELL_TXT");
@@ -8811,10 +8836,10 @@ ctc_align_test_maxwell_fake_token_timing(void) {
     token_count = tokens.token_count;
     frame_count = token_count + 2;
     vocabulary_size = tokenizer.token_count;
-    value_count = frame_count*vocabulary_size;
+    value_count = (int64)frame_count*(int64)vocabulary_size;
     target_token_ids = malloc2(token_count*SIZEOF(*target_token_ids));
     values = malloc2(value_count*SIZEOF(*values));
-    for (int64 i = 0; i < token_count; i += 1) {
+    for (int32 i = 0; i < token_count; i += 1) {
         target_token_ids[i] = tokens.tokens[i].token_id;
     }
     ctc_align_fill_predictable_values(values,
@@ -8913,10 +8938,10 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     int32 *target_token_ids;
     float *values;
     float frame_duration_seconds;
-    int64 frame_count;
-    int64 vocabulary_size;
+    int32 frame_count;
+    int32 vocabulary_size;
     int64 value_count;
-    int64 token_count;
+    int32 token_count;
     bool ok;
 
     if (!test_command_exists("ffmpeg")) {
@@ -9004,11 +9029,11 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     token_count = tokens.token_count;
     frame_count = token_count + 2;
     vocabulary_size = tokenizer.token_count;
-    value_count = frame_count*vocabulary_size;
+    value_count = (int64)frame_count*(int64)vocabulary_size;
     if (ok) {
         target_token_ids = malloc2(token_count*SIZEOF(*target_token_ids));
         values = malloc2(value_count*SIZEOF(*values));
-        for (int64 i = 0; i < token_count; i += 1) {
+        for (int32 i = 0; i < token_count; i += 1) {
             target_token_ids[i] = tokens.tokens[i].token_id;
         }
         ctc_align_fill_predictable_values(values,
@@ -9115,7 +9140,7 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     }
 
     if (written_lrc) {
-        free2(written_lrc, ((int64)written_lrc_len + 1)*SIZEOF(*written_lrc));
+        free2(written_lrc, ((int32)written_lrc_len + 1)*SIZEOF(*written_lrc));
     }
     if (output_lines) {
         free2(output_lines,
@@ -9186,12 +9211,12 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     char temp_dir[PATH_MAX];
     char output_lrc_path[PATH_MAX];
     int32 *target_token_ids;
-    int64 *token_frames;
+    int32 *token_frames;
     float *values;
     float frame_duration_seconds;
-    int64 token_count;
-    int64 frame_count;
-    int64 vocabulary_size;
+    int32 token_count;
+    int32 frame_count;
+    int32 vocabulary_size;
     int64 value_count;
     bool ok;
 
@@ -9287,7 +9312,7 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     if (ok) {
         target_token_ids = malloc2(token_count*SIZEOF(*target_token_ids));
         token_frames = malloc2(token_count*SIZEOF(*token_frames));
-        for (int64 i = 0; i < token_count; i += 1) {
+        for (int32 i = 0; i < token_count; i += 1) {
             target_token_ids[i] = tokens.tokens[i].token_id;
         }
         if (!ctc_align_make_line_timed_token_frames(&expected_lrc,
@@ -9305,11 +9330,11 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
     }
 
     vocabulary_size = tokenizer.token_count;
-    if (ok && (frame_count > INT64_MAX/vocabulary_size)) {
+    if (ok && ((int64)frame_count > INT64_MAX/vocabulary_size)) {
         ok = false;
     }
     if (ok) {
-        value_count = frame_count*vocabulary_size;
+        value_count = (int64)frame_count*(int64)vocabulary_size;
         values = malloc2(value_count*SIZEOF(*values));
         ctc_align_fill_token_frame_values(values,
                                           frame_count,
@@ -9414,11 +9439,11 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
 
     if (actual_lrc_text) {
         free2(actual_lrc_text,
-              ((int64)actual_lrc_text_len + 1)*SIZEOF(*actual_lrc_text));
+              ((int32)actual_lrc_text_len + 1)*SIZEOF(*actual_lrc_text));
     }
     if (expected_lrc_text) {
         free2(expected_lrc_text,
-              ((int64)expected_lrc_text_len + 1)*SIZEOF(*expected_lrc_text));
+              ((int32)expected_lrc_text_len + 1)*SIZEOF(*expected_lrc_text));
     }
     if (output_lines) {
         free2(output_lines,
@@ -9460,11 +9485,11 @@ ctc_align_test_maxwell_fixture_lrc_pipeline(void) {
 static void
 ctc_align_set_rank3_row_preference(
     float *values,
-    int64 row_index,
-    int64 vocabulary_size,
+    int32 row_index,
+    int32 vocabulary_size,
     int32 token_id
 ) {
-    for (int64 i = 0; i < vocabulary_size; i += 1) {
+    for (int32 i = 0; i < vocabulary_size; i += 1) {
         values[row_index*vocabulary_size + i] = -10.0f;
     }
     values[row_index*vocabulary_size + token_id] = 10.0f;
@@ -9496,7 +9521,7 @@ ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
     int32 target_token_ids[2];
     int32 star_token_id;
     int64 raw_value_count;
-    int64 vocabulary_size;
+    int32 vocabulary_size;
     float *values;
     float samples[12];
     bool ok;
@@ -9545,10 +9570,10 @@ ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
 
     vocabulary_size = tokenizer.token_count;
     raw_value_count = input.chunk_count*input.raw_chunk_emission_count
-                      *vocabulary_size;
+                      *(int64)vocabulary_size;
     if (ok) {
         values = malloc2(raw_value_count*SIZEOF(*values));
-        for (int64 i = 0; i < input.chunk_count*input.raw_chunk_emission_count;
+        for (int32 i = 0; i < input.chunk_count*input.raw_chunk_emission_count;
              i += 1) {
             ctc_align_set_rank3_row_preference(values,
                                                i,
@@ -9560,18 +9585,18 @@ ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
     }
 
     if (ok) {
-        int64 output_frame;
+        int32 output_frame;
 
         output_frame = 0;
-        for (int64 i = 0; i < input.chunk_count; i += 1) {
+        for (int32 i = 0; i < input.chunk_count; i += 1) {
             LrcCtcModelChunk *chunk;
-            int64 kept_offset;
+            int32 kept_offset;
 
             chunk = &input.chunks[i];
             kept_offset = chunk->kept_emission_start
                           - chunk->raw_emission_start;
-            for (int64 j = 0; j < chunk->kept_emission_count; j += 1) {
-                int64 raw_frame;
+            for (int32 j = 0; j < chunk->kept_emission_count; j += 1) {
+                int32 raw_frame;
                 int32 preferred_token;
 
                 if (output_frame >= input.original_emission_count) {

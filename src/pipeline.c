@@ -1277,7 +1277,7 @@ lrc_ctc_debug_dump_write_path_segments(
         return;
     }
 
-    for (int64 i = 0; i < segments->segment_count; i += 1) {
+    for (int32 i = 0; i < segments->segment_count; i += 1) {
         LrcCtcPathSegment *segment;
         int32 is_blank;
         int32 is_star;
@@ -1292,7 +1292,7 @@ lrc_ctc_debug_dump_write_path_segments(
             is_star = 1;
         }
         lrc_ctc_debug_dump_printf(writer,
-                                  "%lld\t%lld\t%d\t",
+                                  "%d\t%d\t%d\t",
                                   i,
                                   segment->token_index,
                                   segment->token_id);
@@ -1301,7 +1301,7 @@ lrc_ctc_debug_dump_write_path_segments(
                                                     segment);
         lrc_ctc_debug_dump_printf(
             writer,
-            "\t%lld\t%lld\t%.9g\t%.9g\t%.9g\t%d\t%d\n",
+            "\t%d\t%d\t%.9g\t%.9g\t%.9g\t%d\t%d\n",
             segment->start_frame,
             segment->end_frame,
             (double)segment->start_seconds,
@@ -1361,19 +1361,19 @@ lrc_ctc_debug_dump_write_word_spans(
         return;
     }
 
-    for (int64 i = 0; i < word_spans->span_count; i += 1) {
+    for (int32 i = 0; i < word_spans->span_count; i += 1) {
         LrcCtcWordSpan *word;
 
         word = word_spans->spans + i;
         lrc_ctc_debug_dump_printf(writer,
-                                  "%lld\t%d\t%lld\t",
+                                  "%d\t%d\t%d\t",
                                   i,
                                   word->line_index,
                                   word->word_index);
         lrc_ctc_debug_dump_write_word_span_text(writer, normalized, word);
         lrc_ctc_debug_dump_printf(
             writer,
-            "\t%d\t%d\t%lld\t%lld\t%lld\t%lld\t%.9g\t%.9g\t%.9g\n",
+            "\t%d\t%d\t%d\t%d\t%d\t%d\t%.9g\t%.9g\t%.9g\n",
             word->normalized_start,
             word->normalized_end,
             word->token_start_index,
@@ -1594,7 +1594,7 @@ lrc_pipeline_trellis_score_forward(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcAlignResult *align_result,
@@ -1669,7 +1669,7 @@ lrc_pipeline_trellis_backtrack(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
@@ -1746,7 +1746,7 @@ lrc_pipeline_path_to_padded_token_spans(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *token_spans,
@@ -2167,14 +2167,14 @@ lrc_pipeline_output_line_set_timestamped(
 static LrcCtcLineTimestamp *
 lrc_pipeline_next_timestamped_line(
     LrcCtcLineTimestamps *timestamps,
-    int64 start_index
+    int32 start_index
 ) {
     if ((timestamps == NULL) || (timestamps->lines == NULL)
         || (timestamps->line_count <= 0) || (start_index < 0)) {
         return NULL;
     }
 
-    for (int64 i = start_index; i < timestamps->line_count; i += 1) {
+    for (int32 i = start_index; i < timestamps->line_count; i += 1) {
         LrcCtcLineTimestamp *timestamp;
 
         timestamp = timestamps->lines + i;
@@ -2205,7 +2205,7 @@ lrc_pipeline_line_timestamps_correct_ends_from_audio(
         return false;
     }
 
-    for (int64 i = 0; i < timestamps->line_count; i += 1) {
+    for (int32 i = 0; i < timestamps->line_count; i += 1) {
         LrcCtcLineTimestamp *current;
         LrcCtcLineTimestamp *next;
         float gap_seconds;
@@ -2259,7 +2259,7 @@ lrc_pipeline_line_timestamps_correct_ends_from_audio(
 static bool
 lrc_pipeline_timestamp_needs_clear_line(
     LrcCtcLineTimestamps *timestamps,
-    int64 timestamp_index
+    int32 timestamp_index
 ) {
     LrcCtcLineTimestamp *current;
     LrcCtcLineTimestamp *next;
@@ -2289,11 +2289,11 @@ lrc_pipeline_output_lines_from_timestamps(
     LrcLyrics *lyrics,
     LrcCtcLineTimestamps *timestamps,
     LrcOutputLine *lines,
-    int64 line_cap,
+    int32 line_cap,
     int32 *line_count,
     LrcPipelineGenerateResult *result
 ) {
-    int64 out_index;
+    int32 out_index;
 
     if (line_count) {
         *line_count = 0;
@@ -2309,9 +2309,7 @@ lrc_pipeline_output_lines_from_timestamps(
         return false;
     }
     if ((timestamps->line_count < 0)
-        || (timestamps->line_count > INT32_MAX)
-        || (line_cap < timestamps->line_count)
-        || (line_cap > INT32_MAX)) {
+        || (line_cap < timestamps->line_count)) {
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
@@ -2322,7 +2320,7 @@ lrc_pipeline_output_lines_from_timestamps(
     }
 
     out_index = 0;
-    for (int64 i = 0; i < timestamps->line_count; i += 1) {
+    for (int32 i = 0; i < timestamps->line_count; i += 1) {
         LrcCtcLineTimestamp *timestamp;
         LrcLyricsLine *lyrics_line;
 
@@ -2414,10 +2412,10 @@ lrc_pipeline_generate_targets(
     LrcCtcTokenizedText *tokens,
     int32 **target_token_ids,
     bool **target_segment_starts,
-    int64 *target_token_count,
+    int32 *target_token_count,
     LrcPipelineGenerateResult *result
 ) {
-    int64 count;
+    int32 count;
 
     if ((tokens == NULL) || (target_token_ids == NULL)
         || (target_segment_starts == NULL)
@@ -2433,21 +2431,11 @@ lrc_pipeline_generate_targets(
     }
 
     count = tokens->token_count;
-    if ((count > INT64_MAX/SIZEOF(**target_token_ids))
-        || (count > INT64_MAX/SIZEOF(**target_segment_starts))) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
-            "CTC target token allocation is too large",
-            NULL
-        );
-        return false;
-    }
-
-    *target_token_ids = malloc2(count*SIZEOF(**target_token_ids));
-    *target_segment_starts = malloc2(count*SIZEOF(**target_segment_starts));
+    *target_token_ids = malloc2((int64)count*SIZEOF(**target_token_ids));
+    *target_segment_starts =
+        malloc2((int64)count*SIZEOF(**target_segment_starts));
     *target_token_count = count;
-    for (int64 i = 0; i < count; i += 1) {
+    for (int32 i = 0; i < count; i += 1) {
         (*target_token_ids)[i] = tokens->tokens[i].token_id;
         (*target_segment_starts)[i] = tokens->tokens[i].starts_segment;
     }
@@ -2616,8 +2604,8 @@ lrc_pipeline_generate_lrc(
     LrcWriteResult write_result;
     int32 *target_token_ids;
     bool *target_segment_starts;
-    int64 target_token_count;
-    int64 output_line_cap;
+    int32 target_token_count;
+    int32 output_line_cap;
     int32 output_line_count;
     int32 star_token_id;
     float frame_duration_seconds;
@@ -2962,8 +2950,7 @@ lrc_pipeline_generate_lrc(
     if (ok) {
         output_line_cap = 2*line_timestamps.line_count;
         if ((line_timestamps.line_count < 0)
-            || (line_timestamps.line_count > INT32_MAX/2)
-            || (output_line_cap > INT64_MAX/SIZEOF(*output_lines))) {
+            || (line_timestamps.line_count > INT32_MAX/2)) {
             lrc_pipeline_generate_result_set(
                 result,
                 LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
@@ -3374,7 +3361,7 @@ lrc_ctc_trellis_score_forward(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcAlignResult *result
 ) {
@@ -3393,7 +3380,7 @@ lrc_ctc_trellis_score_forward_with_edge_stars(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcAlignResult *result
@@ -3416,7 +3403,7 @@ lrc_ctc_trellis_score_forward_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcAlignResult *result
@@ -3438,7 +3425,7 @@ lrc_ctc_trellis_backtrack(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     LrcCtcPath *path,
     LrcCtcAlignResult *result
@@ -3459,7 +3446,7 @@ lrc_ctc_trellis_backtrack_with_edge_stars(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
@@ -3484,7 +3471,7 @@ lrc_ctc_trellis_backtrack_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
     LrcCtcPath *path,
@@ -3558,7 +3545,7 @@ lrc_ctc_path_to_padded_token_spans(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
@@ -3579,7 +3566,7 @@ lrc_ctc_path_to_padded_token_spans_with_edge_stars(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
@@ -3603,7 +3590,7 @@ lrc_ctc_path_to_padded_token_spans_with_segment_stars(
     LrcCtcEmissions *emissions,
     int32 *target_token_ids,
     bool *target_segment_starts,
-    int64 target_token_count,
+    int32 target_token_count,
     int32 star_token_id,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
@@ -3989,7 +3976,7 @@ pipeline_test_audio_silence_detector_scaled(void) {
         0.01f,
     };
 
-    for (int64 i = 0; i < LENGTH(amplitudes); i += 1) {
+    for (int32 i = 0; i < LENGTH(amplitudes); i += 1) {
         float silence_start;
         bool found;
 
@@ -4362,7 +4349,7 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
 
     lyrics.lines = lyric_lines;
     lyrics.line_count = LENGTH(lyric_lines);
-    for (int64 i = 0; i < LENGTH(texts); i += 1) {
+    for (int32 i = 0; i < LENGTH(texts); i += 1) {
         lyric_lines[i].text = texts[i];
         lyric_lines[i].text_len = strlen32(texts[i]);
     }
@@ -4371,7 +4358,7 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
     timestamps.line_count = LENGTH(timestamp_lines);
     timestamps.line_cap = LENGTH(timestamp_lines);
     timestamps.timestamped_line_count = LENGTH(timestamp_lines);
-    for (int64 i = 0; i < LENGTH(timestamp_lines); i += 1) {
+    for (int32 i = 0; i < LENGTH(timestamp_lines); i += 1) {
         timestamp_lines[i].line_index = (int32)i;
         timestamp_lines[i].start_seconds = starts[i];
         timestamp_lines[i].end_seconds = raw_ends[i];
@@ -4379,7 +4366,7 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
     }
 
     pipeline_test_audio_fill(samples, LENGTH(samples), 0.0f);
-    for (int64 i = 0; i < LENGTH(corrected_ends); i += 1) {
+    for (int32 i = 0; i < LENGTH(corrected_ends); i += 1) {
         pipeline_test_audio_fill_seconds(samples,
                                          LENGTH(samples),
                                          1000,
@@ -4397,7 +4384,7 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
                                                               &result)) {
         return pipeline_test_fail("cafe-vocals audio correction failed");
     }
-    for (int64 i = 0; i < LENGTH(corrected_ends); i += 1) {
+    for (int32 i = 0; i < LENGTH(corrected_ends); i += 1) {
         if (!pipeline_test_float_near(timestamp_lines[i].end_seconds,
                                       corrected_ends[i],
                                       0.35f)) {
@@ -4418,7 +4405,7 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
     }
 
     output_index = 1;
-    for (int64 i = 0; i < LENGTH(expected_clear_hundredths); i += 1) {
+    for (int32 i = 0; i < LENGTH(expected_clear_hundredths); i += 1) {
         if ((output_lines[output_index].kind
              != LRC_OUTPUT_LINE_KIND_TIMESTAMPED)
             || (output_lines[output_index].text_len != 0)

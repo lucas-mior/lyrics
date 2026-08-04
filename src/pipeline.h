@@ -26,7 +26,7 @@ typedef struct LrcPipelineGenerateResult {
     char *path;
 
     int64 frame_index;
-    int64 token_index;
+    int32 token_index;
     int32 line_index;
 } LrcPipelineGenerateResult;
 

@@ -22,7 +22,7 @@ typedef struct LrcCtcInferenceResult {
     enum LsError error;
     char *message;
 
-    int64 output_index;
+    int32 output_index;
 } LrcCtcInferenceResult;
 
 typedef struct LrcCtcEmissions {
