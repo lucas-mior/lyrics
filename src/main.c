@@ -963,14 +963,11 @@ main_mark_usage_error(MainOptions *options) {
 
 static bool
 main_validate_options(MainOptions *options) {
-    LrcPipelineConfig *config;
-    bool has_song;
-    bool has_vocals;
+    LrcPipelineConfig *config = &options->config;
+    bool has_song = !path_missing(config->song_path);
+    bool has_vocals = !path_missing(config->existing_vocals_path);
     bool has_lyrics;
 
-    config = &options->config;
-    has_song = !path_missing(config->song_path);
-    has_vocals = !path_missing(config->existing_vocals_path);
     if (has_song && has_vocals) {
         error2("%s and %s cannot both be passed\n",
                main_value_option_name(MAIN_VALUE_OPTION_INPUT_SONG),
