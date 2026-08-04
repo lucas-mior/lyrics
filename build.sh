@@ -99,6 +99,7 @@ clang|*/clang)
     CFLAGS="$CFLAGS -Wno-bad-function-cast"
     CFLAGS="$CFLAGS -Wno-fixed-enum-extension"
     CFLAGS="$CFLAGS -Wno-char-subscripts"
+    CFLAGS="$CFLAGS -Wno-cast-align"
     ;;
 esac
 
