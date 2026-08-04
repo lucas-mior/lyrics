@@ -434,6 +434,48 @@ audio_buffer_valid(AudioBuffer *audio) {
 }
 
 static bool
+audio_interleaved_buffer_create(
+    AudioBuffer *audio,
+    char **out,
+    int64 *out_len
+) {
+    float *samples;
+    int64 sample_count;
+    int64 sample_size;
+
+    if ((audio == NULL) || (out == NULL) || (out_len == NULL)) {
+        return false;
+    }
+
+    *out = NULL;
+    *out_len = 0;
+    if (audio->frame_count <= 0) {
+        return true;
+    }
+    if (audio->frame_count > INT64_MAX/audio->channel_count) {
+        return false;
+    }
+
+    sample_count = audio->frame_count*audio->channel_count;
+    if (sample_count > INT64_MAX/SIZEOF(*samples)) {
+        return false;
+    }
+    sample_size = sample_count*SIZEOF(*samples);
+
+    samples = malloc2(sample_size);
+    for (int64 i = 0; i < audio->frame_count; i += 1) {
+        samples[audio->channel_count*i] = audio->left[i];
+        if (audio->channel_count == 2) {
+            samples[2*i + 1] = audio->right[i];
+        }
+    }
+
+    *out = (char *)samples;
+    *out_len = sample_size;
+    return true;
+}
+
+static bool
 audio_write_file(
     AudioBuffer *audio,
     char *path,
@@ -451,8 +493,12 @@ audio_write_file_format(
     AudioIoFormat *output_format,
     char *ffmpeg_path
 ) {
+    enum {
+        AUDIO_WRITE_CONTAINER_FORMAT_ARG = 18,
+    };
     AudioIoFormat buffer_format;
     AudioIoFormat file_format;
+    LrcAudioFormatInfo *format_info;
     char input_channel_count_arg[32];
     char input_sample_rate_arg[32];
     char output_channel_count_arg[32];
@@ -481,16 +527,9 @@ audio_write_file_format(
         NULL,
     };
     Command command = {0};
-    float *interleaved;
-    int32 null_fd;
-    int32 pipe_fds[2];
-    int32 status;
-    int64 frame_capacity;
-    int64 frame_offset;
+    char *interleaved;
     int64 interleaved_size;
-    pid_t pid;
-    pid_t waited;
-    void (*previous_sigpipe)(int);
+    bool result = false;
 
     if ((audio == NULL) || (path == NULL) || (container_format == NULL)
         || (ffmpeg_path == NULL)) {
@@ -499,6 +538,15 @@ audio_write_file_format(
     if (!audio_buffer_valid(audio)) {
         return false;
     }
+    if ((format_info = lrc_audio_format_info_from_name(container_format))
+        == NULL) {
+        return false;
+    }
+    if (!format_info->supports_streaming) {
+        return false;
+    }
+    container_format = format_info->name;
+    argv[AUDIO_WRITE_CONTAINER_FORMAT_ARG] = container_format;
 
     buffer_format.sample_rate = audio->sample_rate;
     buffer_format.channel_count = audio->channel_count;
@@ -511,6 +559,11 @@ audio_write_file_format(
     if (!audio_io_format_valid(&file_format)) {
         return false;
     }
+    if (!audio_interleaved_buffer_create(audio,
+                                         &interleaved,
+                                         &interleaved_size)) {
+        return false;
+    }
 
     ITOA(input_channel_count_arg, buffer_format.channel_count);
     ITOA(input_sample_rate_arg, buffer_format.sample_rate);
@@ -518,112 +571,19 @@ audio_write_file_format(
     ITOA(output_sample_rate_arg, file_format.sample_rate);
 
     command_push_array(&command, LENGTH(argv) - 1, argv);
-    frame_capacity = 4096;
-    interleaved_size = (int64)audio->channel_count*frame_capacity
-                       *SIZEOF(*interleaved);
-    interleaved = malloc2(interleaved_size);
-
-    if (pipe(pipe_fds) != 0) {
-        free2(interleaved, interleaved_size);
-        command_free(&command);
-        return false;
+    if (!command_stdin_buffer_set(&command, interleaved, interleaved_size)) {
+        goto cleanup;
+    }
+    if (!command_run_capture_all(&command)) {
+        goto cleanup;
     }
 
-    switch (pid = fork()) {
-    case -1:
-        free2(interleaved, interleaved_size);
-        command_free(&command);
-        close(pipe_fds[0]);
-        close(pipe_fds[1]);
-        return false;
-    case 0:
-        close(pipe_fds[1]);
-        dup2(pipe_fds[0], STDIN_FILENO);
-        if (pipe_fds[0] > STDERR_FILENO) {
-            close(pipe_fds[0]);
-        }
+    result = command.result.exited && (command.result.exit_status == 0);
 
-        null_fd = open("/dev/null", O_WRONLY);
-        if (null_fd >= 0) {
-            dup2(null_fd, STDOUT_FILENO);
-            dup2(null_fd, STDERR_FILENO);
-            if (null_fd > STDERR_FILENO) {
-                close(null_fd);
-            }
-        }
-
-        command_child_exec(&command, COMMAND_NONE, NULL, NULL);
-    default:
-        break;
-    }
-
-    close(pipe_fds[0]);
-    previous_sigpipe = signal(SIGPIPE, SIG_IGN);
-    for (frame_offset = 0; frame_offset < audio->frame_count;) {
-        char *bytes;
-        int64 byte_count;
-        int64 byte_offset;
-        int64 chunk_frames;
-
-        chunk_frames = audio->frame_count - frame_offset;
-        if (chunk_frames > frame_capacity) {
-            chunk_frames = frame_capacity;
-        }
-
-        for (int64 i = 0; i < chunk_frames; i += 1) {
-            interleaved[audio->channel_count*i] =
-                audio->left[frame_offset + i];
-            if (audio->channel_count == 2) {
-                interleaved[2*i + 1] = audio->right[frame_offset + i];
-            }
-        }
-
-        bytes = (char *)interleaved;
-        byte_offset = 0;
-        byte_count = (int64)audio->channel_count*chunk_frames
-                     *SIZEOF(*interleaved);
-        while (byte_offset < byte_count) {
-            int64 bytes_written;
-
-            bytes_written = write64(pipe_fds[1],
-                                    bytes + byte_offset,
-                                    byte_count - byte_offset);
-            if (bytes_written > 0) {
-                byte_offset += (int64)bytes_written;
-                continue;
-            }
-            if ((bytes_written < 0) && (errno == EINTR)) {
-                continue;
-            }
-
-            close(pipe_fds[1]);
-            signal(SIGPIPE, previous_sigpipe);
-            free2(interleaved, interleaved_size);
-            waitpid(pid, &status, 0);
-            command_free(&command);
-            return false;
-        }
-
-        frame_offset += chunk_frames;
-    }
-
-    close(pipe_fds[1]);
-    signal(SIGPIPE, previous_sigpipe);
-    free2(interleaved, interleaved_size);
-
-    do {
-        waited = waitpid(pid, &status, 0);
-    } while ((waited < 0) && (errno == EINTR));
-
+cleanup:
     command_free(&command);
-    if (waited < 0) {
-        return false;
-    }
-    if (!WIFEXITED(status)) {
-        return false;
-    }
-
-    return WEXITSTATUS(status) == 0;
+    free2(interleaved, interleaved_size);
+    return result;
 }
 
 #if TESTING

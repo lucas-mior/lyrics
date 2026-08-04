@@ -458,8 +458,11 @@ main_parse_enum_value(
 
 static bool
 main_parse_vocals_format(LrcPipelineConfig *config, char *option, char *value) {
-    if (lrc_audio_format_valid(value)) {
-        config->vocals_container_format = value;
+    LrcAudioFormatInfo *format_info;
+
+    format_info = lrc_audio_format_info_from_name(value);
+    if (format_info) {
+        config->vocals_container_format = format_info->name;
         return true;
     }
 
@@ -470,6 +473,7 @@ main_parse_vocals_format(LrcPipelineConfig *config, char *option, char *value) {
 
 static void
 main_infer_vocals_format(LrcPipelineConfig *config, char *path) {
+    LrcAudioFormatInfo *format_info;
     char *extension;
     char *last_slash;
     int32 path_len;
@@ -498,8 +502,9 @@ main_infer_vocals_format(LrcPipelineConfig *config, char *path) {
     if (last_slash && (extension <= last_slash + 1)) {
         return;
     }
-    if (lrc_audio_format_valid(extension)) {
-        config->vocals_container_format = extension;
+    format_info = lrc_audio_format_info_from_extension(extension);
+    if (format_info) {
+        config->vocals_container_format = format_info->name;
     }
 
     return;
