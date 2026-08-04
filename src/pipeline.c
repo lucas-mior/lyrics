@@ -1588,51 +1588,27 @@ lrc_pipeline_debug_dump_open_and_write_text(
 }
 
 static bool
-lrc_pipeline_trellis_score_forward(
+lrc_pipeline_ctc_align_plan_init(
     LrcPipeline *pipeline,
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
+    LrcCtcAlignPlan *plan,
     int32 *target_token_ids,
     bool *target_segment_starts,
     int32 target_token_count,
     int32 blank_token_id,
     int32 star_token_id,
-    LrcCtcAlignResult *align_result,
     LrcPipelineGenerateResult *result
 ) {
-    bool ok;
+    enum LrcCtcAlignStarMode star_mode;
 
     switch (pipeline->config.lyrics_preprocess_options.star_frequency) {
     case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE:
-        ok = lrc_ctc_trellis_score_forward(trellis,
-                                           emissions,
-                                           target_token_ids,
-                                           target_token_count,
-                                           blank_token_id,
-                                           align_result);
+        star_mode = LRC_CTC_ALIGN_STAR_MODE_NONE;
         break;
     case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES:
-        ok = lrc_ctc_trellis_score_forward_with_edge_stars(
-            trellis,
-            emissions,
-            target_token_ids,
-            target_token_count,
-            blank_token_id,
-            star_token_id,
-            align_result
-        );
+        star_mode = LRC_CTC_ALIGN_STAR_MODE_EDGES;
         break;
     case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT:
-        ok = lrc_ctc_trellis_score_forward_with_segment_stars(
-            trellis,
-            emissions,
-            target_token_ids,
-            target_segment_starts,
-            target_token_count,
-            blank_token_id,
-            star_token_id,
-            align_result
-        );
+        star_mode = LRC_CTC_ALIGN_STAR_MODE_SEGMENT;
         break;
     case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST:
     default:
@@ -1645,109 +1621,97 @@ lrc_pipeline_trellis_score_forward(
         return false;
     }
 
-    if (!ok) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
-            align_result->message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = align_result->frame_index;
-            result->token_index = align_result->token_index;
-        }
-        return false;
-    }
+    lrc_ctc_align_plan_init(plan,
+                            target_token_ids,
+                            target_segment_starts,
+                            target_token_count,
+                            blank_token_id,
+                            star_mode,
+                            star_token_id);
 
     return true;
+}
+
+static bool
+lrc_pipeline_ctc_align_ok(
+    bool ok,
+    LrcCtcAlignResult *align_result,
+    LrcPipelineGenerateResult *result
+) {
+    char *message;
+    int32 frame_index;
+    int32 token_index;
+
+    if (ok) {
+        return true;
+    }
+
+    message = "CTC alignment failed";
+    frame_index = -1;
+    token_index = -1;
+    if (align_result != NULL) {
+        message = align_result->message;
+        frame_index = align_result->frame_index;
+        token_index = align_result->token_index;
+    }
+
+    lrc_pipeline_generate_result_set(
+        result,
+        LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
+        message,
+        NULL
+    );
+    if (result) {
+        result->frame_index = frame_index;
+        result->token_index = token_index;
+    }
+
+    return false;
+}
+
+static bool
+lrc_pipeline_trellis_score_forward(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    LrcCtcAlignPlan *plan,
+    LrcCtcAlignResult *align_result,
+    LrcPipelineGenerateResult *result
+) {
+    bool ok;
+
+    ok = lrc_ctc_trellis_score_forward_with_plan(trellis,
+                                                 emissions,
+                                                 plan,
+                                                 align_result);
+
+    return lrc_pipeline_ctc_align_ok(ok, align_result, result);
 }
 
 static bool
 lrc_pipeline_trellis_backtrack(
-    LrcPipeline *pipeline,
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    bool *target_segment_starts,
-    int32 target_token_count,
-    int32 blank_token_id,
-    int32 star_token_id,
+    LrcCtcAlignPlan *plan,
     LrcCtcPath *path,
     LrcCtcAlignResult *align_result,
     LrcPipelineGenerateResult *result
 ) {
     bool ok;
 
-    switch (pipeline->config.lyrics_preprocess_options.star_frequency) {
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE:
-        ok = lrc_ctc_trellis_backtrack(trellis,
-                                       emissions,
-                                       target_token_ids,
-                                       target_token_count,
-                                       blank_token_id,
-                                       path,
-                                       align_result);
-        break;
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES:
-        ok = lrc_ctc_trellis_backtrack_with_edge_stars(trellis,
-                                                       emissions,
-                                                       target_token_ids,
-                                                       target_token_count,
-                                                       blank_token_id,
-                                                       star_token_id,
-                                                       path,
-                                                       align_result);
-        break;
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT:
-        ok = lrc_ctc_trellis_backtrack_with_segment_stars(
-            trellis,
-            emissions,
-            target_token_ids,
-            target_segment_starts,
-            target_token_count,
-            blank_token_id,
-            star_token_id,
-            path,
-            align_result
-        );
-        break;
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST:
-    default:
-        lrc_pipeline_generate_result_set(
-            result,
-            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
-            "star frequency is invalid",
-            NULL
-        );
-        return false;
-    }
+    ok = lrc_ctc_trellis_backtrack_with_plan(trellis,
+                                             emissions,
+                                             plan,
+                                             path,
+                                             align_result);
 
-    if (!ok) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
-            align_result->message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = align_result->frame_index;
-            result->token_index = align_result->token_index;
-        }
-        return false;
-    }
-
-    return true;
+    return lrc_pipeline_ctc_align_ok(ok, align_result, result);
 }
 
 static bool
 lrc_pipeline_path_to_padded_token_spans(
-    LrcPipeline *pipeline,
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    bool *target_segment_starts,
-    int32 target_token_count,
-    int32 star_token_id,
+    LrcCtcAlignPlan *plan,
     float frame_duration_seconds,
     LrcCtcTokenSpans *token_spans,
     LrcCtcAlignResult *align_result,
@@ -1755,69 +1719,15 @@ lrc_pipeline_path_to_padded_token_spans(
 ) {
     bool ok;
 
-    switch (pipeline->config.lyrics_preprocess_options.star_frequency) {
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_NONE:
-        ok = lrc_ctc_path_to_padded_token_spans(path,
-                                                emissions,
-                                                target_token_ids,
-                                                target_token_count,
-                                                frame_duration_seconds,
-                                                token_spans,
-                                                align_result);
-        break;
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES:
-        ok = lrc_ctc_path_to_padded_token_spans_with_edge_stars(
-            path,
-            emissions,
-            target_token_ids,
-            target_token_count,
-            star_token_id,
-            frame_duration_seconds,
-            token_spans,
-            align_result
-        );
-        break;
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_SEGMENT:
-        ok = lrc_ctc_path_to_padded_token_spans_with_segment_stars(
-            path,
-            emissions,
-            target_token_ids,
-            target_segment_starts,
-            target_token_count,
-            star_token_id,
-            frame_duration_seconds,
-            token_spans,
-            align_result
-        );
-        break;
-    case LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST:
-    default:
-        lrc_pipeline_generate_result_set(
-            result,
-            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
-            "star frequency is invalid",
-            NULL
-        );
-        return false;
-    }
+    ok = lrc_ctc_path_to_padded_token_spans_with_plan(path,
+                                                      emissions,
+                                                      plan,
+                                                      frame_duration_seconds,
+                                                      token_spans,
+                                                      align_result);
 
-    if (!ok) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
-            align_result->message,
-            NULL
-        );
-        if (result) {
-            result->frame_index = align_result->frame_index;
-            result->token_index = align_result->token_index;
-        }
-        return false;
-    }
-
-    return true;
+    return lrc_pipeline_ctc_align_ok(ok, align_result, result);
 }
-
 
 static bool
 lrc_pipeline_line_timing_audio_from_ctc_audio(
@@ -2593,6 +2503,7 @@ lrc_pipeline_generate_lrc(
     LrcCtcInferenceResult inference_result;
     LrcCtcEmissions emissions = {0};
     LrcCtcAlignResult align_result;
+    LrcCtcAlignPlan align_plan;
     LrcCtcTrellis trellis = {0};
     LrcCtcPath path = {0};
     LrcCtcTokenSpans token_spans = {0};
@@ -2816,6 +2727,16 @@ lrc_pipeline_generate_lrc(
             star_token_id = (int32)emissions.vocabulary_size;
         }
     }
+    if (ok && !lrc_pipeline_ctc_align_plan_init(pipeline,
+                                                 &align_plan,
+                                                 target_token_ids,
+                                                 target_segment_starts,
+                                                 target_token_count,
+                                                 tokenizer.blank_id,
+                                                 star_token_id,
+                                                 result)) {
+        ok = false;
+    }
     if (ok && lrc_pipeline_debug_dump_enabled(pipeline)) {
         lrc_ctc_debug_dump_write_audio_model(&debug_dump,
                                              pipeline,
@@ -2834,26 +2755,16 @@ lrc_pipeline_generate_lrc(
             ok = false;
         }
     }
-    if (ok && !lrc_pipeline_trellis_score_forward(pipeline,
-                                                   &trellis,
+    if (ok && !lrc_pipeline_trellis_score_forward(&trellis,
                                                    &emissions,
-                                                   target_token_ids,
-                                                   target_segment_starts,
-                                                   target_token_count,
-                                                   tokenizer.blank_id,
-                                                   star_token_id,
+                                                   &align_plan,
                                                    &align_result,
                                                    result)) {
         ok = false;
     }
-    if (ok && !lrc_pipeline_trellis_backtrack(pipeline,
-                                              &trellis,
+    if (ok && !lrc_pipeline_trellis_backtrack(&trellis,
                                               &emissions,
-                                              target_token_ids,
-                                              target_segment_starts,
-                                              target_token_count,
-                                              tokenizer.blank_id,
-                                              star_token_id,
+                                              &align_plan,
                                               &path,
                                               &align_result,
                                               result)) {
@@ -2887,13 +2798,9 @@ lrc_pipeline_generate_lrc(
         ok = false;
     }
     if (ok && !lrc_pipeline_path_to_padded_token_spans(
-        pipeline,
         &path,
         &emissions,
-        target_token_ids,
-        target_segment_starts,
-        target_token_count,
-        star_token_id,
+        &align_plan,
         frame_duration_seconds,
         &token_spans,
         &align_result,
@@ -3352,140 +3259,61 @@ lrc_ctc_trellis_destroy(LrcCtcTrellis *trellis) {
     return;
 }
 
-static bool
-lrc_ctc_trellis_score_forward(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
-    LrcCtcAlignResult *result
-) {
-    (void)trellis;
-    (void)emissions;
-    (void)target_token_ids;
-    (void)target_token_count;
-    (void)blank_token_id;
-    (void)result;
-
-    return false;
-}
-
-static bool
-lrc_ctc_trellis_score_forward_with_edge_stars(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
-    int32 star_token_id,
-    LrcCtcAlignResult *result
-) {
-    (void)trellis;
-    (void)emissions;
-    (void)target_token_ids;
-    (void)target_token_count;
-    (void)blank_token_id;
-    (void)star_token_id;
-    (void)result;
-
-    return false;
-}
-
-
-static bool
-lrc_ctc_trellis_score_forward_with_segment_stars(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
+static void
+lrc_ctc_align_plan_init(
+    LrcCtcAlignPlan *plan,
     int32 *target_token_ids,
     bool *target_segment_starts,
     int32 target_token_count,
     int32 blank_token_id,
-    int32 star_token_id,
+    enum LrcCtcAlignStarMode star_mode,
+    int32 star_token_id
+) {
+    if (plan == NULL) {
+        return;
+    }
+
+    plan->target_token_ids = target_token_ids;
+    plan->target_segment_starts = target_segment_starts;
+    plan->target_token_count = target_token_count;
+    plan->blank_token_id = blank_token_id;
+    plan->star_mode = star_mode;
+    plan->star_token_id = star_token_id;
+
+    return;
+}
+
+static bool
+lrc_ctc_trellis_score_forward_with_plan(
+    LrcCtcTrellis *trellis,
+    LrcCtcEmissions *emissions,
+    LrcCtcAlignPlan *plan,
     LrcCtcAlignResult *result
 ) {
     (void)trellis;
     (void)emissions;
-    (void)target_token_ids;
-    (void)target_segment_starts;
-    (void)target_token_count;
-    (void)blank_token_id;
-    (void)star_token_id;
+    (void)plan;
     (void)result;
 
     return false;
 }
 
 static bool
-lrc_ctc_trellis_backtrack(
+lrc_ctc_trellis_backtrack_with_plan(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
+    LrcCtcAlignPlan *plan,
     LrcCtcPath *path,
     LrcCtcAlignResult *result
 ) {
     (void)trellis;
     (void)emissions;
-    (void)target_token_ids;
-    (void)target_token_count;
-    (void)blank_token_id;
+    (void)plan;
     (void)path;
     (void)result;
 
     return false;
 }
-
-static bool
-lrc_ctc_trellis_backtrack_with_edge_stars(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
-    int32 star_token_id,
-    LrcCtcPath *path,
-    LrcCtcAlignResult *result
-) {
-    (void)trellis;
-    (void)emissions;
-    (void)target_token_ids;
-    (void)target_token_count;
-    (void)blank_token_id;
-    (void)star_token_id;
-    (void)path;
-    (void)result;
-
-    return false;
-}
-
-
-static bool
-lrc_ctc_trellis_backtrack_with_segment_stars(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    bool *target_segment_starts,
-    int32 target_token_count,
-    int32 blank_token_id,
-    int32 star_token_id,
-    LrcCtcPath *path,
-    LrcCtcAlignResult *result
-) {
-    (void)trellis;
-    (void)emissions;
-    (void)target_token_ids;
-    (void)target_segment_starts;
-    (void)target_token_count;
-    (void)blank_token_id;
-    (void)star_token_id;
-    (void)path;
-    (void)result;
-
-    return false;
-}
-
 
 static void
 lrc_ctc_path_destroy(LrcCtcPath *path) {
@@ -3537,74 +3365,23 @@ lrc_ctc_path_to_token_spans(
 }
 
 static bool
-lrc_ctc_path_to_padded_token_spans(
+lrc_ctc_path_to_padded_token_spans_with_plan(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
+    LrcCtcAlignPlan *plan,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
 ) {
     (void)path;
     (void)emissions;
-    (void)target_token_ids;
-    (void)target_token_count;
+    (void)plan;
     (void)frame_duration_seconds;
     (void)spans;
     (void)result;
 
     return false;
 }
-
-static bool
-lrc_ctc_path_to_padded_token_spans_with_edge_stars(
-    LrcCtcPath *path,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 star_token_id,
-    float frame_duration_seconds,
-    LrcCtcTokenSpans *spans,
-    LrcCtcAlignResult *result
-) {
-    (void)path;
-    (void)emissions;
-    (void)target_token_ids;
-    (void)target_token_count;
-    (void)star_token_id;
-    (void)frame_duration_seconds;
-    (void)spans;
-    (void)result;
-
-    return false;
-}
-
-static bool
-lrc_ctc_path_to_padded_token_spans_with_segment_stars(
-    LrcCtcPath *path,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    bool *target_segment_starts,
-    int32 target_token_count,
-    int32 star_token_id,
-    float frame_duration_seconds,
-    LrcCtcTokenSpans *spans,
-    LrcCtcAlignResult *result
-) {
-    (void)path;
-    (void)emissions;
-    (void)target_token_ids;
-    (void)target_segment_starts;
-    (void)target_token_count;
-    (void)star_token_id;
-    (void)frame_duration_seconds;
-    (void)spans;
-    (void)result;
-
-    return false;
-}
-
 
 static void
 lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans) {

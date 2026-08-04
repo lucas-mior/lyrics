@@ -630,7 +630,7 @@ tasks rather than writing stupid implementations.
 
 | Function     | Description                                                        |
 | ------------ | ------------------------------------------------------------------ |
-| `sb_append`  | Appends a string of a known length to the builder.                 |
+| `SB_APPEND`  | Appends a string to the builder. Optionally pass the length of the string. |
 | `sb_printf`  | Appends formatted text directly into the builder.                  |
 | `sb_reserve` | Pre-allocates memory capacity to avoid frequent reallocations.     |
 | `sb_steal`   | Extracts the built string and frees the builder's internal memory. |

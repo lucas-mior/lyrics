@@ -14,6 +14,23 @@ typedef struct LrcCtcAlignResult {
     int32 token_index;
 } LrcCtcAlignResult;
 
+enum LrcCtcAlignStarMode {
+    LRC_CTC_ALIGN_STAR_MODE_NONE,
+    LRC_CTC_ALIGN_STAR_MODE_EDGES,
+    LRC_CTC_ALIGN_STAR_MODE_SEGMENT,
+};
+
+typedef struct LrcCtcAlignPlan {
+    int32 *target_token_ids;
+    bool *target_segment_starts;
+
+    int32 target_token_count;
+    int32 blank_token_id;
+    int32 star_token_id;
+
+    enum LrcCtcAlignStarMode star_mode;
+} LrcCtcAlignPlan;
+
 typedef struct LrcCtcTrellis {
     float *scores;
     int32 *previous_states;
@@ -190,60 +207,25 @@ static bool lrc_ctc_trellis_prepare(
     int32 blank_token_id,
     LrcCtcAlignResult *result
 );
-static bool lrc_ctc_trellis_score_forward(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
-    LrcCtcAlignResult *result
-);
-static bool lrc_ctc_trellis_score_forward_with_edge_stars(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
-    int32 star_token_id,
-    LrcCtcAlignResult *result
-);
-static bool lrc_ctc_trellis_score_forward_with_segment_stars(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
+static void lrc_ctc_align_plan_init(
+    LrcCtcAlignPlan *plan,
     int32 *target_token_ids,
     bool *target_segment_starts,
     int32 target_token_count,
     int32 blank_token_id,
-    int32 star_token_id,
-    LrcCtcAlignResult *result
+    enum LrcCtcAlignStarMode star_mode,
+    int32 star_token_id
 );
-static bool lrc_ctc_trellis_backtrack(
+static bool lrc_ctc_trellis_score_forward_with_plan(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
-    LrcCtcPath *path,
+    LrcCtcAlignPlan *plan,
     LrcCtcAlignResult *result
 );
-static bool lrc_ctc_trellis_backtrack_with_edge_stars(
+static bool lrc_ctc_trellis_backtrack_with_plan(
     LrcCtcTrellis *trellis,
     LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 blank_token_id,
-    int32 star_token_id,
-    LrcCtcPath *path,
-    LrcCtcAlignResult *result
-);
-static bool lrc_ctc_trellis_backtrack_with_segment_stars(
-    LrcCtcTrellis *trellis,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    bool *target_segment_starts,
-    int32 target_token_count,
-    int32 blank_token_id,
-    int32 star_token_id,
+    LrcCtcAlignPlan *plan,
     LrcCtcPath *path,
     LrcCtcAlignResult *result
 );
@@ -261,32 +243,10 @@ static bool lrc_ctc_path_to_token_spans(
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
 );
-static bool lrc_ctc_path_to_padded_token_spans(
+static bool lrc_ctc_path_to_padded_token_spans_with_plan(
     LrcCtcPath *path,
     LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    float frame_duration_seconds,
-    LrcCtcTokenSpans *spans,
-    LrcCtcAlignResult *result
-);
-static bool lrc_ctc_path_to_padded_token_spans_with_edge_stars(
-    LrcCtcPath *path,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    int32 target_token_count,
-    int32 star_token_id,
-    float frame_duration_seconds,
-    LrcCtcTokenSpans *spans,
-    LrcCtcAlignResult *result
-);
-static bool lrc_ctc_path_to_padded_token_spans_with_segment_stars(
-    LrcCtcPath *path,
-    LrcCtcEmissions *emissions,
-    int32 *target_token_ids,
-    bool *target_segment_starts,
-    int32 target_token_count,
-    int32 star_token_id,
+    LrcCtcAlignPlan *plan,
     float frame_duration_seconds,
     LrcCtcTokenSpans *spans,
     LrcCtcAlignResult *result
