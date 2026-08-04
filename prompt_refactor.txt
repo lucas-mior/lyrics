@@ -1,8 +1,0 @@
-Consider the code in src/screens/. See if there are repeated code patterns or data that
-could be refactored to avoid duplication. Investigate and see if there is things
-that we could refactor using include-based templates, void pointer callbacks,
-polymorphism using structs with a common header, x macros, polymorphism using
-"fat struct" with enum of capabilities, plan function reuse, and other
-refactoring techniques. Also check if there is utilities that already is in
-cbase/ and is being reimplemented in src/. List up to 5 major things in src/
-that are suitable for refactoring and deduplication.
