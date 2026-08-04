@@ -1651,9 +1651,9 @@ lrc_ctc_onnx_inference_backend(
 }
 
 #if TESTING_ctc_inference
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
 #include "ctc_model.c"
 
 static int32
