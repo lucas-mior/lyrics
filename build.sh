@@ -274,8 +274,12 @@ install)
     trace_on
 
     DEFAULT_MODEL_DIR="${PREFIX}/share/${program}/models"
-    build_program
-    build_library
+    if [ ! -f "$program_path" ]; then
+        build_program
+    fi
+    if [ ! -f "$library_path" ]; then
+        build_library
+    fi
 
     install -Dm755 "$program_path" "${DESTDIR}${PREFIX}/bin/${program}"
     install -Dm755 "$library_path" "${DESTDIR}${PREFIX}/lib/${program}.so"
