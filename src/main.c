@@ -806,6 +806,54 @@ main_apply_onnx_device_env(LrcPipelineConfig *config) {
     return;
 }
 
+static char *
+main_first_existing_model_path(char **paths, int32 path_count) {
+    if ((paths == NULL) || (path_count <= 0)) {
+        return NULL;
+    }
+
+    for (int32 i = 0; i < path_count; i += 1) {
+        if (!path_missing(paths[i]) && util_file_exists(paths[i])) {
+            return paths[i];
+        }
+    }
+
+    return paths[0];
+}
+
+static char *
+main_default_vocals_model_path(void) {
+    char *paths[] = {
+        LRC_DEFAULT_VOCALS_MODEL_PATH,
+        LRC_SYSTEM_VOCALS_MODEL_PATH,
+        LRC_LOCAL_SYSTEM_VOCALS_MODEL_PATH,
+    };
+
+    return main_first_existing_model_path(paths, LENGTH(paths));
+}
+
+static char *
+main_default_ctc_model_path(void) {
+    char *paths[] = {
+        LRC_DEFAULT_CTC_MODEL_PATH,
+        LRC_SYSTEM_CTC_MODEL_PATH,
+        LRC_LOCAL_SYSTEM_CTC_MODEL_PATH,
+    };
+
+    return main_first_existing_model_path(paths, LENGTH(paths));
+}
+
+static char *
+main_default_ctc_tokenizer_path(void) {
+    char *paths[] = {
+        LRC_DEFAULT_CTC_TOKENIZER_PATH,
+        LRC_SYSTEM_CTC_TOKENIZER_PATH,
+        LRC_LOCAL_SYSTEM_CTC_TOKENIZER_PATH,
+    };
+
+    return main_first_existing_model_path(paths, LENGTH(paths));
+}
+
 static void
 main_apply_model_defaults(LrcPipelineConfig *config) {
     char *env;
@@ -817,7 +865,7 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
         config->vocals_model_path = env;
     }
     if (config->vocals_model_path == NULL) {
-        config->vocals_model_path = LRC_DEFAULT_VOCALS_MODEL_PATH;
+        config->vocals_model_path = main_default_vocals_model_path();
     }
 
     env = getenv("LRC_CTC_MODEL");
@@ -827,7 +875,7 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
         config->ctc_model_path = env;
     }
     if (config->ctc_model_path == NULL) {
-        config->ctc_model_path = LRC_DEFAULT_CTC_MODEL_PATH;
+        config->ctc_model_path = main_default_ctc_model_path();
     }
 
     env = getenv("LRC_CTC_TOKENIZER");
@@ -837,7 +885,7 @@ main_apply_model_defaults(LrcPipelineConfig *config) {
         config->tokenizer_path = env;
     }
     if (config->tokenizer_path == NULL) {
-        config->tokenizer_path = LRC_DEFAULT_CTC_TOKENIZER_PATH;
+        config->tokenizer_path = main_default_ctc_tokenizer_path();
     }
 
     main_apply_onnx_provider_env(config);

@@ -67,9 +67,10 @@ removing the final extension and appending `.lrc`. For example,
 `song.mp3` becomes `song.lrc`. The derived output is rejected when that file
 already exists.
 
-The model arguments are optional. If omitted, development builds use the
-relative `models/` directory by default. Installed builds use the model
-directory below the configured installation prefix.
+The model arguments are optional. If omitted, development builds try the
+relative `models/` directory first, then the system model directories.
+Installed builds use the model directory below the configured installation
+prefix as their primary default.
 
 ## Commands
 
@@ -109,6 +110,13 @@ The command-line model options are optional. The compiled defaults are:
 models/UVR-MDX-NET-Voc_FT.onnx
 models/mms-onnx/onnx/model.onnx
 models/mms-onnx/tokens.txt
+```
+
+If a compiled default path does not exist, the executable also checks:
+
+```text
+/usr/share/lyricsync/models
+/usr/local/share/lyricsync/models
 ```
 
 During `./build.sh install`, the executable and shared library are rebuilt with
