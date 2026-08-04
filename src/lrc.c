@@ -1189,7 +1189,7 @@ lrc_test_assert_timestamp(
     }
 
     ASSERT(len == expected_len);
-    ASSERT(STREQUAL(buffer, len, expected, expected_len));
+    ASSERT_EQUAL(&buffer[0], expected);
 
     return;
 }
@@ -1406,7 +1406,7 @@ lrc_test_write_generated_file(void) {
         fatal(lrc_test_fail("read generated lrc file"));
     }
     ASSERT(text_len == strlen32(expected));
-    ASSERT(STREQUAL(text, text_len, expected, strlen32(expected)));
+    ASSERT_EQUAL(text, &expected[0]);
 
     free2(text, ((int64)text_len + 1)*SIZEOF(*text));
     test_remove_tree(temp_dir);
@@ -1458,7 +1458,7 @@ lrc_test_write_timestamped_empty_line(void) {
         fatal(lrc_test_fail("read timestamped empty lrc line"));
     }
     ASSERT(text_len == strlen32(expected));
-    ASSERT(STREQUAL(text, text_len, expected, strlen32(expected)));
+    ASSERT_EQUAL(text, &expected[0]);
 
     free2(text, ((int64)text_len + 1)*SIZEOF(*text));
     test_remove_tree(temp_dir);
@@ -1513,7 +1513,7 @@ lrc_test_write_overwrites_existing_file(void) {
         fatal(lrc_test_fail("read overwritten lrc file"));
     }
     ASSERT(text_len == strlen32(expected));
-    ASSERT(STREQUAL(text, text_len, expected, strlen32(expected)));
+    ASSERT_EQUAL(text, &expected[0]);
 
     free2(text, ((int64)text_len + 1)*SIZEOF(*text));
     test_remove_tree(temp_dir);
@@ -1620,7 +1620,7 @@ lrc_test_optional_maxwell_formatting(void) {
     }
 
     ASSERT(builder.len == text_len);
-    ASSERT(STREQUAL(builder.data, builder.len, text, text_len));
+    ASSERT_EQUAL(builder.data, text);
 
     lrc_parsed_file_destroy(&parsed);
     sb_free(&builder);

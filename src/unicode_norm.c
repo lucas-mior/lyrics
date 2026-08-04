@@ -601,11 +601,11 @@ unicode_norm_test_fallback_or_icu_copy(void) {
 #if LRC_UNICODE_ENABLE_ICU
     ASSERT(ctc_unicode_norm_icu_available());
     ASSERT(result.used_icu);
-    ASSERT(STREQUAL(result.text.data, result.text.len, "hello"));
+    ASSERT_EQUAL(result.text.data, "hello");
 #else
     ASSERT(!ctc_unicode_norm_icu_available());
     ASSERT(!result.used_icu);
-    ASSERT(STREQUAL(result.text.data, result.text.len, "Hello"));
+    ASSERT_EQUAL(result.text.data, "Hello");
 #endif
 
     ctc_unicode_norm_result_destroy(&result);
@@ -624,7 +624,7 @@ unicode_norm_test_icu_nfkc_lower(void) {
     }
 
     ASSERT(result.used_icu);
-    ASSERT(STREQUAL(result.text.data, result.text.len, "aé"));
+    ASSERT_EQUAL(result.text.data, "aé");
 
     ctc_unicode_norm_result_destroy(&result);
 
@@ -641,7 +641,7 @@ unicode_norm_test_icu_transliterate_latin(void) {
     }
 
     ASSERT(result.used_icu);
-    ASSERT(STREQUAL(result.text.data, result.text.len, "mao Privet"));
+    ASSERT_EQUAL(result.text.data, "mao Privet");
 
     ctc_unicode_norm_result_destroy(&result);
 

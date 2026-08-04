@@ -5221,9 +5221,7 @@ pipeline_test_preprocess_option_parsers(void) {
            == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
 
     ASSERT(lrc_pipeline_parse_preprocess_language(&config, "rus"));
-    ASSERT(STREQUAL(config.lyrics_preprocess_options.language,
-                     config.lyrics_preprocess_options.language_len,
-                     "rus"));
+    ASSERT_EQUAL(config.lyrics_preprocess_options.language, "rus");
 
     return;
 }
@@ -5264,9 +5262,7 @@ pipeline_test_config_defaults(void) {
            == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
     ASSERT(config.lyrics_preprocess_options.romanization
            == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
-    ASSERT(STREQUAL(config.lyrics_preprocess_options.language,
-                     config.lyrics_preprocess_options.language_len,
-                     "eng"));
+    ASSERT_EQUAL(config.lyrics_preprocess_options.language, "eng");
     ASSERT(config.ctc_emission_values_kind
            == LRC_CTC_EMISSION_VALUES_LOGITS);
     ASSERT(pipeline.error == LS_ERROR_NONE);

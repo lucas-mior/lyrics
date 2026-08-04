@@ -1445,10 +1445,8 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
         fatal(ctc_tokenizer_test_fail("normalize word target option lyrics"));
     }
 
-    ASSERT(STREQUAL(normalized.text, normalized.text_len, "cat"));
-    ASSERT(STREQUAL(normalized.target_text,
-                     normalized.target_text_len,
-                     "c a t"));
+    ASSERT_EQUAL(normalized.text, "cat");
+    ASSERT_EQUAL(normalized.target_text, "c a t");
 
     if (!lrc_ctc_tokenizer_tokenize_normalized(&tokenizer,
                                                &normalized,
