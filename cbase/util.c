@@ -744,7 +744,6 @@ xclosedir(DIR *dir, char *dirname) {
     return 0;
 }
 
-
 CBASE_API_DEF void __attribute__((format(printf, 4, 5)))
 error_impl(char *file, int32 line, char *func, char *format, ...) {
     char buffer[BUFSIZ];

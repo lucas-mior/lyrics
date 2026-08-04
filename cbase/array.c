@@ -72,7 +72,6 @@ generic_array_grow(void *array, int64 item_size) {
     return header + 1;
 }
 
-
 static int32
 generic_array_next_capacity(int32 old_cap, int32 needed_count) {
     int32 new_cap;

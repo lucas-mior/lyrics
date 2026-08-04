@@ -115,9 +115,90 @@ lrc_lyrics_normalized_append_segment(
     return true;
 }
 
+typedef void CtcTextMappedWriterFill(void *, int32, int32, int32);
+
+typedef struct CtcTextMappedWriter {
+    char **text;
+    void **maps;
+
+    int32 *text_len;
+    int32 *map_count;
+    int64 map_size;
+
+    CtcTextMappedWriterFill *fill;
+} CtcTextMappedWriter;
+
+static void
+ctc_text_normalized_byte_fill(
+    void *map_ptr,
+    int32 line_index,
+    int32 source_start,
+    int32 source_end
+) {
+    LrcLyricsNormalizedByte *map;
+
+    map = map_ptr;
+    map->line_index = line_index;
+    map->source_start = source_start;
+    map->source_end = source_end;
+
+    return;
+}
+
+static void
+ctc_text_target_byte_fill(
+    void *map_ptr,
+    int32 line_index,
+    int32 normalized_start,
+    int32 normalized_end
+) {
+    LrcLyricsTargetByte *map;
+
+    map = map_ptr;
+    map->line_index = line_index;
+    map->normalized_start = normalized_start;
+    map->normalized_end = normalized_end;
+
+    return;
+}
+
+static void
+ctc_text_normalized_writer(
+    CtcTextMappedWriter *writer,
+    LrcLyricsNormalized *normalized
+) {
+    memset64(writer, 0, SIZEOF(*writer));
+
+    writer->text = &normalized->text;
+    writer->maps = (void **)&normalized->bytes;
+    writer->text_len = &normalized->text_len;
+    writer->map_count = &normalized->byte_count;
+    writer->map_size = SIZEOF(*normalized->bytes);
+    writer->fill = ctc_text_normalized_byte_fill;
+
+    return;
+}
+
+static void
+ctc_text_target_writer(
+    CtcTextMappedWriter *writer,
+    LrcLyricsNormalized *normalized
+) {
+    memset64(writer, 0, SIZEOF(*writer));
+
+    writer->text = &normalized->target_text;
+    writer->maps = (void **)&normalized->target_bytes;
+    writer->text_len = &normalized->target_text_len;
+    writer->map_count = &normalized->target_byte_count;
+    writer->map_size = SIZEOF(*normalized->target_bytes);
+    writer->fill = ctc_text_target_byte_fill;
+
+    return;
+}
+
 static bool
-lrc_lyrics_normalized_reserve(
-    LrcLyricsNormalized *normalized,
+ctc_text_mapped_writer_reserve(
+    CtcTextMappedWriter *writer,
     int32 extra_bytes
 ) {
     int64 needed;
@@ -126,18 +207,102 @@ lrc_lyrics_normalized_reserve(
         return true;
     }
 
-    needed = (int64)normalized->text_len + extra_bytes;
+    needed = (int64)*writer->text_len + extra_bytes;
     if (needed >= INT32_MAX) {
         return false;
     }
-    if (!ARRAY_RESERVE(normalized->text, (int32)needed + 1)) {
+    if (!generic_array_reserve((void **)writer->text,
+                               (int32)needed + 1,
+                               SIZEOF((*writer->text)[0]))) {
         return false;
     }
-    if (!ARRAY_RESERVE(normalized->bytes, (int32)needed)) {
+    if (!generic_array_reserve(writer->maps, (int32)needed, writer->map_size)) {
         return false;
     }
 
     return true;
+}
+
+static bool
+ctc_text_mapped_writer_append_bytes(
+    CtcTextMappedWriter *writer,
+    char *bytes,
+    int32 bytes_len,
+    int32 line_index,
+    int32 source_start,
+    int32 source_end
+) {
+    char *map_bytes;
+
+    if (bytes_len < 0) {
+        return false;
+    }
+    if (bytes_len == 0) {
+        return true;
+    }
+    if (bytes == NULL) {
+        return false;
+    }
+    if (!ctc_text_mapped_writer_reserve(writer, bytes_len)) {
+        return false;
+    }
+
+    memcpy64(*writer->text + *writer->text_len, bytes, bytes_len);
+    map_bytes = *writer->maps;
+    for (int32 i = 0; i < bytes_len; i += 1) {
+        void *map;
+
+        map = map_bytes + ((int64)*writer->map_count)*writer->map_size;
+        *writer->map_count += 1;
+        writer->fill(map, line_index, source_start, source_end);
+    }
+    *writer->text_len += bytes_len;
+    (*writer->text)[*writer->text_len] = '\0';
+    generic_array_set_count(*writer->maps, *writer->map_count);
+    generic_array_set_count(*writer->text, *writer->text_len + 1);
+
+    return true;
+}
+
+static bool
+ctc_text_mapped_writer_append_space(
+    CtcTextMappedWriter *writer,
+    int32 line_index,
+    int32 source_start,
+    int32 source_end
+) {
+    char space;
+
+    if (*writer->text_len <= 0) {
+        return true;
+    }
+    if ((*writer->text)[*writer->text_len - 1] == ' ') {
+        return true;
+    }
+
+    space = ' ';
+    return ctc_text_mapped_writer_append_bytes(writer,
+                                               &space,
+                                               1,
+                                               line_index,
+                                               source_start,
+                                               source_end);
+}
+
+static void
+ctc_text_mapped_writer_remove_trailing_space(CtcTextMappedWriter *writer) {
+    if ((*writer->text_len <= 0)
+        || ((*writer->text)[*writer->text_len - 1] != ' ')) {
+        return;
+    }
+
+    *writer->text_len -= 1;
+    *writer->map_count -= 1;
+    (*writer->text)[*writer->text_len] = '\0';
+    generic_array_set_count(*writer->maps, *writer->map_count);
+    generic_array_set_count(*writer->text, *writer->text_len + 1);
+
+    return;
 }
 
 static bool
@@ -149,36 +314,15 @@ lrc_lyrics_normalized_append_bytes(
     int32 source_start,
     int32 source_end
 ) {
-    LrcLyricsNormalizedByte *map;
+    CtcTextMappedWriter writer;
 
-    if (bytes_len < 0) {
-        return false;
-    }
-    if (bytes_len == 0) {
-        return true;
-    }
-    if (bytes == NULL) {
-        return false;
-    }
-    if (!lrc_lyrics_normalized_reserve(normalized, bytes_len)) {
-        return false;
-    }
-
-    memcpy64(normalized->text + normalized->text_len, bytes, bytes_len);
-    for (int32 i = 0; i < bytes_len; i += 1) {
-        map = &normalized->bytes[normalized->byte_count];
-        normalized->byte_count += 1;
-
-        map->line_index = line_index;
-        map->source_start = source_start;
-        map->source_end = source_end;
-    }
-    normalized->text_len += bytes_len;
-    normalized->text[normalized->text_len] = '\0';
-    ARRAY_SET_COUNT(normalized->bytes, normalized->byte_count);
-    ARRAY_SET_COUNT(normalized->text, normalized->text_len + 1);
-
-    return true;
+    ctc_text_normalized_writer(&writer, normalized);
+    return ctc_text_mapped_writer_append_bytes(&writer,
+                                               bytes,
+                                               bytes_len,
+                                               line_index,
+                                               source_start,
+                                               source_end);
 }
 
 static bool
@@ -188,22 +332,13 @@ lrc_lyrics_normalized_append_space(
     int32 source_start,
     int32 source_end
 ) {
-    char space;
+    CtcTextMappedWriter writer;
 
-    if (normalized->text_len <= 0) {
-        return true;
-    }
-    if (normalized->text[normalized->text_len - 1] == ' ') {
-        return true;
-    }
-
-    space = ' ';
-    return lrc_lyrics_normalized_append_bytes(normalized,
-                                              &space,
-                                              1,
-                                              line_index,
-                                              source_start,
-                                              source_end);
+    ctc_text_normalized_writer(&writer, normalized);
+    return ctc_text_mapped_writer_append_space(&writer,
+                                               line_index,
+                                               source_start,
+                                               source_end);
 }
 
 static bool
@@ -223,31 +358,6 @@ lrc_lyrics_normalized_append_char(
 }
 
 static bool
-lrc_lyrics_normalized_reserve_target(
-    LrcLyricsNormalized *normalized,
-    int32 extra_bytes
-) {
-    int64 needed;
-
-    if (extra_bytes <= 0) {
-        return true;
-    }
-
-    needed = (int64)normalized->target_text_len + extra_bytes;
-    if (needed >= INT32_MAX) {
-        return false;
-    }
-    if (!ARRAY_RESERVE(normalized->target_text, (int32)needed + 1)) {
-        return false;
-    }
-    if (!ARRAY_RESERVE(normalized->target_bytes, (int32)needed)) {
-        return false;
-    }
-
-    return true;
-}
-
-static bool
 lrc_lyrics_normalized_append_target_bytes(
     LrcLyricsNormalized *normalized,
     char *bytes,
@@ -256,31 +366,15 @@ lrc_lyrics_normalized_append_target_bytes(
     int32 normalized_start,
     int32 normalized_end
 ) {
-    LrcLyricsTargetByte *map;
+    CtcTextMappedWriter writer;
 
-    if (!lrc_lyrics_normalized_reserve_target(normalized, bytes_len)) {
-        return false;
-    }
-
-    memcpy64(normalized->target_text + normalized->target_text_len,
-             bytes,
-             bytes_len);
-    for (int32 i = 0; i < bytes_len; i += 1) {
-        map = &normalized->target_bytes[normalized->target_byte_count];
-        normalized->target_byte_count += 1;
-
-        map->line_index = line_index;
-        map->normalized_start = normalized_start;
-        map->normalized_end = normalized_end;
-    }
-    normalized->target_text_len += bytes_len;
-    normalized->target_text[normalized->target_text_len] = '\0';
-    ARRAY_SET_COUNT(normalized->target_bytes,
-                        normalized->target_byte_count);
-    ARRAY_SET_COUNT(normalized->target_text,
-                        normalized->target_text_len + 1);
-
-    return true;
+    ctc_text_target_writer(&writer, normalized);
+    return ctc_text_mapped_writer_append_bytes(&writer,
+                                               bytes,
+                                               bytes_len,
+                                               line_index,
+                                               normalized_start,
+                                               normalized_end);
 }
 
 static bool
@@ -290,22 +384,13 @@ lrc_lyrics_normalized_append_target_space(
     int32 normalized_start,
     int32 normalized_end
 ) {
-    char space;
+    CtcTextMappedWriter writer;
 
-    if (normalized->target_text_len <= 0) {
-        return true;
-    }
-    if (normalized->target_text[normalized->target_text_len - 1] == ' ') {
-        return true;
-    }
-
-    space = ' ';
-    return lrc_lyrics_normalized_append_target_bytes(normalized,
-                                                     &space,
-                                                     1,
-                                                     line_index,
-                                                     normalized_start,
-                                                     normalized_end);
+    ctc_text_target_writer(&writer, normalized);
+    return ctc_text_mapped_writer_append_space(&writer,
+                                               line_index,
+                                               normalized_start,
+                                               normalized_end);
 }
 
 static bool
@@ -802,6 +887,106 @@ ctc_text_reference_output_trim_spaces(CtcUnicodeNormResult *result) {
     return;
 }
 
+typedef struct CtcTextUtf8Rune {
+    char *text;
+
+    int32 text_len;
+    int32 byte_index;
+    int32 byte_end;
+
+    uint32 rune;
+    uint32 previous_rune;
+    uint32 next_rune;
+} CtcTextUtf8Rune;
+
+typedef struct CtcTextUtf8Transform {
+    CtcUnicodeNormResult *result;
+    void *context;
+    bool trim_spaces;
+} CtcTextUtf8Transform;
+
+typedef bool CtcTextUtf8TransformRuneFn(
+    CtcTextUtf8Transform *,
+    CtcTextUtf8Rune *,
+    int32 *,
+    uint32 *
+);
+typedef bool CtcTextUtf8TransformFinishFn(CtcTextUtf8Transform *);
+
+static bool
+ctc_text_utf8_transform_run(
+    char *text,
+    int32 text_len,
+    CtcUnicodeNormResult *result,
+    CtcTextUtf8TransformRuneFn *rune_fn,
+    CtcTextUtf8TransformFinishFn *finish_fn,
+    void *context,
+    bool trim_spaces
+) {
+    CtcTextUtf8Transform transform;
+    uint32 previous_rune;
+
+    ctc_unicode_norm_result_destroy(result);
+    memset64(&transform, 0, SIZEOF(transform));
+    transform.result = result;
+    transform.context = context;
+    transform.trim_spaces = trim_spaces;
+    previous_rune = 0;
+
+    for (int32 i = 0; i < text_len;) {
+        CtcTextUtf8Rune rune;
+        uint32 next_previous_rune;
+        int32 next_index;
+        int32 step;
+
+        step = utf8_decode_raw(text + i, &rune.rune, text_len - i);
+        if (step <= 0) {
+            return false;
+        }
+
+        rune.text = text;
+        rune.text_len = text_len;
+        rune.byte_index = i;
+        rune.byte_end = i + step;
+        rune.previous_rune = previous_rune;
+        rune.next_rune = 0;
+
+        if ((i + step) < text_len) {
+            int32 next_step;
+
+            next_step = utf8_decode_raw(text + i + step,
+                                        &rune.next_rune,
+                                        text_len - i - step);
+            if (next_step <= 0) {
+                return false;
+            }
+        }
+
+        next_index = i + step;
+        next_previous_rune = rune.rune;
+        if (!rune_fn(&transform, &rune, &next_index, &next_previous_rune)) {
+            return false;
+        }
+        if ((next_index <= i) || (next_index > text_len)) {
+            return false;
+        }
+
+        previous_rune = next_previous_rune;
+        i = next_index;
+    }
+
+    if (finish_fn) {
+        if (!finish_fn(&transform)) {
+            return false;
+        }
+    }
+    if (transform.trim_spaces) {
+        ctc_text_reference_output_trim_spaces(result);
+    }
+
+    return true;
+}
+
 static bool
 ctc_text_reference_has_space_before(
     char *text,
@@ -906,62 +1091,117 @@ ctc_text_reference_should_remove_digit_run(
 }
 
 static bool
+ctc_text_reference_remove_parentheses_rune(
+    CtcTextUtf8Transform *transform,
+    CtcTextUtf8Rune *rune,
+    int32 *next_index,
+    uint32 *next_previous_rune
+) {
+    if (rune->rune == '(') {
+        int32 close;
+        bool found_digit;
+
+        close = -1;
+        found_digit = false;
+        for (int32 i = rune->byte_end; i < rune->text_len;) {
+            uint32 inner_rune;
+            int32 step;
+
+            step = utf8_decode_raw(rune->text + i,
+                                   &inner_rune,
+                                   rune->text_len - i);
+            if (step <= 0) {
+                return false;
+            }
+            if (ctc_text_is_reference_digit(inner_rune)) {
+                found_digit = true;
+            }
+            if (inner_rune == ')') {
+                close = i + step;
+                break;
+            }
+            i += step;
+        }
+        if ((close >= 0) && found_digit) {
+            if (!ctc_text_reference_output_append_space(transform->result)) {
+                return false;
+            }
+            *next_index = close;
+            *next_previous_rune = 0;
+            return true;
+        }
+    }
+
+    *next_previous_rune = rune->rune;
+    return ctc_text_reference_output_append_rune(transform->result,
+                                                rune->rune);
+}
+
+static bool
 ctc_text_reference_remove_number_parentheses(
     char *text,
     int32 text_len,
     CtcUnicodeNormResult *result
 ) {
-    uint32 rune;
-    int32 step;
+    return ctc_text_utf8_transform_run(
+        text,
+        text_len,
+        result,
+        ctc_text_reference_remove_parentheses_rune,
+        NULL,
+        NULL,
+        false
+    );
+}
 
-    ctc_unicode_norm_result_destroy(result);
-    for (int32 i = 0; i < text_len;) {
-        step = utf8_decode_raw(text + i, &rune, text_len - i);
-        if (step <= 0) {
-            return false;
-        }
+static bool
+ctc_text_reference_apply_mappings_rune(
+    CtcTextUtf8Transform *transform,
+    CtcTextUtf8Rune *rune,
+    int32 *next_index,
+    uint32 *next_previous_rune
+) {
+    uint32 mapped_rune;
 
-        if (rune == '(') {
-            int32 close;
-            bool found_digit;
-
-            close = -1;
-            found_digit = false;
-            for (int32 j = i + step; j < text_len;) {
-                uint32 inner_rune;
-                int32 inner_step;
-
-                inner_step = utf8_decode_raw(text + j,
-                                             &inner_rune,
-                                             text_len - j);
-                if (inner_step <= 0) {
-                    return false;
-                }
-                if (ctc_text_is_reference_digit(inner_rune)) {
-                    found_digit = true;
-                }
-                if (inner_rune == ')') {
-                    close = j + inner_step;
-                    break;
-                }
-                j += inner_step;
-            }
-            if ((close >= 0) && found_digit) {
-                if (!ctc_text_reference_output_append_space(result)) {
-                    return false;
-                }
-                i = close;
-                continue;
-            }
-        }
-
-        if (!ctc_text_reference_output_append_rune(result, rune)) {
-            return false;
-        }
-        i += step;
+    if (BEGINS_WITH(rune->text + rune->byte_index,
+                    rune->text_len - rune->byte_index,
+                    "&lt;")) {
+        *next_index = rune->byte_index + 4;
+        *next_previous_rune = 0;
+        return true;
+    }
+    if (BEGINS_WITH(rune->text + rune->byte_index,
+                    rune->text_len - rune->byte_index,
+                    "&gt;")) {
+        *next_index = rune->byte_index + 4;
+        *next_previous_rune = 0;
+        return true;
+    }
+    if (BEGINS_WITH(rune->text + rune->byte_index,
+                    rune->text_len - rune->byte_index,
+                    "&nbsp")) {
+        *next_index = rune->byte_index + 5;
+        *next_previous_rune = 0;
+        return true;
     }
 
-    return true;
+    mapped_rune = rune->rune;
+    if ((mapped_rune >= 'A') && (mapped_rune <= 'Z')) {
+        mapped_rune = (uint32)(mapped_rune - 'A' + 'a');
+    }
+
+    *next_previous_rune = mapped_rune;
+    if (ctc_text_is_reference_single_quote(mapped_rune)
+        && !ctc_text_is_unicode_space(rune->previous_rune)
+        && !ctc_text_is_unicode_space(rune->next_rune)
+        && (rune->previous_rune != 0)
+        && (rune->next_rune != 0)) {
+        return ctc_text_reference_output_append_bytes(transform->result,
+                                                      STRLIT("'"));
+    }
+
+    return ctc_text_reference_output_append_rune(transform->result,
+                                                mapped_rune);
 }
 
 static bool
@@ -970,69 +1210,36 @@ ctc_text_reference_apply_mappings(
     int32 text_len,
     CtcUnicodeNormResult *result
 ) {
-    uint32 prev_rune;
-    uint32 rune;
-    uint32 next_rune;
-    int32 step;
+    return ctc_text_utf8_transform_run(text,
+                                       text_len,
+                                       result,
+                                       ctc_text_reference_apply_mappings_rune,
+                                       NULL,
+                                       NULL,
+                                       false);
+}
 
-    ctc_unicode_norm_result_destroy(result);
-    prev_rune = 0;
-    for (int32 i = 0; i < text_len;) {
-        if (BEGINS_WITH(text + i, text_len - i, "&lt;")) {
-            i += 4;
-            prev_rune = 0;
-            continue;
-        }
-        if (BEGINS_WITH(text + i, text_len - i, "&gt;")) {
-            i += 4;
-            prev_rune = 0;
-            continue;
-        }
-        if (BEGINS_WITH(text + i, text_len - i, "&nbsp")) {
-            i += 5;
-            prev_rune = 0;
-            continue;
-        }
+static bool
+ctc_text_reference_replace_punctuation_rune(
+    CtcTextUtf8Transform *transform,
+    CtcTextUtf8Rune *rune,
+    int32 *next_index,
+    uint32 *next_previous_rune
+) {
+    (void)next_index;
 
-        step = utf8_decode_raw(text + i, &rune, text_len - i);
-        if (step <= 0) {
-            return false;
-        }
-
-        next_rune = 0;
-        if ((i + step) < text_len) {
-            int32 next_step;
-
-            next_step = utf8_decode_raw(text + i + step,
-                                        &next_rune,
-                                        text_len - i - step);
-            if (next_step <= 0) {
-                return false;
-            }
-        }
-
-        if ((rune >= 'A') && (rune <= 'Z')) {
-            rune = (uint32)(rune - 'A' + 'a');
-        }
-
-        if (ctc_text_is_reference_single_quote(rune)
-            && !ctc_text_is_unicode_space(prev_rune)
-            && !ctc_text_is_unicode_space(next_rune)
-            && (prev_rune != 0)
-            && (next_rune != 0)) {
-            if (!ctc_text_reference_output_append_bytes(result,
-                                                        STRLIT("'"))) {
-                return false;
-            }
-        } else if (!ctc_text_reference_output_append_rune(result, rune)) {
-            return false;
-        }
-
-        prev_rune = rune;
-        i += step;
+    if (ctc_text_is_reference_delete(rune->rune)) {
+        *next_previous_rune = 0;
+        return true;
+    }
+    if (ctc_text_is_reference_punctuation(rune->rune)) {
+        *next_previous_rune = ' ';
+        return ctc_text_reference_output_append_space(transform->result);
     }
 
-    return true;
+    *next_previous_rune = rune->rune;
+    return ctc_text_reference_output_append_rune(transform->result,
+                                                rune->rune);
 }
 
 static bool
@@ -1041,34 +1248,95 @@ ctc_text_reference_replace_punctuation_delete(
     int32 text_len,
     CtcUnicodeNormResult *result
 ) {
-    uint32 rune;
-    int32 step;
+    return ctc_text_utf8_transform_run(
+        text,
+        text_len,
+        result,
+        ctc_text_reference_replace_punctuation_rune,
+        NULL,
+        NULL,
+        false
+    );
+}
 
-    ctc_unicode_norm_result_destroy(result);
-    for (int32 i = 0; i < text_len;) {
-        step = utf8_decode_raw(text + i, &rune, text_len - i);
-        if (step <= 0) {
-            return false;
-        }
+typedef struct CtcTextDigitRunTransform {
+    char *text;
 
-        if (ctc_text_is_reference_delete(rune)) {
-            i += step;
-            continue;
-        }
-        if (ctc_text_is_reference_punctuation(rune)) {
-            if (!ctc_text_reference_output_append_space(result)) {
-                return false;
-            }
-        } else {
-            if (!ctc_text_reference_output_append_rune(result, rune)) {
-                return false;
-            }
-        }
+    int32 text_len;
+    int32 run_start;
 
-        i += step;
+    bool in_digit_run;
+} CtcTextDigitRunTransform;
+
+static bool
+ctc_text_reference_remove_numbers_flush(
+    CtcTextUtf8Transform *transform,
+    int32 run_end
+) {
+    CtcTextDigitRunTransform *context;
+
+    context = transform->context;
+    if (!context->in_digit_run) {
+        return true;
     }
 
+    if (ctc_text_reference_should_remove_digit_run(context->text,
+                                                   context->text_len,
+                                                   context->run_start,
+                                                   run_end)) {
+        if (!ctc_text_reference_output_append_space(transform->result)) {
+            return false;
+        }
+    } else if (!ctc_text_reference_output_append_bytes(transform->result,
+                                                       context->text
+                                                       + context->run_start,
+                                                       run_end
+                                                       - context->run_start)) {
+        return false;
+    }
+
+    context->in_digit_run = false;
+    context->run_start = -1;
+
     return true;
+}
+
+static bool
+ctc_text_reference_remove_numbers_rune(
+    CtcTextUtf8Transform *transform,
+    CtcTextUtf8Rune *rune,
+    int32 *next_index,
+    uint32 *next_previous_rune
+) {
+    CtcTextDigitRunTransform *context;
+
+    (void)next_index;
+    context = transform->context;
+    if (ctc_text_is_reference_digit(rune->rune)) {
+        if (!context->in_digit_run) {
+            context->run_start = rune->byte_index;
+            context->in_digit_run = true;
+        }
+        *next_previous_rune = 0;
+        return true;
+    }
+
+    if (!ctc_text_reference_remove_numbers_flush(transform, rune->byte_index)) {
+        return false;
+    }
+
+    *next_previous_rune = rune->rune;
+    return ctc_text_reference_output_append_rune(transform->result,
+                                                rune->rune);
+}
+
+static bool
+ctc_text_reference_remove_numbers_finish(CtcTextUtf8Transform *transform) {
+    CtcTextDigitRunTransform *context;
+
+    context = transform->context;
+    return ctc_text_reference_remove_numbers_flush(transform,
+                                                   context->text_len);
 }
 
 static bool
@@ -1077,63 +1345,39 @@ ctc_text_reference_remove_numbers(
     int32 text_len,
     CtcUnicodeNormResult *result
 ) {
-    int32 run_start;
-    bool in_digit_run;
+    CtcTextDigitRunTransform context;
 
-    ctc_unicode_norm_result_destroy(result);
-    run_start = -1;
-    in_digit_run = false;
-    for (int32 i = 0; i <= text_len;) {
-        uint32 rune;
-        int32 step;
-        bool is_digit;
+    memset64(&context, 0, SIZEOF(context));
+    context.text = text;
+    context.text_len = text_len;
+    context.run_start = -1;
 
-        if (i >= text_len) {
-            rune = 0;
-            step = 0;
-            is_digit = false;
-        } else {
-            step = utf8_decode_raw(text + i, &rune, text_len - i);
-            if (step <= 0) {
-                return false;
-            }
-            is_digit = ctc_text_is_reference_digit(rune);
-        }
+    return ctc_text_utf8_transform_run(text,
+                                       text_len,
+                                       result,
+                                       ctc_text_reference_remove_numbers_rune,
+                                       ctc_text_reference_remove_numbers_finish,
+                                       &context,
+                                       false);
+}
 
-        if (is_digit && !in_digit_run) {
-            run_start = i;
-            in_digit_run = true;
-        }
-        if ((!is_digit || (i >= text_len)) && in_digit_run) {
-            if (ctc_text_reference_should_remove_digit_run(text,
-                                                           text_len,
-                                                           run_start,
-                                                           i)) {
-                if (!ctc_text_reference_output_append_space(result)) {
-                    return false;
-                }
-            } else if (!ctc_text_reference_output_append_bytes(
-                result,
-                text + run_start,
-                i - run_start
-            )) {
-                return false;
-            }
-            in_digit_run = false;
-        }
-        if (!is_digit && (i < text_len)) {
-            if (!ctc_text_reference_output_append_rune(result, rune)) {
-                return false;
-            }
-        }
-        if (i >= text_len) {
-            break;
-        }
+static bool
+ctc_text_reference_collapse_spaces_rune(
+    CtcTextUtf8Transform *transform,
+    CtcTextUtf8Rune *rune,
+    int32 *next_index,
+    uint32 *next_previous_rune
+) {
+    (void)next_index;
 
-        i += step;
+    if (ctc_text_is_unicode_space(rune->rune)) {
+        *next_previous_rune = ' ';
+        return ctc_text_reference_output_append_space(transform->result);
     }
 
-    return true;
+    *next_previous_rune = rune->rune;
+    return ctc_text_reference_output_append_rune(transform->result,
+                                                rune->rune);
 }
 
 static bool
@@ -1142,30 +1386,39 @@ ctc_text_reference_collapse_spaces(
     int32 text_len,
     CtcUnicodeNormResult *result
 ) {
-    uint32 rune;
-    int32 step;
+    return ctc_text_utf8_transform_run(text,
+                                       text_len,
+                                       result,
+                                       ctc_text_reference_collapse_spaces_rune,
+                                       NULL,
+                                       NULL,
+                                       true);
+}
 
-    ctc_unicode_norm_result_destroy(result);
-    for (int32 i = 0; i < text_len;) {
-        step = utf8_decode_raw(text + i, &rune, text_len - i);
-        if (step <= 0) {
-            return false;
-        }
+static bool
+ctc_text_reference_normalize_uroman_rune(
+    CtcTextUtf8Transform *transform,
+    CtcTextUtf8Rune *rune,
+    int32 *next_index,
+    uint32 *next_previous_rune
+) {
+    uint32 mapped_rune;
 
-        if (ctc_text_is_unicode_space(rune)) {
-            if (!ctc_text_reference_output_append_space(result)) {
-                return false;
-            }
-        } else if (!ctc_text_reference_output_append_rune(result, rune)) {
-            return false;
-        }
-
-        i += step;
+    (void)next_index;
+    mapped_rune = rune->rune;
+    if ((mapped_rune >= 'A') && (mapped_rune <= 'Z')) {
+        mapped_rune = (uint32)(mapped_rune - 'A' + 'a');
     }
 
-    ctc_text_reference_output_trim_spaces(result);
+    if (((mapped_rune >= 'a') && (mapped_rune <= 'z'))
+        || (mapped_rune == '\'')) {
+        *next_previous_rune = mapped_rune;
+        return ctc_text_reference_output_append_rune(transform->result,
+                                                    mapped_rune);
+    }
 
-    return true;
+    *next_previous_rune = ' ';
+    return ctc_text_reference_output_append_space(transform->result);
 }
 
 static bool
@@ -1174,38 +1427,13 @@ ctc_text_reference_normalize_uroman(
     int32 text_len,
     CtcUnicodeNormResult *result
 ) {
-    uint32 rune;
-    int32 step;
-
-    ctc_unicode_norm_result_destroy(result);
-    for (int32 i = 0; i < text_len;) {
-        step = utf8_decode_raw(text + i, &rune, text_len - i);
-        if (step <= 0) {
-            return false;
-        }
-
-        if ((rune >= 'A') && (rune <= 'Z')) {
-            rune = (uint32)(rune - 'A' + 'a');
-        }
-
-        if (((rune >= 'a') && (rune <= 'z')) || (rune == '\'')) {
-            if (!ctc_text_reference_output_append_rune(result, rune)) {
-                return false;
-            }
-        } else if (rune == ' ') {
-            if (!ctc_text_reference_output_append_space(result)) {
-                return false;
-            }
-        } else if (!ctc_text_reference_output_append_space(result)) {
-            return false;
-        }
-
-        i += step;
-    }
-
-    ctc_text_reference_output_trim_spaces(result);
-
-    return true;
+    return ctc_text_utf8_transform_run(text,
+                                       text_len,
+                                       result,
+                                       ctc_text_reference_normalize_uroman_rune,
+                                       NULL,
+                                       NULL,
+                                       true);
 }
 
 static bool
@@ -1391,6 +1619,24 @@ ctc_text_segment_build_finish(
     return ok;
 }
 
+static void
+lrc_lyrics_normalized_line_finish(
+    LrcLyricsNormalized *normalized,
+    LrcLyricsNormalizedLine *line_range
+) {
+    if ((line_range->normalized_start >= 0)
+        && (line_range->normalized_end > line_range->normalized_start)) {
+        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE;
+        normalized->alignable_line_count += 1;
+    } else {
+        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_PUNCTUATION_ONLY;
+        line_range->normalized_start = -1;
+        line_range->normalized_end = -1;
+    }
+
+    return;
+}
+
 static bool
 lrc_lyrics_normalize_line(
     LrcLyrics *lyrics,
@@ -1510,65 +1756,57 @@ lrc_lyrics_normalize_line(
 
     if ((normalized->text_len > 0)
         && (normalized->text[normalized->text_len - 1] == ' ')) {
-        normalized->text_len -= 1;
-        normalized->byte_count -= 1;
-        normalized->text[normalized->text_len] = '\0';
-        ARRAY_SET_COUNT(normalized->bytes, normalized->byte_count);
-        ARRAY_SET_COUNT(normalized->text, normalized->text_len + 1);
+        CtcTextMappedWriter writer;
+
+        ctc_text_normalized_writer(&writer, normalized);
+        ctc_text_mapped_writer_remove_trailing_space(&writer);
         line_range->normalized_end = normalized->text_len;
     }
 
-    if ((line_range->normalized_start >= 0)
-        && (line_range->normalized_end > line_range->normalized_start)) {
-        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE;
-        normalized->alignable_line_count += 1;
-    } else {
-        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_PUNCTUATION_ONLY;
-        line_range->normalized_start = -1;
-        line_range->normalized_end = -1;
-    }
+    lrc_lyrics_normalized_line_finish(normalized, line_range);
 
     return true;
 }
 
 static bool
-lrc_lyrics_normalize_word_segment(
+lrc_lyrics_normalize_split_segment(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized,
     LrcLyricsNormalizedLine *line_range,
     LrcLyricsPreprocessOptions *options,
     int32 line_index,
-    int32 word_start,
-    int32 word_end,
+    int32 source_start,
+    int32 source_end,
+    bool separate_from_previous,
     bool *wrote_line
 ) {
-    CtcUnicodeNormResult word;
+    CtcUnicodeNormResult chunk;
     int32 normalized_start;
     int32 normalized_end;
     int32 target_start;
     int32 target_end;
     bool ok;
 
-    ctc_unicode_norm_result_init(&word);
+    ctc_unicode_norm_result_init(&chunk);
     normalized_start = normalized->text_len;
     normalized_end = normalized_start;
     target_start = normalized->target_text_len;
     target_end = target_start;
     ok = false;
 
-    if (!ctc_text_reference_normalize_word(lyrics->text + word_start,
-                                           word_end - word_start,
+    if (!ctc_text_reference_normalize_word(lyrics->text + source_start,
+                                           source_end - source_start,
                                            options,
-                                           &word)) {
+                                           &chunk)) {
         goto done;
     }
 
-    if (word.text.len > 0) {
-        if ((normalized->text_len > 0)
+    if (chunk.text.len > 0) {
+        if (separate_from_previous && (normalized->text_len > 0)
             && !lrc_lyrics_normalized_append_space(normalized,
                                                    line_index,
-                                                   word_start,
-                                                   word_end)) {
+                                                   source_start,
+                                                   source_end)) {
             goto done;
         }
         if (line_range->normalized_start < 0) {
@@ -1577,11 +1815,11 @@ lrc_lyrics_normalize_word_segment(
 
         normalized_start = normalized->text_len;
         if (!lrc_lyrics_normalized_append_bytes(normalized,
-                                                word.text.data,
-                                                word.text.len,
+                                                chunk.text.data,
+                                                chunk.text.len,
                                                 line_index,
-                                                word_start,
-                                                word_end)) {
+                                                source_start,
+                                                source_end)) {
             goto done;
         }
         normalized_end = normalized->text_len;
@@ -1603,17 +1841,39 @@ lrc_lyrics_normalize_word_segment(
 
     ok = lrc_lyrics_normalized_append_segment(normalized,
                                               line_index,
-                                              word_start,
-                                              word_end,
+                                              source_start,
+                                              source_end,
                                               normalized_start,
                                               normalized_end,
                                               target_start,
                                               target_end);
 
 done:
-    ctc_unicode_norm_result_destroy(&word);
+    ctc_unicode_norm_result_destroy(&chunk);
 
     return ok;
+}
+
+static bool
+lrc_lyrics_normalize_word_segment(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized,
+    LrcLyricsNormalizedLine *line_range,
+    LrcLyricsPreprocessOptions *options,
+    int32 line_index,
+    int32 word_start,
+    int32 word_end,
+    bool *wrote_line
+) {
+    return lrc_lyrics_normalize_split_segment(lyrics,
+                                              normalized,
+                                              line_range,
+                                              options,
+                                              line_index,
+                                              word_start,
+                                              word_end,
+                                              true,
+                                              wrote_line);
 }
 
 static int32
@@ -1726,15 +1986,7 @@ lrc_lyrics_normalize_line_word(
         i = word_end;
     }
 
-    if ((line_range->normalized_start >= 0)
-        && (line_range->normalized_end > line_range->normalized_start)) {
-        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE;
-        normalized->alignable_line_count += 1;
-    } else {
-        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_PUNCTUATION_ONLY;
-        line_range->normalized_start = -1;
-        line_range->normalized_end = -1;
-    }
+    lrc_lyrics_normalized_line_finish(normalized, line_range);
 
     return true;
 }
@@ -1750,71 +2002,15 @@ lrc_lyrics_normalize_char_segment(
     int32 char_end,
     bool *wrote_line
 ) {
-    CtcUnicodeNormResult chunk;
-    int32 normalized_start;
-    int32 normalized_end;
-    int32 target_start;
-    int32 target_end;
-    bool ok;
-
-    ctc_unicode_norm_result_init(&chunk);
-    normalized_start = normalized->text_len;
-    normalized_end = normalized_start;
-    target_start = normalized->target_text_len;
-    target_end = target_start;
-    ok = false;
-
-    if (!ctc_text_reference_normalize_word(lyrics->text + char_start,
-                                           char_end - char_start,
-                                           options,
-                                           &chunk)) {
-        goto done;
-    }
-
-    if (chunk.text.len > 0) {
-        if (line_range->normalized_start < 0) {
-            line_range->normalized_start = normalized->text_len;
-        }
-
-        normalized_start = normalized->text_len;
-        if (!lrc_lyrics_normalized_append_bytes(normalized,
-                                                chunk.text.data,
-                                                chunk.text.len,
-                                                line_index,
-                                                char_start,
-                                                char_end)) {
-            goto done;
-        }
-        normalized_end = normalized->text_len;
-
-        if (!lrc_lyrics_normalized_append_target_from_normalized(
-            normalized,
-            line_index,
-            normalized_start,
-            normalized_end,
-            &target_start,
-            &target_end
-        )) {
-            goto done;
-        }
-
-        line_range->normalized_end = normalized_end;
-        *wrote_line = true;
-    }
-
-    ok = lrc_lyrics_normalized_append_segment(normalized,
+    return lrc_lyrics_normalize_split_segment(lyrics,
+                                              normalized,
+                                              line_range,
+                                              options,
                                               line_index,
                                               char_start,
                                               char_end,
-                                              normalized_start,
-                                              normalized_end,
-                                              target_start,
-                                              target_end);
-
-done:
-    ctc_unicode_norm_result_destroy(&chunk);
-
-    return ok;
+                                              false,
+                                              wrote_line);
 }
 
 static bool
@@ -1853,15 +2049,7 @@ lrc_lyrics_normalize_line_char(
         i += step;
     }
 
-    if ((line_range->normalized_start >= 0)
-        && (line_range->normalized_end > line_range->normalized_start)) {
-        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_ALIGNABLE;
-        normalized->alignable_line_count += 1;
-    } else {
-        line_range->kind = LRC_LYRICS_NORMALIZED_LINE_KIND_PUNCTUATION_ONLY;
-        line_range->normalized_start = -1;
-        line_range->normalized_end = -1;
-    }
+    lrc_lyrics_normalized_line_finish(normalized, line_range);
 
     return true;
 }
