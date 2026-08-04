@@ -41,82 +41,106 @@ typedef struct MainOptions {
     bool print_usage_on_error;
 } MainOptions;
 
+#define MAIN_FIELD(field) ((int64)OFFSET_OF(MainOptions, field))
+#define MAIN_NO_FIELD 0
+
 #define MAIN_TASK_VALUE_OPTIONS(X) \
     X(INPUT_SONG, "--input-song", "PATH", \
-      "original song to process", NULL, main_apply_input_song) \
+      "original song to process", NULL, \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.song_path)) \
     X(INPUT_VOCALS, "--input-vocals", "PATH", \
-      "already extracted vocals to use", NULL, main_apply_input_vocals) \
+      "already extracted vocals to use", NULL, \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.existing_vocals_path)) \
     X(OUTPUT_VOCALS, "--output-vocals", "PATH", \
-      "save extracted vocals at PATH", NULL, main_apply_output_vocals) \
+      "save extracted vocals at PATH", NULL, \
+      MAIN_VALUE_STRING_INFER_VOCALS_FORMAT, \
+      MAIN_FIELD(config.vocals_path)) \
     X(INPUT_LYRICS, "--input-lyrics", "PATH", \
       "plain-text lyrics to align", "derived from input prefix", \
-      main_apply_input_lyrics) \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.lyrics_text_path)) \
     X(OUTPUT_LRC, "--output-lrc", "PATH", \
-      "synced lyrics output path", NULL, main_apply_output_lrc)
+      "synced lyrics output path", NULL, \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.output_lrc_path))
 
 #define MAIN_MODEL_VALUE_OPTIONS(X) \
     X(MODEL_VOCAL, "--model-vocal", "PATH", \
       "MDX-Net ONNX model", LRC_DEFAULT_VOCALS_MODEL_PATH, \
-      main_apply_model_vocal) \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.vocals_model_path)) \
     X(MODEL_CTC, "--model-ctc", "PATH", \
       "CTC ONNX model", LRC_DEFAULT_CTC_MODEL_PATH, \
-      main_apply_model_ctc) \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.ctc_model_path)) \
     X(TOKENIZER, "--tokenizer", "PATH", \
       "CTC tokenizer tokens file", LRC_DEFAULT_CTC_TOKENIZER_PATH, \
-      main_apply_tokenizer) \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.tokenizer_path)) \
     X(ONNX_PROVIDER, "--onnx-provider", "KIND", \
       "ONNX provider (" ORT_EXECUTION_PROVIDER_NAMES ")", "auto", \
-      main_apply_onnx_provider) \
+      MAIN_VALUE_ONNX_PROVIDER, \
+      MAIN_FIELD(config.ort_session_config.execution_provider)) \
     X(ONNX_DEVICE, "--onnx-device", "N", \
-      "CUDA device id", "0", main_apply_onnx_device)
+      "CUDA device id", "0", MAIN_VALUE_ONNX_DEVICE, \
+      MAIN_FIELD(config.ort_session_config.device_id))
 
 #define MAIN_AUDIO_VALUE_OPTIONS(X) \
     X(FFMPEG, "--ffmpeg", "PATH", \
-      "ffmpeg executable", "ffmpeg", main_apply_ffmpeg) \
+      "ffmpeg executable", "ffmpeg", \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.ffmpeg_path)) \
     X(TEMP_DIR, "--temp-dir", "PATH", \
-      "temporary directory", "/tmp", main_apply_temp_dir) \
+      "temporary directory", "/tmp", \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.temp_dir)) \
     X(VOCALS_FORMAT, "--vocals-format", "KIND", \
       "extracted vocals container (" LRC_AUDIO_FORMAT_NAMES ")", \
-      "inferred", main_apply_vocals_format) \
+      "inferred", MAIN_VALUE_VOCALS_FORMAT, \
+      MAIN_FIELD(config.vocals_container_format)) \
     X(CHUNK_SECONDS, "--chunk-seconds", "N", \
-      "MDX chunk size in seconds", "30", main_apply_chunk_seconds) \
+      "MDX chunk size in seconds", "30", \
+      MAIN_VALUE_POSITIVE_INT32, \
+      MAIN_FIELD(config.mdx_config.chunk_seconds)) \
     X(MARGIN_SECONDS, "--margin-seconds", "N", \
-      "MDX chunk margin in seconds", "3", main_apply_margin_seconds) \
+      "MDX chunk margin in seconds", "3", \
+      MAIN_VALUE_INT32, MAIN_FIELD(config.mdx_config.margin_seconds)) \
     X(COMPENSATE, "--compensate", "X", \
-      "output gain", "1.035", main_apply_compensate) \
+      "output gain", "1.035", \
+      MAIN_VALUE_FLOAT, MAIN_FIELD(config.mdx_config.compensate)) \
     X(N_FFT, "--n-fft", "N", \
-      "STFT size", "6144", main_apply_n_fft) \
+      "STFT size", "6144", \
+      MAIN_VALUE_POSITIVE_INT32, MAIN_FIELD(config.mdx_config.n_fft)) \
     X(HOP, "--hop", "N", \
-      "STFT hop", "1024", main_apply_hop) \
+      "STFT hop", "1024", \
+      MAIN_VALUE_POSITIVE_INT32, MAIN_FIELD(config.mdx_config.hop)) \
     X(DIM_F, "--dim-f", "N", \
-      "override model frequency bins", NULL, main_apply_dim_f) \
+      "override model frequency bins", NULL, \
+      MAIN_VALUE_POSITIVE_INT32, MAIN_FIELD(config.mdx_config.dim_f)) \
     X(DIM_T, "--dim-t", "N", \
-      "override model time frames", NULL, main_apply_dim_t) \
+      "override model time frames", NULL, \
+      MAIN_VALUE_POSITIVE_INT32, MAIN_FIELD(config.mdx_config.dim_t)) \
     X(MODEL_OUTPUT, "--model-output", "KIND", \
       "model output stem (" MDX_MODEL_OUTPUT_NAMES ")", "vocals", \
-      main_apply_model_output) \
+      MAIN_VALUE_MODEL_OUTPUT, \
+      MAIN_FIELD(config.mdx_config.model_output)) \
     X(CLIP_MODE, "--clip-mode", "KIND", \
       "final clipping policy (" MDX_CLIP_MODE_NAMES ")", "clamp", \
-      main_apply_clip_mode)
+      MAIN_VALUE_CLIP_MODE, MAIN_FIELD(config.mdx_config.clip_mode))
 
 #define MAIN_LYRICS_VALUE_OPTIONS(X) \
     X(CTC_DEBUG_DUMP, "--ctc-debug-dump", "PATH", \
-      "write CTC parity debug dump", NULL, main_apply_ctc_debug_dump) \
+      "write CTC parity debug dump", NULL, \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.ctc_debug_dump_path)) \
     X(SPLIT_SIZE, "--split-size", "KIND", \
       "lyrics split size (current|word|char)", "word", \
-      main_apply_split_size) \
+      MAIN_VALUE_SPLIT_SIZE, MAIN_NO_FIELD) \
     X(STAR_FREQUENCY, "--star-frequency", "KIND", \
       "star-token placement (none|edges|segment)", "edges", \
-      main_apply_star_frequency) \
+      MAIN_VALUE_STAR_FREQUENCY, MAIN_NO_FIELD) \
     X(ROMANIZATION, "--romanization", "KIND", \
       "romanization backend (off|icu)", "icu", \
-      main_apply_romanization) \
+      MAIN_VALUE_ROMANIZATION, MAIN_NO_FIELD) \
     X(LANGUAGE, "--language", "CODE", \
-      "3-letter language code", "eng", main_apply_language) \
+      "3-letter language code", "eng", \
+      MAIN_VALUE_LANGUAGE, MAIN_NO_FIELD) \
     X(EMISSIONS, "--emissions", "KIND", \
       "model emission values (" LRC_CTC_EMISSION_VALUES_KIND_NAMES ")", \
-      "logits", \
-      main_apply_emissions)
+      "logits", MAIN_VALUE_EMISSIONS, \
+      MAIN_FIELD(config.ctc_emission_values_kind))
 
 #define MAIN_VALUE_OPTIONS(X) \
     MAIN_TASK_VALUE_OPTIONS(X) \
@@ -125,25 +149,35 @@ typedef struct MainOptions {
     MAIN_LYRICS_VALUE_OPTIONS(X)
 
 #define MAIN_VALUE_OPTION_ALIASES(X) \
-    X(OUTPUT_VOCALS, "--vocals-output", main_apply_output_vocals) \
-    X(INPUT_LYRICS, "--lyrics", main_apply_input_lyrics) \
-    X(INPUT_LYRICS, "-l", main_apply_input_lyrics) \
-    X(OUTPUT_LRC, "--output", main_apply_output_lrc) \
-    X(OUTPUT_LRC, "-o", main_apply_output_lrc) \
-    X(VOCALS_FORMAT, "--format", main_apply_vocals_format)
+    X(OUTPUT_VOCALS, "--vocals-output", \
+      MAIN_VALUE_STRING_INFER_VOCALS_FORMAT, \
+      MAIN_FIELD(config.vocals_path)) \
+    X(INPUT_LYRICS, "--lyrics", \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.lyrics_text_path)) \
+    X(INPUT_LYRICS, "-l", \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.lyrics_text_path)) \
+    X(OUTPUT_LRC, "--output", \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.output_lrc_path)) \
+    X(OUTPUT_LRC, "-o", \
+      MAIN_VALUE_STRING, MAIN_FIELD(config.output_lrc_path)) \
+    X(VOCALS_FORMAT, "--format", \
+      MAIN_VALUE_VOCALS_FORMAT, \
+      MAIN_FIELD(config.vocals_container_format))
 
 #define MAIN_GENERAL_FLAG_OPTIONS(X) \
-    X(HELP, "--help", "show this help", main_apply_help)
+    X(HELP, "--help", "show this help", \
+      MAIN_FLAG_HELP, MAIN_NO_FIELD)
 
 #define MAIN_AUDIO_FLAG_OPTIONS(X) \
     X(DENOISE, "--denoise", "run denoising inference mode", \
-      main_apply_denoise)
+      MAIN_FLAG_SET_TRUE, MAIN_FIELD(config.mdx_config.denoise))
 
 #define MAIN_LYRICS_FLAG_OPTIONS(X) \
     X(KEEP_TEMP_FILES, "--keep-temp-files", \
-      "keep generated temporary files", main_apply_keep_temp_files) \
+      "keep generated temporary files", \
+      MAIN_FLAG_SET_TRUE, MAIN_FIELD(config.keep_temp_files)) \
     X(ROMANIZE, "--romanize", "select ICU romanization", \
-      main_apply_romanize)
+      MAIN_FLAG_ROMANIZE, MAIN_NO_FIELD)
 
 #define MAIN_FLAG_OPTIONS(X) \
     MAIN_GENERAL_FLAG_OPTIONS(X) \
@@ -151,11 +185,11 @@ typedef struct MainOptions {
     MAIN_LYRICS_FLAG_OPTIONS(X)
 
 #define MAIN_FLAG_OPTION_ALIASES(X) \
-    X(HELP, "-h", main_apply_help)
+    X(HELP, "-h", MAIN_FLAG_HELP, MAIN_NO_FIELD)
 
 enum MainValueOptionKind {
 #define MAIN_VALUE_OPTION_ENUM(id, name, metavar, description, default_text, \
-                               apply_fn) \
+                               action, offset) \
     MAIN_VALUE_OPTION_##id,
     MAIN_VALUE_OPTIONS(MAIN_VALUE_OPTION_ENUM)
 #undef MAIN_VALUE_OPTION_ENUM
@@ -163,31 +197,49 @@ enum MainValueOptionKind {
 };
 
 enum MainFlagOptionKind {
-#define MAIN_FLAG_OPTION_ENUM(id, name, description, apply_fn) \
+#define MAIN_FLAG_OPTION_ENUM(id, name, description, action, offset) \
     MAIN_FLAG_OPTION_##id,
     MAIN_FLAG_OPTIONS(MAIN_FLAG_OPTION_ENUM)
 #undef MAIN_FLAG_OPTION_ENUM
     MAIN_FLAG_OPTION_LAST,
 };
 
-typedef bool MainValueOptionApplyFunction(
-    MainOptions *options,
-    char *option,
-    char *value
-);
+enum MainValueOptionAction {
+    MAIN_VALUE_STRING,
+    MAIN_VALUE_STRING_INFER_VOCALS_FORMAT,
+    MAIN_VALUE_INT32,
+    MAIN_VALUE_POSITIVE_INT32,
+    MAIN_VALUE_FLOAT,
+    MAIN_VALUE_ONNX_PROVIDER,
+    MAIN_VALUE_ONNX_DEVICE,
+    MAIN_VALUE_VOCALS_FORMAT,
+    MAIN_VALUE_MODEL_OUTPUT,
+    MAIN_VALUE_CLIP_MODE,
+    MAIN_VALUE_SPLIT_SIZE,
+    MAIN_VALUE_STAR_FREQUENCY,
+    MAIN_VALUE_ROMANIZATION,
+    MAIN_VALUE_LANGUAGE,
+    MAIN_VALUE_EMISSIONS,
+};
 
-typedef bool MainFlagOptionApplyFunction(MainOptions *options);
+enum MainFlagOptionAction {
+    MAIN_FLAG_HELP,
+    MAIN_FLAG_SET_TRUE,
+    MAIN_FLAG_ROMANIZE,
+};
 
 typedef struct MainValueOption {
     char *name;
     enum MainValueOptionKind kind;
-    MainValueOptionApplyFunction *apply;
+    enum MainValueOptionAction action;
+    int64 offset;
 } MainValueOption;
 
 typedef struct MainFlagOption {
     char *name;
     enum MainFlagOptionKind kind;
-    MainFlagOptionApplyFunction *apply;
+    enum MainFlagOptionAction action;
+    int64 offset;
 } MainFlagOption;
 
 typedef struct MainEnumValue {
@@ -234,7 +286,7 @@ main_print_usage(FILE *stream) {
     );
     error2("\n");
     error2("general options:\n");
-#define MAIN_PRINT_FLAG_USAGE(id, name, description, apply_fn) \
+#define MAIN_PRINT_FLAG_USAGE(id, name, description, action, offset) \
     main_print_flag_option_usage(name, description);
     MAIN_GENERAL_FLAG_OPTIONS(MAIN_PRINT_FLAG_USAGE)
 #undef MAIN_PRINT_FLAG_USAGE
@@ -242,7 +294,7 @@ main_print_usage(FILE *stream) {
     error2("\n");
     error2("task selection:\n");
 #define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
-                               apply_fn) \
+                               action, offset) \
     main_print_value_option_usage(name, metavar, description, default_text);
     MAIN_TASK_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
 #undef MAIN_PRINT_VALUE_USAGE
@@ -250,7 +302,7 @@ main_print_usage(FILE *stream) {
     error2("\n");
     error2("model options:\n");
 #define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
-                               apply_fn) \
+                               action, offset) \
     main_print_value_option_usage(name, metavar, description, default_text);
     MAIN_MODEL_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
 #undef MAIN_PRINT_VALUE_USAGE
@@ -258,11 +310,11 @@ main_print_usage(FILE *stream) {
     error2("\n");
     error2("audio options:\n");
 #define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
-                               apply_fn) \
+                               action, offset) \
     main_print_value_option_usage(name, metavar, description, default_text);
     MAIN_AUDIO_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
 #undef MAIN_PRINT_VALUE_USAGE
-#define MAIN_PRINT_FLAG_USAGE(id, name, description, apply_fn) \
+#define MAIN_PRINT_FLAG_USAGE(id, name, description, action, offset) \
     main_print_flag_option_usage(name, description);
     MAIN_AUDIO_FLAG_OPTIONS(MAIN_PRINT_FLAG_USAGE)
 #undef MAIN_PRINT_FLAG_USAGE
@@ -270,11 +322,11 @@ main_print_usage(FILE *stream) {
     error2("\n");
     error2("lyrics options:\n");
 #define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
-                               apply_fn) \
+                               action, offset) \
     main_print_value_option_usage(name, metavar, description, default_text);
     MAIN_LYRICS_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
 #undef MAIN_PRINT_VALUE_USAGE
-#define MAIN_PRINT_FLAG_USAGE(id, name, description, apply_fn) \
+#define MAIN_PRINT_FLAG_USAGE(id, name, description, action, offset) \
     main_print_flag_option_usage(name, description);
     MAIN_LYRICS_FLAG_OPTIONS(MAIN_PRINT_FLAG_USAGE)
 #undef MAIN_PRINT_FLAG_USAGE
@@ -453,332 +505,25 @@ main_infer_vocals_format(LrcPipelineConfig *config, char *path) {
     return;
 }
 
-static bool
-main_apply_input_song(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.song_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_input_vocals(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.existing_vocals_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_output_vocals(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.vocals_path = value;
-    main_infer_vocals_format(&options->config, value);
-
-    return true;
-}
-
-static bool
-main_apply_input_lyrics(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.lyrics_text_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_output_lrc(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.output_lrc_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_model_vocal(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.vocals_model_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_model_ctc(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.ctc_model_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_tokenizer(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.tokenizer_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_onnx_provider(MainOptions *options, char *option, char *value) {
-    enum OrtExecutionProvider provider;
-
-    if (!ort_execution_provider_parse(value, &provider)) {
-        error2("%s must be %s\n", option, ORT_EXECUTION_PROVIDER_NAMES);
-        return false;
-    }
-
-    options->onnx_provider_set = true;
-    options->config.ort_session_config.execution_provider = provider;
-
-    return true;
-}
-
-static bool
-main_apply_onnx_device(MainOptions *options, char *option, char *value) {
-    int32 device_id;
-
-    if (!main_parse_int32(value, option, &device_id)) {
-        return false;
-    }
-
-    options->onnx_device_set = true;
-    options->config.ort_session_config.device_id = device_id;
-
-    return true;
-}
-
-static bool
-main_apply_ffmpeg(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.ffmpeg_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_temp_dir(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.temp_dir = value;
-
-    return true;
-}
-
-static bool
-main_apply_vocals_format(MainOptions *options, char *option, char *value) {
-    return main_parse_vocals_format(&options->config, option, value);
-}
-
-static bool
-main_apply_chunk_seconds(MainOptions *options, char *option, char *value) {
-    return main_parse_positive_int32(
-        value,
-        option,
-        &options->config.mdx_config.chunk_seconds
-    );
-}
-
-static bool
-main_apply_margin_seconds(MainOptions *options, char *option, char *value) {
-    return main_parse_int32(
-        value,
-        option,
-        &options->config.mdx_config.margin_seconds
-    );
-}
-
-static bool
-main_apply_compensate(MainOptions *options, char *option, char *value) {
-    return main_parse_float(
-        value,
-        option,
-        &options->config.mdx_config.compensate
-    );
-}
-
-static bool
-main_apply_n_fft(MainOptions *options, char *option, char *value) {
-    return main_parse_positive_int32(
-        value,
-        option,
-        &options->config.mdx_config.n_fft
-    );
-}
-
-static bool
-main_apply_hop(MainOptions *options, char *option, char *value) {
-    return main_parse_positive_int32(
-        value,
-        option,
-        &options->config.mdx_config.hop
-    );
-}
-
-static bool
-main_apply_dim_f(MainOptions *options, char *option, char *value) {
-    return main_parse_positive_int32(
-        value,
-        option,
-        &options->config.mdx_config.dim_f
-    );
-}
-
-static bool
-main_apply_dim_t(MainOptions *options, char *option, char *value) {
-    return main_parse_positive_int32(
-        value,
-        option,
-        &options->config.mdx_config.dim_t
-    );
-}
-
-static bool
-main_apply_model_output(MainOptions *options, char *option, char *value) {
-    int32 parsed;
-
-    if (!main_parse_enum_value(option,
-                               value,
-                               main_model_output_values,
-                               LENGTH(main_model_output_values),
-                               &parsed)) {
-        return false;
-    }
-
-    options->config.mdx_config.model_output = (enum MdxModelOutput)parsed;
-
-    return true;
-}
-
-static bool
-main_apply_clip_mode(MainOptions *options, char *option, char *value) {
-    int32 parsed;
-
-    if (!main_parse_enum_value(option,
-                               value,
-                               main_clip_mode_values,
-                               LENGTH(main_clip_mode_values),
-                               &parsed)) {
-        return false;
-    }
-
-    options->config.mdx_config.clip_mode = (enum MdxClipMode)parsed;
-
-    return true;
-}
-
-static bool
-main_apply_ctc_debug_dump(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    options->config.ctc_debug_dump_path = value;
-
-    return true;
-}
-
-static bool
-main_apply_split_size(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    return lrc_pipeline_parse_preprocess_split_size(&options->config, value);
-}
-
-static bool
-main_apply_star_frequency(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    return lrc_pipeline_parse_preprocess_star_frequency(&options->config,
-                                                        value);
-}
-
-static bool
-main_apply_romanization(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    return lrc_pipeline_parse_preprocess_romanization(&options->config,
-                                                      value);
-}
-
-static bool
-main_apply_language(MainOptions *options, char *option, char *value) {
-    (void)option;
-
-    return lrc_pipeline_parse_preprocess_language(&options->config, value);
-}
-
-static bool
-main_apply_emissions(MainOptions *options, char *option, char *value) {
-    int32 parsed;
-
-    if (!main_parse_enum_value(option,
-                               value,
-                               main_emission_values_kind_values,
-                               LENGTH(main_emission_values_kind_values),
-                               &parsed)) {
-        return false;
-    }
-
-    options->config.ctc_emission_values_kind =
-        (enum LrcCtcEmissionValuesKind)parsed;
-
-    return true;
-}
-
-static bool
-main_apply_help(MainOptions *options) {
-    (void)options;
-
-    main_print_usage(stdout);
-}
-
-static bool
-main_apply_keep_temp_files(MainOptions *options) {
-    options->config.keep_temp_files = true;
-
-    return true;
-}
-
-static bool
-main_apply_romanize(MainOptions *options) {
-    lrc_pipeline_enable_preprocess_romanization(&options->config);
-
-    return true;
-}
-
-static bool
-main_apply_denoise(MainOptions *options) {
-    options->config.mdx_config.denoise = true;
-
-    return true;
-}
-
 static MainValueOption main_value_options[] = {
 #define MAIN_VALUE_OPTION_ENTRY(id, name, metavar, description, default_text, \
-                                apply_fn) \
-    {name, MAIN_VALUE_OPTION_##id, apply_fn},
+                                action, offset) \
+    {name, MAIN_VALUE_OPTION_##id, action, offset},
     MAIN_VALUE_OPTIONS(MAIN_VALUE_OPTION_ENTRY)
 #undef MAIN_VALUE_OPTION_ENTRY
-#define MAIN_VALUE_OPTION_ALIAS_ENTRY(id, name, apply_fn) \
-    {name, MAIN_VALUE_OPTION_##id, apply_fn},
+#define MAIN_VALUE_OPTION_ALIAS_ENTRY(id, name, action, offset) \
+    {name, MAIN_VALUE_OPTION_##id, action, offset},
     MAIN_VALUE_OPTION_ALIASES(MAIN_VALUE_OPTION_ALIAS_ENTRY)
 #undef MAIN_VALUE_OPTION_ALIAS_ENTRY
 };
 
 static MainFlagOption main_flag_options[] = {
-#define MAIN_FLAG_OPTION_ENTRY(id, name, description, apply_fn) \
-    {name, MAIN_FLAG_OPTION_##id, apply_fn},
+#define MAIN_FLAG_OPTION_ENTRY(id, name, description, action, offset) \
+    {name, MAIN_FLAG_OPTION_##id, action, offset},
     MAIN_FLAG_OPTIONS(MAIN_FLAG_OPTION_ENTRY)
 #undef MAIN_FLAG_OPTION_ENTRY
-#define MAIN_FLAG_OPTION_ALIAS_ENTRY(id, name, apply_fn) \
-    {name, MAIN_FLAG_OPTION_##id, apply_fn},
+#define MAIN_FLAG_OPTION_ALIAS_ENTRY(id, name, action, offset) \
+    {name, MAIN_FLAG_OPTION_##id, action, offset},
     MAIN_FLAG_OPTION_ALIASES(MAIN_FLAG_OPTION_ALIAS_ENTRY)
 #undef MAIN_FLAG_OPTION_ALIAS_ENTRY
 };
@@ -817,15 +562,122 @@ main_value_option_name(enum MainValueOptionKind kind) {
 }
 
 static bool
+main_apply_value_option(
+    MainOptions *options,
+    MainValueOption *option,
+    char *value
+) {
+    enum OrtExecutionProvider provider;
+    void *field;
+    int32 parsed;
+    float parsed_float;
+
+    field = (char *)options + option->offset;
+    switch (option->action) {
+    case MAIN_VALUE_STRING:
+        *(char **)field = value;
+        return true;
+    case MAIN_VALUE_STRING_INFER_VOCALS_FORMAT:
+        *(char **)field = value;
+        main_infer_vocals_format(&options->config, value);
+        return true;
+    case MAIN_VALUE_INT32:
+        if (!main_parse_int32(value, option->name, &parsed)) {
+            return false;
+        }
+        *(int32 *)field = parsed;
+        return true;
+    case MAIN_VALUE_POSITIVE_INT32:
+        if (!main_parse_positive_int32(value, option->name, &parsed)) {
+            return false;
+        }
+        *(int32 *)field = parsed;
+        return true;
+    case MAIN_VALUE_FLOAT:
+        if (!main_parse_float(value, option->name, &parsed_float)) {
+            return false;
+        }
+        *(float *)field = parsed_float;
+        return true;
+    case MAIN_VALUE_ONNX_PROVIDER:
+        if (!ort_execution_provider_parse(value, &provider)) {
+            error2("%s must be %s\n", option->name,
+                   ORT_EXECUTION_PROVIDER_NAMES);
+            return false;
+        }
+        options->onnx_provider_set = true;
+        *(enum OrtExecutionProvider *)field = provider;
+        return true;
+    case MAIN_VALUE_ONNX_DEVICE:
+        if (!main_parse_int32(value, option->name, &parsed)) {
+            return false;
+        }
+        options->onnx_device_set = true;
+        *(int32 *)field = parsed;
+        return true;
+    case MAIN_VALUE_VOCALS_FORMAT:
+        return main_parse_vocals_format(&options->config,
+                                        option->name,
+                                        value);
+    case MAIN_VALUE_MODEL_OUTPUT:
+        if (!main_parse_enum_value(option->name,
+                                   value,
+                                   main_model_output_values,
+                                   LENGTH(main_model_output_values),
+                                   &parsed)) {
+            return false;
+        }
+        *(enum MdxModelOutput *)field = (enum MdxModelOutput)parsed;
+        return true;
+    case MAIN_VALUE_CLIP_MODE:
+        if (!main_parse_enum_value(option->name,
+                                   value,
+                                   main_clip_mode_values,
+                                   LENGTH(main_clip_mode_values),
+                                   &parsed)) {
+            return false;
+        }
+        *(enum MdxClipMode *)field = (enum MdxClipMode)parsed;
+        return true;
+    case MAIN_VALUE_SPLIT_SIZE:
+        return lrc_pipeline_parse_preprocess_split_size(&options->config,
+                                                        value);
+    case MAIN_VALUE_STAR_FREQUENCY:
+        return lrc_pipeline_parse_preprocess_star_frequency(&options->config,
+                                                            value);
+    case MAIN_VALUE_ROMANIZATION:
+        return lrc_pipeline_parse_preprocess_romanization(&options->config,
+                                                          value);
+    case MAIN_VALUE_LANGUAGE:
+        return lrc_pipeline_parse_preprocess_language(&options->config, value);
+    case MAIN_VALUE_EMISSIONS:
+        if (!main_parse_enum_value(option->name,
+                                   value,
+                                   main_emission_values_kind_values,
+                                   LENGTH(main_emission_values_kind_values),
+                                   &parsed)) {
+            return false;
+        }
+        *(enum LrcCtcEmissionValuesKind *)field =
+            (enum LrcCtcEmissionValuesKind)parsed;
+        return true;
+    }
+
+    error2("internal error: unsupported value option action\n");
+    return false;
+}
+
+static bool
 main_parse_value_option(MainOptions *options, char *option, char *value) {
     MainValueOption *value_option;
 
-    if ((value_option = main_find_value_option(option)) == NULL) {
+    value_option = main_find_value_option(option);
+    if (value_option == NULL) {
         error2("unknown option: %s\n", option);
         return false;
     }
 
-    return value_option->apply(options, option, value);
+    return main_apply_value_option(options, value_option, value);
 }
 
 static bool
@@ -855,7 +707,7 @@ main_parse_long_value(MainOptions *options, char *arg) {
         if (!main_long_option_value(arg, value_option->name, &value)) {
             continue;
         }
-        if (!value_option->apply(options, value_option->name, value)) {
+        if (!main_apply_value_option(options, value_option, value)) {
             return -1;
         }
 
@@ -874,14 +726,35 @@ main_option_needs_value(char *option) {
     return false;
 }
 
+static bool
+main_apply_flag_option(MainOptions *options, MainFlagOption *option) {
+    void *field;
+
+    field = (char *)options + option->offset;
+    switch (option->action) {
+    case MAIN_FLAG_HELP:
+        main_print_usage(stdout);
+    case MAIN_FLAG_SET_TRUE:
+        *(bool *)field = true;
+        return true;
+    case MAIN_FLAG_ROMANIZE:
+        lrc_pipeline_enable_preprocess_romanization(&options->config);
+        return true;
+    }
+
+    error2("internal error: unsupported flag option action\n");
+    return false;
+}
+
 static int32
 main_parse_flag_option(MainOptions *options, char *option) {
     MainFlagOption *flag_option;
 
-    if ((flag_option = main_find_flag_option(option)) == NULL) {
+    flag_option = main_find_flag_option(option);
+    if (flag_option == NULL) {
         return 0;
     }
-    if (!flag_option->apply(options)) {
+    if (!main_apply_flag_option(options, flag_option)) {
         return -1;
     }
 

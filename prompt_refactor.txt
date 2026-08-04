@@ -1,4 +1,4 @@
-Consider the code in src/. See if there are repeated code patterns or data that
+Consider the code in src/screens/. See if there are repeated code patterns or data that
 could be refactored to avoid duplication. Investigate and see if there is things
 that we could refactor using include-based templates, void pointer callbacks,
 polymorphism using structs with a common header, x macros, polymorphism using
