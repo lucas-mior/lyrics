@@ -2,6 +2,7 @@
 #define AUDIO_H
 
 #include "cbase.h"
+#include "audio_formats.h"
 
 typedef struct AudioIoFormat {
     int32 sample_rate;

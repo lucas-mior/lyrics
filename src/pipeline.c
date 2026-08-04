@@ -168,7 +168,7 @@ lrc_pipeline_config_init(LrcPipelineConfig *config) {
 
     config->temp_dir = "/tmp";
     config->ffmpeg_path = "ffmpeg";
-    config->vocals_container_format = "wav";
+    config->vocals_container_format = LRC_AUDIO_FORMAT_DEFAULT;
     config->print_info = true;
 
     audio_io_format_init(&config->vocals_output_format);
@@ -3708,7 +3708,7 @@ lrc_vocals_extract_request_init(LrcVocalsExtractRequest *request) {
 
     request->temp_dir = "/tmp";
     request->ffmpeg_path = "ffmpeg";
-    request->container_format = "wav";
+    request->container_format = LRC_AUDIO_FORMAT_DEFAULT;
     request->print_info = true;
     audio_io_format_init(&request->output_format);
     mdx_config_init(&request->mdx_config);

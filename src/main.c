@@ -41,107 +41,244 @@ typedef struct MainOptions {
     bool print_usage_on_error;
 } MainOptions;
 
+#define MAIN_TASK_VALUE_OPTIONS(X) \
+    X(INPUT_SONG, "--input-song", "PATH", \
+      "original song to process", NULL, main_apply_input_song) \
+    X(INPUT_VOCALS, "--input-vocals", "PATH", \
+      "already extracted vocals to use", NULL, main_apply_input_vocals) \
+    X(OUTPUT_VOCALS, "--output-vocals", "PATH", \
+      "save extracted vocals at PATH", NULL, main_apply_output_vocals) \
+    X(INPUT_LYRICS, "--input-lyrics", "PATH", \
+      "plain-text lyrics to align", "derived from input prefix", \
+      main_apply_input_lyrics) \
+    X(OUTPUT_LRC, "--output-lrc", "PATH", \
+      "synced lyrics output path", NULL, main_apply_output_lrc)
+
+#define MAIN_MODEL_VALUE_OPTIONS(X) \
+    X(MODEL_VOCAL, "--model-vocal", "PATH", \
+      "MDX-Net ONNX model", LRC_DEFAULT_VOCALS_MODEL_PATH, \
+      main_apply_model_vocal) \
+    X(MODEL_CTC, "--model-ctc", "PATH", \
+      "CTC ONNX model", LRC_DEFAULT_CTC_MODEL_PATH, \
+      main_apply_model_ctc) \
+    X(TOKENIZER, "--tokenizer", "PATH", \
+      "CTC tokenizer tokens file", LRC_DEFAULT_CTC_TOKENIZER_PATH, \
+      main_apply_tokenizer) \
+    X(ONNX_PROVIDER, "--onnx-provider", "KIND", \
+      "ONNX provider (" ORT_EXECUTION_PROVIDER_NAMES ")", "auto", \
+      main_apply_onnx_provider) \
+    X(ONNX_DEVICE, "--onnx-device", "N", \
+      "CUDA device id", "0", main_apply_onnx_device)
+
+#define MAIN_AUDIO_VALUE_OPTIONS(X) \
+    X(FFMPEG, "--ffmpeg", "PATH", \
+      "ffmpeg executable", "ffmpeg", main_apply_ffmpeg) \
+    X(TEMP_DIR, "--temp-dir", "PATH", \
+      "temporary directory", "/tmp", main_apply_temp_dir) \
+    X(VOCALS_FORMAT, "--vocals-format", "KIND", \
+      "extracted vocals container (" LRC_AUDIO_FORMAT_NAMES ")", \
+      "inferred", main_apply_vocals_format) \
+    X(CHUNK_SECONDS, "--chunk-seconds", "N", \
+      "MDX chunk size in seconds", "30", main_apply_chunk_seconds) \
+    X(MARGIN_SECONDS, "--margin-seconds", "N", \
+      "MDX chunk margin in seconds", "3", main_apply_margin_seconds) \
+    X(COMPENSATE, "--compensate", "X", \
+      "output gain", "1.035", main_apply_compensate) \
+    X(N_FFT, "--n-fft", "N", \
+      "STFT size", "6144", main_apply_n_fft) \
+    X(HOP, "--hop", "N", \
+      "STFT hop", "1024", main_apply_hop) \
+    X(DIM_F, "--dim-f", "N", \
+      "override model frequency bins", NULL, main_apply_dim_f) \
+    X(DIM_T, "--dim-t", "N", \
+      "override model time frames", NULL, main_apply_dim_t) \
+    X(MODEL_OUTPUT, "--model-output", "KIND", \
+      "model output stem (" MDX_MODEL_OUTPUT_NAMES ")", "vocals", \
+      main_apply_model_output) \
+    X(CLIP_MODE, "--clip-mode", "KIND", \
+      "final clipping policy (" MDX_CLIP_MODE_NAMES ")", "clamp", \
+      main_apply_clip_mode)
+
+#define MAIN_LYRICS_VALUE_OPTIONS(X) \
+    X(CTC_DEBUG_DUMP, "--ctc-debug-dump", "PATH", \
+      "write CTC parity debug dump", NULL, main_apply_ctc_debug_dump) \
+    X(SPLIT_SIZE, "--split-size", "KIND", \
+      "lyrics split size (current|word|char)", "word", \
+      main_apply_split_size) \
+    X(STAR_FREQUENCY, "--star-frequency", "KIND", \
+      "star-token placement (none|edges|segment)", "edges", \
+      main_apply_star_frequency) \
+    X(ROMANIZATION, "--romanization", "KIND", \
+      "romanization backend (off|icu)", "icu", \
+      main_apply_romanization) \
+    X(LANGUAGE, "--language", "CODE", \
+      "3-letter language code", "eng", main_apply_language) \
+    X(EMISSIONS, "--emissions", "KIND", \
+      "model emission values (" LRC_CTC_EMISSION_VALUES_KIND_NAMES ")", \
+      "logits", \
+      main_apply_emissions)
+
+#define MAIN_VALUE_OPTIONS(X) \
+    MAIN_TASK_VALUE_OPTIONS(X) \
+    MAIN_MODEL_VALUE_OPTIONS(X) \
+    MAIN_AUDIO_VALUE_OPTIONS(X) \
+    MAIN_LYRICS_VALUE_OPTIONS(X)
+
+#define MAIN_VALUE_OPTION_ALIASES(X) \
+    X(OUTPUT_VOCALS, "--vocals-output", main_apply_output_vocals) \
+    X(INPUT_LYRICS, "--lyrics", main_apply_input_lyrics) \
+    X(INPUT_LYRICS, "-l", main_apply_input_lyrics) \
+    X(OUTPUT_LRC, "--output", main_apply_output_lrc) \
+    X(OUTPUT_LRC, "-o", main_apply_output_lrc) \
+    X(VOCALS_FORMAT, "--format", main_apply_vocals_format)
+
+#define MAIN_GENERAL_FLAG_OPTIONS(X) \
+    X(HELP, "--help", "show this help", main_apply_help)
+
+#define MAIN_AUDIO_FLAG_OPTIONS(X) \
+    X(DENOISE, "--denoise", "run denoising inference mode", \
+      main_apply_denoise)
+
+#define MAIN_LYRICS_FLAG_OPTIONS(X) \
+    X(KEEP_TEMP_FILES, "--keep-temp-files", \
+      "keep generated temporary files", main_apply_keep_temp_files) \
+    X(ROMANIZE, "--romanize", "select ICU romanization", \
+      main_apply_romanize)
+
+#define MAIN_FLAG_OPTIONS(X) \
+    MAIN_GENERAL_FLAG_OPTIONS(X) \
+    MAIN_AUDIO_FLAG_OPTIONS(X) \
+    MAIN_LYRICS_FLAG_OPTIONS(X)
+
+#define MAIN_FLAG_OPTION_ALIASES(X) \
+    X(HELP, "-h", main_apply_help)
+
 enum MainValueOptionKind {
-    MAIN_VALUE_OPTION_INPUT_SONG,
-    MAIN_VALUE_OPTION_INPUT_VOCALS,
-    MAIN_VALUE_OPTION_OUTPUT_VOCALS,
-    MAIN_VALUE_OPTION_INPUT_LYRICS,
-    MAIN_VALUE_OPTION_OUTPUT_LRC,
-    MAIN_VALUE_OPTION_MODEL_VOCAL,
-    MAIN_VALUE_OPTION_MODEL_CTC,
-    MAIN_VALUE_OPTION_TOKENIZER,
-    MAIN_VALUE_OPTION_ONNX_PROVIDER,
-    MAIN_VALUE_OPTION_ONNX_DEVICE,
-    MAIN_VALUE_OPTION_FFMPEG,
-    MAIN_VALUE_OPTION_TEMP_DIR,
-    MAIN_VALUE_OPTION_VOCALS_FORMAT,
-    MAIN_VALUE_OPTION_CHUNK_SECONDS,
-    MAIN_VALUE_OPTION_MARGIN_SECONDS,
-    MAIN_VALUE_OPTION_COMPENSATE,
-    MAIN_VALUE_OPTION_N_FFT,
-    MAIN_VALUE_OPTION_HOP,
-    MAIN_VALUE_OPTION_DIM_F,
-    MAIN_VALUE_OPTION_DIM_T,
-    MAIN_VALUE_OPTION_MODEL_OUTPUT,
-    MAIN_VALUE_OPTION_CLIP_MODE,
-    MAIN_VALUE_OPTION_CTC_DEBUG_DUMP,
-    MAIN_VALUE_OPTION_SPLIT_SIZE,
-    MAIN_VALUE_OPTION_STAR_FREQUENCY,
-    MAIN_VALUE_OPTION_ROMANIZATION,
-    MAIN_VALUE_OPTION_LANGUAGE,
-    MAIN_VALUE_OPTION_EMISSIONS,
+#define MAIN_VALUE_OPTION_ENUM(id, name, metavar, description, default_text, \
+                               apply_fn) \
+    MAIN_VALUE_OPTION_##id,
+    MAIN_VALUE_OPTIONS(MAIN_VALUE_OPTION_ENUM)
+#undef MAIN_VALUE_OPTION_ENUM
+    MAIN_VALUE_OPTION_LAST,
 };
+
+enum MainFlagOptionKind {
+#define MAIN_FLAG_OPTION_ENUM(id, name, description, apply_fn) \
+    MAIN_FLAG_OPTION_##id,
+    MAIN_FLAG_OPTIONS(MAIN_FLAG_OPTION_ENUM)
+#undef MAIN_FLAG_OPTION_ENUM
+    MAIN_FLAG_OPTION_LAST,
+};
+
+typedef bool MainValueOptionApplyFunction(
+    MainOptions *options,
+    char *option,
+    char *value
+);
+
+typedef bool MainFlagOptionApplyFunction(MainOptions *options);
 
 typedef struct MainValueOption {
     char *name;
     enum MainValueOptionKind kind;
+    MainValueOptionApplyFunction *apply;
 } MainValueOption;
-
-enum MainFlagOptionKind {
-    MAIN_FLAG_OPTION_HELP,
-    MAIN_FLAG_OPTION_KEEP_TEMP_FILES,
-    MAIN_FLAG_OPTION_ROMANIZE,
-    MAIN_FLAG_OPTION_DENOISE,
-};
 
 typedef struct MainFlagOption {
     char *name;
     enum MainFlagOptionKind kind;
+    MainFlagOptionApplyFunction *apply;
 } MainFlagOption;
+
+typedef struct MainEnumValue {
+    char *name;
+    int32 value;
+} MainEnumValue;
+
+static void
+main_print_value_option_usage(
+    char *name,
+    char *metavar,
+    char *description,
+    char *default_text
+) {
+    char option[64];
+    int32 len;
+
+    len = snprintf2(option, SIZEOF(option), "%s %s", name, metavar);
+    if ((len <= 0) || (len >= SIZEOF(option))) {
+        option[0] = '\0';
+    }
+
+    error2("    %-28s %s", option, description);
+    if (default_text != NULL) {
+        error2(" [%s]", default_text);
+    }
+    error2("\n");
+
+    return;
+}
+
+static void
+main_print_flag_option_usage(char *name, char *description) {
+    error2("    %-28s %s\n", name, description);
+
+    return;
+}
 
 static void __attribute((noreturn))
 main_print_usage(FILE *stream) {
     error2(
-        "usage: %s (--input-song SONG | --input-vocals VOCALS) [options]\n"
-        "\n"
-        "task selection:\n"
-        "    --input-song PATH          original song to process\n"
-        "    --input-vocals PATH        already extracted vocals to use\n"
-        "    --output-vocals PATH       save extracted vocals at PATH\n"
-        "    --input-lyrics PATH        plain-text lyrics to align\n"
-        "                                 [derived from input prefix]\n"
-        "    --output-lrc PATH          synced lyrics output path\n"
-        "\n"
-        "model options:\n"
-        "    --model-vocal PATH         MDX-Net ONNX model\n"
-        "                                 ["
-        LRC_DEFAULT_VOCALS_MODEL_PATH "]\n"
-        "    --model-ctc PATH           CTC ONNX model\n"
-        "                                 ["
-        LRC_DEFAULT_CTC_MODEL_PATH "]\n"
-        "    --tokenizer PATH           CTC tokenizer tokens file\n"
-        "                                 ["
-        LRC_DEFAULT_CTC_TOKENIZER_PATH "]\n"
-        "    --onnx-provider KIND      auto|cpu|cuda [auto]\n"
-        "    --onnx-device N           CUDA device id [0]\n"
-        "\n"
-        "audio options:\n"
-        "    --ffmpeg PATH              ffmpeg executable [ffmpeg]\n"
-        "    --temp-dir PATH            temporary directory [/tmp]\n"
-        "    --vocals-format KIND       wav|flac|mp3|opus [inferred]\n"
-        "    --chunk-seconds N          MDX chunk size in seconds [30]\n"
-        "    --margin-seconds N         MDX chunk margin in seconds [3]\n"
-        "    --denoise                  run denoising inference mode\n"
-        "    --compensate X             output gain [1.035]\n"
-        "    --n-fft N                  STFT size [6144]\n"
-        "    --hop N                    STFT hop [1024]\n"
-        "    --dim-f N                  override model frequency bins\n"
-        "    --dim-t N                  override model time frames\n"
-        "    --model-output vocals|instrumental [vocals]\n"
-        "    --clip-mode clamp|none     final clipping policy [clamp]\n"
-        "\n"
-        "lyrics options:\n"
-        "    --keep-temp-files          keep generated temporary files\n"
-        "    --ctc-debug-dump PATH      write CTC parity debug dump\n"
-        "    --split-size KIND          current|word|char [word]\n"
-        "    --star-frequency KIND      none|edges|segment [edges]\n"
-        "    --romanize                 select ICU romanization\n"
-        "    --romanization KIND        off|icu [icu]\n"
-        "    --language CODE            3-letter language code [eng]\n"
-        "    --emissions KIND           logits|probabilities|"
-        "log-probabilities\n",
+        "usage: %s (--input-song SONG | --input-vocals VOCALS) [options]\n",
         program
     );
+    error2("\n");
+    error2("general options:\n");
+#define MAIN_PRINT_FLAG_USAGE(id, name, description, apply_fn) \
+    main_print_flag_option_usage(name, description);
+    MAIN_GENERAL_FLAG_OPTIONS(MAIN_PRINT_FLAG_USAGE)
+#undef MAIN_PRINT_FLAG_USAGE
+
+    error2("\n");
+    error2("task selection:\n");
+#define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
+                               apply_fn) \
+    main_print_value_option_usage(name, metavar, description, default_text);
+    MAIN_TASK_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
+#undef MAIN_PRINT_VALUE_USAGE
+
+    error2("\n");
+    error2("model options:\n");
+#define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
+                               apply_fn) \
+    main_print_value_option_usage(name, metavar, description, default_text);
+    MAIN_MODEL_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
+#undef MAIN_PRINT_VALUE_USAGE
+
+    error2("\n");
+    error2("audio options:\n");
+#define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
+                               apply_fn) \
+    main_print_value_option_usage(name, metavar, description, default_text);
+    MAIN_AUDIO_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
+#undef MAIN_PRINT_VALUE_USAGE
+#define MAIN_PRINT_FLAG_USAGE(id, name, description, apply_fn) \
+    main_print_flag_option_usage(name, description);
+    MAIN_AUDIO_FLAG_OPTIONS(MAIN_PRINT_FLAG_USAGE)
+#undef MAIN_PRINT_FLAG_USAGE
+
+    error2("\n");
+    error2("lyrics options:\n");
+#define MAIN_PRINT_VALUE_USAGE(id, name, metavar, description, default_text, \
+                               apply_fn) \
+    main_print_value_option_usage(name, metavar, description, default_text);
+    MAIN_LYRICS_VALUE_OPTIONS(MAIN_PRINT_VALUE_USAGE)
+#undef MAIN_PRINT_VALUE_USAGE
+#define MAIN_PRINT_FLAG_USAGE(id, name, description, apply_fn) \
+    main_print_flag_option_usage(name, description);
+    MAIN_LYRICS_FLAG_OPTIONS(MAIN_PRINT_FLAG_USAGE)
+#undef MAIN_PRINT_FLAG_USAGE
+
     if (stream == stdout) {
         exit(EXIT_SUCCESS);
     }
@@ -224,53 +361,57 @@ main_parse_float(char *value, char *name, float *out) {
     return true;
 }
 
+#define MAIN_ENUM_VALUE(e, name) {name, (int32)e},
+static MainEnumValue main_model_output_values[] = {
+    MDX_MODEL_OUTPUT_VALUES(MAIN_ENUM_VALUE)
+};
+static MainEnumValue main_clip_mode_values[] = {
+    MDX_CLIP_MODE_VALUES(MAIN_ENUM_VALUE)
+};
+static MainEnumValue main_emission_values_kind_values[] = {
+    LRC_CTC_EMISSION_VALUES_KIND_VALUES(MAIN_ENUM_VALUE)
+};
+#undef MAIN_ENUM_VALUE
+
 static bool
-main_parse_emissions(LrcPipelineConfig *config, char *value) {
-    if (strequal(value, "logits")) {
-        config->ctc_emission_values_kind = LRC_CTC_EMISSION_VALUES_LOGITS;
-        return true;
-    }
-    if (strequal(value, "probabilities")) {
-        config->ctc_emission_values_kind =
-            LRC_CTC_EMISSION_VALUES_PROBABILITIES;
-        return true;
-    }
-    if (strequal(value, "log-probabilities")) {
-        config->ctc_emission_values_kind =
-            LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES;
-        return true;
+main_parse_enum_value(
+    char *option,
+    char *value,
+    MainEnumValue *values,
+    int32 value_count,
+    int32 *out
+) {
+    if ((value == NULL) || (out == NULL)) {
+        return false;
     }
 
-    error2("--emissions must be logits, probabilities, or log-probabilities\n");
+    for (int32 i = 0; i < value_count; i += 1) {
+        if (strequal(value, values[i].name)) {
+            *out = values[i].value;
+            return true;
+        }
+    }
+
+    error2("%s must be ", option);
+    for (int32 i = 0; i < value_count; i += 1) {
+        if (i > 0) {
+            error2(", ");
+        }
+        error2("%s", values[i].name);
+    }
+    error2("\n");
 
     return false;
 }
 
 static bool
-main_parse_onnx_provider(LrcPipelineConfig *config, char *value) {
-    enum OrtExecutionProvider provider;
-
-    if (ort_execution_provider_parse(value, &provider)) {
-        config->ort_session_config.execution_provider = provider;
-        return true;
-    }
-
-    error2("--onnx-provider must be auto, cpu, or cuda\n");
-
-    return false;
-}
-
-static bool
-main_parse_vocals_format(LrcPipelineConfig *config, char *value) {
-    if (strequal(value, "wav")
-        || strequal(value, "flac")
-        || strequal(value, "mp3")
-        || strequal(value, "opus")) {
+main_parse_vocals_format(LrcPipelineConfig *config, char *option, char *value) {
+    if (lrc_audio_format_valid(value)) {
         config->vocals_container_format = value;
         return true;
     }
 
-    error2("--vocals-format must be wav, flac, mp3, or opus\n");
+    error2("%s must be %s\n", option, LRC_AUDIO_FORMAT_NAMES);
 
     return false;
 }
@@ -305,10 +446,7 @@ main_infer_vocals_format(LrcPipelineConfig *config, char *path) {
     if (last_slash && (extension <= last_slash + 1)) {
         return;
     }
-    if (strequal(extension, "wav")
-        || strequal(extension, "flac")
-        || strequal(extension, "mp3")
-        || strequal(extension, "opus")) {
+    if (lrc_audio_format_valid(extension)) {
         config->vocals_container_format = extension;
     }
 
@@ -316,80 +454,333 @@ main_infer_vocals_format(LrcPipelineConfig *config, char *path) {
 }
 
 static bool
-main_parse_model_output(LrcPipelineConfig *config, char *value) {
-    if (strequal(value, "vocals")) {
-        config->mdx_config.model_output = MDX_MODEL_OUTPUT_VOCALS;
-        return true;
-    }
-    if (strequal(value, "instrumental")) {
-        config->mdx_config.model_output = MDX_MODEL_OUTPUT_INSTRUMENTAL;
-        return true;
-    }
+main_apply_input_song(MainOptions *options, char *option, char *value) {
+    (void)option;
 
-    error2("--model-output must be vocals or instrumental\n");
+    options->config.song_path = value;
 
-    return false;
+    return true;
 }
 
 static bool
-main_parse_clip_mode(LrcPipelineConfig *config, char *value) {
-    if (strequal(value, "clamp")) {
-        config->mdx_config.clip_mode = MDX_CLIP_MODE_CLAMP;
-        return true;
-    }
-    if (strequal(value, "none")) {
-        config->mdx_config.clip_mode = MDX_CLIP_MODE_NONE;
-        return true;
+main_apply_input_vocals(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.existing_vocals_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_output_vocals(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.vocals_path = value;
+    main_infer_vocals_format(&options->config, value);
+
+    return true;
+}
+
+static bool
+main_apply_input_lyrics(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.lyrics_text_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_output_lrc(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.output_lrc_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_model_vocal(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.vocals_model_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_model_ctc(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.ctc_model_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_tokenizer(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.tokenizer_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_onnx_provider(MainOptions *options, char *option, char *value) {
+    enum OrtExecutionProvider provider;
+
+    if (!ort_execution_provider_parse(value, &provider)) {
+        error2("%s must be %s\n", option, ORT_EXECUTION_PROVIDER_NAMES);
+        return false;
     }
 
-    error2("--clip-mode must be clamp or none\n");
+    options->onnx_provider_set = true;
+    options->config.ort_session_config.execution_provider = provider;
 
-    return false;
+    return true;
+}
+
+static bool
+main_apply_onnx_device(MainOptions *options, char *option, char *value) {
+    int32 device_id;
+
+    if (!main_parse_int32(value, option, &device_id)) {
+        return false;
+    }
+
+    options->onnx_device_set = true;
+    options->config.ort_session_config.device_id = device_id;
+
+    return true;
+}
+
+static bool
+main_apply_ffmpeg(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.ffmpeg_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_temp_dir(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.temp_dir = value;
+
+    return true;
+}
+
+static bool
+main_apply_vocals_format(MainOptions *options, char *option, char *value) {
+    return main_parse_vocals_format(&options->config, option, value);
+}
+
+static bool
+main_apply_chunk_seconds(MainOptions *options, char *option, char *value) {
+    return main_parse_positive_int32(
+        value,
+        option,
+        &options->config.mdx_config.chunk_seconds
+    );
+}
+
+static bool
+main_apply_margin_seconds(MainOptions *options, char *option, char *value) {
+    return main_parse_int32(
+        value,
+        option,
+        &options->config.mdx_config.margin_seconds
+    );
+}
+
+static bool
+main_apply_compensate(MainOptions *options, char *option, char *value) {
+    return main_parse_float(
+        value,
+        option,
+        &options->config.mdx_config.compensate
+    );
+}
+
+static bool
+main_apply_n_fft(MainOptions *options, char *option, char *value) {
+    return main_parse_positive_int32(
+        value,
+        option,
+        &options->config.mdx_config.n_fft
+    );
+}
+
+static bool
+main_apply_hop(MainOptions *options, char *option, char *value) {
+    return main_parse_positive_int32(
+        value,
+        option,
+        &options->config.mdx_config.hop
+    );
+}
+
+static bool
+main_apply_dim_f(MainOptions *options, char *option, char *value) {
+    return main_parse_positive_int32(
+        value,
+        option,
+        &options->config.mdx_config.dim_f
+    );
+}
+
+static bool
+main_apply_dim_t(MainOptions *options, char *option, char *value) {
+    return main_parse_positive_int32(
+        value,
+        option,
+        &options->config.mdx_config.dim_t
+    );
+}
+
+static bool
+main_apply_model_output(MainOptions *options, char *option, char *value) {
+    int32 parsed;
+
+    if (!main_parse_enum_value(option,
+                               value,
+                               main_model_output_values,
+                               LENGTH(main_model_output_values),
+                               &parsed)) {
+        return false;
+    }
+
+    options->config.mdx_config.model_output = (enum MdxModelOutput)parsed;
+
+    return true;
+}
+
+static bool
+main_apply_clip_mode(MainOptions *options, char *option, char *value) {
+    int32 parsed;
+
+    if (!main_parse_enum_value(option,
+                               value,
+                               main_clip_mode_values,
+                               LENGTH(main_clip_mode_values),
+                               &parsed)) {
+        return false;
+    }
+
+    options->config.mdx_config.clip_mode = (enum MdxClipMode)parsed;
+
+    return true;
+}
+
+static bool
+main_apply_ctc_debug_dump(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    options->config.ctc_debug_dump_path = value;
+
+    return true;
+}
+
+static bool
+main_apply_split_size(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    return lrc_pipeline_parse_preprocess_split_size(&options->config, value);
+}
+
+static bool
+main_apply_star_frequency(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    return lrc_pipeline_parse_preprocess_star_frequency(&options->config,
+                                                        value);
+}
+
+static bool
+main_apply_romanization(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    return lrc_pipeline_parse_preprocess_romanization(&options->config,
+                                                      value);
+}
+
+static bool
+main_apply_language(MainOptions *options, char *option, char *value) {
+    (void)option;
+
+    return lrc_pipeline_parse_preprocess_language(&options->config, value);
+}
+
+static bool
+main_apply_emissions(MainOptions *options, char *option, char *value) {
+    int32 parsed;
+
+    if (!main_parse_enum_value(option,
+                               value,
+                               main_emission_values_kind_values,
+                               LENGTH(main_emission_values_kind_values),
+                               &parsed)) {
+        return false;
+    }
+
+    options->config.ctc_emission_values_kind =
+        (enum LrcCtcEmissionValuesKind)parsed;
+
+    return true;
+}
+
+static bool
+main_apply_help(MainOptions *options) {
+    (void)options;
+
+    main_print_usage(stdout);
+}
+
+static bool
+main_apply_keep_temp_files(MainOptions *options) {
+    options->config.keep_temp_files = true;
+
+    return true;
+}
+
+static bool
+main_apply_romanize(MainOptions *options) {
+    lrc_pipeline_enable_preprocess_romanization(&options->config);
+
+    return true;
+}
+
+static bool
+main_apply_denoise(MainOptions *options) {
+    options->config.mdx_config.denoise = true;
+
+    return true;
 }
 
 static MainValueOption main_value_options[] = {
-    {"--input-song", MAIN_VALUE_OPTION_INPUT_SONG},
-    {"--input-vocals", MAIN_VALUE_OPTION_INPUT_VOCALS},
-    {"--output-vocals", MAIN_VALUE_OPTION_OUTPUT_VOCALS},
-    {"--vocals-output", MAIN_VALUE_OPTION_OUTPUT_VOCALS},
-    {"--input-lyrics", MAIN_VALUE_OPTION_INPUT_LYRICS},
-    {"--lyrics", MAIN_VALUE_OPTION_INPUT_LYRICS},
-    {"-l", MAIN_VALUE_OPTION_INPUT_LYRICS},
-    {"--output-lrc", MAIN_VALUE_OPTION_OUTPUT_LRC},
-    {"--output", MAIN_VALUE_OPTION_OUTPUT_LRC},
-    {"-o", MAIN_VALUE_OPTION_OUTPUT_LRC},
-    {"--model-vocal", MAIN_VALUE_OPTION_MODEL_VOCAL},
-    {"--model-ctc", MAIN_VALUE_OPTION_MODEL_CTC},
-    {"--tokenizer", MAIN_VALUE_OPTION_TOKENIZER},
-    {"--onnx-provider", MAIN_VALUE_OPTION_ONNX_PROVIDER},
-    {"--onnx-device", MAIN_VALUE_OPTION_ONNX_DEVICE},
-    {"--ffmpeg", MAIN_VALUE_OPTION_FFMPEG},
-    {"--temp-dir", MAIN_VALUE_OPTION_TEMP_DIR},
-    {"--vocals-format", MAIN_VALUE_OPTION_VOCALS_FORMAT},
-    {"--format", MAIN_VALUE_OPTION_VOCALS_FORMAT},
-    {"--chunk-seconds", MAIN_VALUE_OPTION_CHUNK_SECONDS},
-    {"--margin-seconds", MAIN_VALUE_OPTION_MARGIN_SECONDS},
-    {"--compensate", MAIN_VALUE_OPTION_COMPENSATE},
-    {"--n-fft", MAIN_VALUE_OPTION_N_FFT},
-    {"--hop", MAIN_VALUE_OPTION_HOP},
-    {"--dim-f", MAIN_VALUE_OPTION_DIM_F},
-    {"--dim-t", MAIN_VALUE_OPTION_DIM_T},
-    {"--model-output", MAIN_VALUE_OPTION_MODEL_OUTPUT},
-    {"--clip-mode", MAIN_VALUE_OPTION_CLIP_MODE},
-    {"--ctc-debug-dump", MAIN_VALUE_OPTION_CTC_DEBUG_DUMP},
-    {"--split-size", MAIN_VALUE_OPTION_SPLIT_SIZE},
-    {"--star-frequency", MAIN_VALUE_OPTION_STAR_FREQUENCY},
-    {"--romanization", MAIN_VALUE_OPTION_ROMANIZATION},
-    {"--language", MAIN_VALUE_OPTION_LANGUAGE},
-    {"--emissions", MAIN_VALUE_OPTION_EMISSIONS},
+#define MAIN_VALUE_OPTION_ENTRY(id, name, metavar, description, default_text, \
+                                apply_fn) \
+    {name, MAIN_VALUE_OPTION_##id, apply_fn},
+    MAIN_VALUE_OPTIONS(MAIN_VALUE_OPTION_ENTRY)
+#undef MAIN_VALUE_OPTION_ENTRY
+#define MAIN_VALUE_OPTION_ALIAS_ENTRY(id, name, apply_fn) \
+    {name, MAIN_VALUE_OPTION_##id, apply_fn},
+    MAIN_VALUE_OPTION_ALIASES(MAIN_VALUE_OPTION_ALIAS_ENTRY)
+#undef MAIN_VALUE_OPTION_ALIAS_ENTRY
 };
 
 static MainFlagOption main_flag_options[] = {
-    {"-h", MAIN_FLAG_OPTION_HELP},
-    {"--help", MAIN_FLAG_OPTION_HELP},
-    {"--keep-temp-files", MAIN_FLAG_OPTION_KEEP_TEMP_FILES},
-    {"--romanize", MAIN_FLAG_OPTION_ROMANIZE},
-    {"--denoise", MAIN_FLAG_OPTION_DENOISE},
+#define MAIN_FLAG_OPTION_ENTRY(id, name, description, apply_fn) \
+    {name, MAIN_FLAG_OPTION_##id, apply_fn},
+    MAIN_FLAG_OPTIONS(MAIN_FLAG_OPTION_ENTRY)
+#undef MAIN_FLAG_OPTION_ENTRY
+#define MAIN_FLAG_OPTION_ALIAS_ENTRY(id, name, apply_fn) \
+    {name, MAIN_FLAG_OPTION_##id, apply_fn},
+    MAIN_FLAG_OPTION_ALIASES(MAIN_FLAG_OPTION_ALIAS_ENTRY)
+#undef MAIN_FLAG_OPTION_ALIAS_ENTRY
 };
 
 static MainValueOption *
@@ -414,159 +805,15 @@ main_find_flag_option(char *option) {
     return NULL;
 }
 
-static bool
-main_apply_value_option(
-    MainOptions *options,
-    enum MainValueOptionKind kind,
-    char *option,
-    char *value
-) {
-    LrcPipelineConfig *config;
-
-    config = &options->config;
-    switch (kind) {
-    case MAIN_VALUE_OPTION_INPUT_SONG:
-        config->song_path = value;
-        break;
-    case MAIN_VALUE_OPTION_INPUT_VOCALS:
-        config->existing_vocals_path = value;
-        break;
-    case MAIN_VALUE_OPTION_OUTPUT_VOCALS:
-        config->vocals_path = value;
-        main_infer_vocals_format(config, value);
-        break;
-    case MAIN_VALUE_OPTION_INPUT_LYRICS:
-        config->lyrics_text_path = value;
-        break;
-    case MAIN_VALUE_OPTION_OUTPUT_LRC:
-        config->output_lrc_path = value;
-        options->output_lrc_defaulted = false;
-        break;
-    case MAIN_VALUE_OPTION_MODEL_VOCAL:
-        config->vocals_model_path = value;
-        break;
-    case MAIN_VALUE_OPTION_MODEL_CTC:
-        config->ctc_model_path = value;
-        break;
-    case MAIN_VALUE_OPTION_TOKENIZER:
-        config->tokenizer_path = value;
-        break;
-    case MAIN_VALUE_OPTION_ONNX_PROVIDER:
-        options->onnx_provider_set = true;
-        if (!main_parse_onnx_provider(config, value)) {
-            return false;
+static char *
+main_value_option_name(enum MainValueOptionKind kind) {
+    for (int32 i = 0; i < LENGTH(main_value_options); i += 1) {
+        if (main_value_options[i].kind == kind) {
+            return main_value_options[i].name;
         }
-        break;
-    case MAIN_VALUE_OPTION_ONNX_DEVICE:
-        options->onnx_device_set = true;
-        if (!main_parse_int32(value,
-                              option,
-                              &config->ort_session_config.device_id)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_FFMPEG:
-        config->ffmpeg_path = value;
-        break;
-    case MAIN_VALUE_OPTION_TEMP_DIR:
-        config->temp_dir = value;
-        break;
-    case MAIN_VALUE_OPTION_VOCALS_FORMAT:
-        if (!main_parse_vocals_format(config, value)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_CHUNK_SECONDS:
-        if (!main_parse_positive_int32(value,
-                                       option,
-                                       &config->mdx_config.chunk_seconds)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_MARGIN_SECONDS:
-        if (!main_parse_int32(value,
-                              option,
-                              &config->mdx_config.margin_seconds)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_COMPENSATE:
-        if (!main_parse_float(value, option, &config->mdx_config.compensate)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_N_FFT:
-        if (!main_parse_positive_int32(value,
-                                       option,
-                                       &config->mdx_config.n_fft)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_HOP:
-        if (!main_parse_positive_int32(value,
-                                       option,
-                                       &config->mdx_config.hop)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_DIM_F:
-        if (!main_parse_positive_int32(value,
-                                       option,
-                                       &config->mdx_config.dim_f)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_DIM_T:
-        if (!main_parse_positive_int32(value,
-                                       option,
-                                       &config->mdx_config.dim_t)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_MODEL_OUTPUT:
-        if (!main_parse_model_output(config, value)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_CLIP_MODE:
-        if (!main_parse_clip_mode(config, value)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_CTC_DEBUG_DUMP:
-        config->ctc_debug_dump_path = value;
-        break;
-    case MAIN_VALUE_OPTION_SPLIT_SIZE:
-        if (!lrc_pipeline_parse_preprocess_split_size(config, value)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_STAR_FREQUENCY:
-        if (!lrc_pipeline_parse_preprocess_star_frequency(config, value)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_ROMANIZATION:
-        if (!lrc_pipeline_parse_preprocess_romanization(config, value)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_LANGUAGE:
-        if (!lrc_pipeline_parse_preprocess_language(config, value)) {
-            return false;
-        }
-        break;
-    case MAIN_VALUE_OPTION_EMISSIONS:
-        if (!main_parse_emissions(config, value)) {
-            return false;
-        }
-        break;
-    default:
-        error2("internal error: unhandled value option: %s\n", option);
-        return false;
     }
 
-    return true;
+    return "unknown option";
 }
 
 static bool
@@ -578,10 +825,7 @@ main_parse_value_option(MainOptions *options, char *option, char *value) {
         return false;
     }
 
-    return main_apply_value_option(options,
-                                   value_option->kind,
-                                   option,
-                                   value);
+    return value_option->apply(options, option, value);
 }
 
 static bool
@@ -611,10 +855,7 @@ main_parse_long_value(MainOptions *options, char *arg) {
         if (!main_long_option_value(arg, value_option->name, &value)) {
             continue;
         }
-        if (!main_apply_value_option(options,
-                                     value_option->kind,
-                                     value_option->name,
-                                     value)) {
+        if (!value_option->apply(options, value_option->name, value)) {
             return -1;
         }
 
@@ -633,31 +874,6 @@ main_option_needs_value(char *option) {
     return false;
 }
 
-static bool
-main_apply_flag_option(
-    MainOptions *options,
-    enum MainFlagOptionKind kind
-) {
-    switch (kind) {
-    case MAIN_FLAG_OPTION_HELP:
-        main_print_usage(stdout);
-    case MAIN_FLAG_OPTION_KEEP_TEMP_FILES:
-        options->config.keep_temp_files = true;
-        break;
-    case MAIN_FLAG_OPTION_ROMANIZE:
-        lrc_pipeline_enable_preprocess_romanization(&options->config);
-        break;
-    case MAIN_FLAG_OPTION_DENOISE:
-        options->config.mdx_config.denoise = true;
-        break;
-    default:
-        error2("internal error: unhandled flag option\n");
-        return false;
-    }
-
-    return true;
-}
-
 static int32
 main_parse_flag_option(MainOptions *options, char *option) {
     MainFlagOption *flag_option;
@@ -665,7 +881,7 @@ main_parse_flag_option(MainOptions *options, char *option) {
     if ((flag_option = main_find_flag_option(option)) == NULL) {
         return 0;
     }
-    if (!main_apply_flag_option(options, flag_option->kind)) {
+    if (!flag_option->apply(options)) {
         return -1;
     }
 
@@ -682,7 +898,8 @@ main_apply_onnx_provider_env(LrcPipelineConfig *config) {
         return;
     }
     if (!ort_execution_provider_parse(env, &provider)) {
-        error2("warning: LRC_ONNX_PROVIDER must be auto, cpu, or cuda\n");
+        error2("warning: LRC_ONNX_PROVIDER must be %s\n",
+               ORT_EXECUTION_PROVIDER_NAMES);
         return;
     }
     if (config->ort_session_config.execution_provider
@@ -878,12 +1095,16 @@ main_validate_options(MainOptions *options) {
     has_song = !path_missing(config->song_path);
     has_vocals = !path_missing(config->existing_vocals_path);
     if (has_song && has_vocals) {
-        error2("--input-song and --input-vocals cannot both be passed\n");
+        error2("%s and %s cannot both be passed\n",
+               main_value_option_name(MAIN_VALUE_OPTION_INPUT_SONG),
+               main_value_option_name(MAIN_VALUE_OPTION_INPUT_VOCALS));
         main_mark_usage_error(options);
         return false;
     }
     if (!has_song && !has_vocals) {
-        error2("missing required option: --input-song or --input-vocals\n");
+        error2("missing required option: %s or %s\n",
+               main_value_option_name(MAIN_VALUE_OPTION_INPUT_SONG),
+               main_value_option_name(MAIN_VALUE_OPTION_INPUT_VOCALS));
         main_mark_usage_error(options);
         return false;
     }
@@ -904,32 +1125,38 @@ main_validate_options(MainOptions *options) {
         return false;
     }
     if (has_lyrics && path_missing(config->output_lrc_path)) {
-        error2("missing LRC output path\n");
+        error2("missing LRC output path: %s\n",
+               main_value_option_name(MAIN_VALUE_OPTION_OUTPUT_LRC));
         main_mark_usage_error(options);
         return false;
     }
     if (has_song && path_missing(config->vocals_model_path)) {
-        error2("missing required option: --model-vocal\n");
+        error2("missing required option: %s\n",
+               main_value_option_name(MAIN_VALUE_OPTION_MODEL_VOCAL));
         main_mark_usage_error(options);
         return false;
     }
     if (has_lyrics && path_missing(config->ctc_model_path)) {
-        error2("missing required option: --model-ctc\n");
+        error2("missing required option: %s\n",
+               main_value_option_name(MAIN_VALUE_OPTION_MODEL_CTC));
         main_mark_usage_error(options);
         return false;
     }
     if (has_lyrics && path_missing(config->tokenizer_path)) {
-        error2("missing required option: --tokenizer\n");
+        error2("missing required option: %s\n",
+               main_value_option_name(MAIN_VALUE_OPTION_TOKENIZER));
         main_mark_usage_error(options);
         return false;
     }
     if (config->mdx_config.margin_seconds < 0) {
-        error2("--margin-seconds must not be negative\n");
+        error2("%s must not be negative\n",
+               main_value_option_name(MAIN_VALUE_OPTION_MARGIN_SECONDS));
         main_mark_usage_error(options);
         return false;
     }
     if (config->ort_session_config.device_id < 0) {
-        error2("--onnx-device must not be negative\n");
+        error2("%s must not be negative\n",
+               main_value_option_name(MAIN_VALUE_OPTION_ONNX_DEVICE));
         main_mark_usage_error(options);
         return false;
     }

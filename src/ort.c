@@ -25,17 +25,23 @@
 #pragma clang diagnostic pop
 #endif
 
+typedef struct OrtExecutionProviderInfo {
+    enum OrtExecutionProvider provider;
+    char *name;
+} OrtExecutionProviderInfo;
+
+static OrtExecutionProviderInfo ort_execution_provider_infos[] = {
+#define ORT_EXECUTION_PROVIDER_INFO_ENTRY(e, name) {e, name},
+    ORT_EXECUTION_PROVIDER_VALUES(ORT_EXECUTION_PROVIDER_INFO_ENTRY)
+#undef ORT_EXECUTION_PROVIDER_INFO_ENTRY
+};
+
 static char *
 ort_execution_provider_str(enum OrtExecutionProvider provider) {
-    switch (provider) {
-    case ORT_EXECUTION_PROVIDER_AUTO:
-        return "auto";
-    case ORT_EXECUTION_PROVIDER_CPU:
-        return "cpu";
-    case ORT_EXECUTION_PROVIDER_CUDA:
-        return "cuda";
-    default:
-        break;
+    for (int32 i = 0; i < LENGTH(ort_execution_provider_infos); i += 1) {
+        if (ort_execution_provider_infos[i].provider == provider) {
+            return ort_execution_provider_infos[i].name;
+        }
     }
 
     return "unknown";
@@ -49,17 +55,12 @@ ort_execution_provider_parse(
     if ((value == NULL) || (provider == NULL)) {
         return false;
     }
-    if (strequal(value, "auto")) {
-        *provider = ORT_EXECUTION_PROVIDER_AUTO;
-        return true;
-    }
-    if (strequal(value, "cpu")) {
-        *provider = ORT_EXECUTION_PROVIDER_CPU;
-        return true;
-    }
-    if (strequal(value, "cuda")) {
-        *provider = ORT_EXECUTION_PROVIDER_CUDA;
-        return true;
+
+    for (int32 i = 0; i < LENGTH(ort_execution_provider_infos); i += 1) {
+        if (strequal(value, ort_execution_provider_infos[i].name)) {
+            *provider = ort_execution_provider_infos[i].provider;
+            return true;
+        }
     }
 
     return false;

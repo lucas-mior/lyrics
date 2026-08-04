@@ -7,15 +7,37 @@
 #include "stft.h"
 #include "progress.h"
 
-enum MdxModelOutput {
-    MDX_MODEL_OUTPUT_VOCALS,
-    MDX_MODEL_OUTPUT_INSTRUMENTAL,
-};
+#define MDX_MODEL_OUTPUT_NAMES "vocals|instrumental"
 
-enum MdxClipMode {
-    MDX_CLIP_MODE_CLAMP,
-    MDX_CLIP_MODE_NONE,
-};
+#define MDX_MODEL_OUTPUT_VALUES(X) \
+    X(MDX_MODEL_OUTPUT_VOCALS, "vocals") \
+    X(MDX_MODEL_OUTPUT_INSTRUMENTAL, "instrumental")
+
+#define ENUM_NAME MdxModelOutput
+#define ENUM_BITFLAGS 0
+#define ENUM_PREFIX_ MDX_MODEL_OUTPUT_
+#define MDX_MODEL_OUTPUT_ENUM_FIELD(e, name) X(e)
+#define ENUM_FIELDS MDX_MODEL_OUTPUT_VALUES(MDX_MODEL_OUTPUT_ENUM_FIELD)
+#define XENUMS_NO_TESTS 1
+#include "cbase/xenums.c"
+#undef XENUMS_NO_TESTS
+#undef MDX_MODEL_OUTPUT_ENUM_FIELD
+
+#define MDX_CLIP_MODE_NAMES "clamp|none"
+
+#define MDX_CLIP_MODE_VALUES(X) \
+    X(MDX_CLIP_MODE_CLAMP, "clamp") \
+    X(MDX_CLIP_MODE_NONE, "none")
+
+#define ENUM_NAME MdxClipMode
+#define ENUM_BITFLAGS 0
+#define ENUM_PREFIX_ MDX_CLIP_MODE_
+#define MDX_CLIP_MODE_ENUM_FIELD(e, name) X(e)
+#define ENUM_FIELDS MDX_CLIP_MODE_VALUES(MDX_CLIP_MODE_ENUM_FIELD)
+#define XENUMS_NO_TESTS 1
+#include "cbase/xenums.c"
+#undef XENUMS_NO_TESTS
+#undef MDX_CLIP_MODE_ENUM_FIELD
 
 typedef struct MdxConfig {
     int32 sample_rate;

@@ -49,7 +49,7 @@ audio_prepare_output_format(
     if ((format == NULL) || (container_format == NULL)) {
         return;
     }
-    if (strequal(container_format, "opus")
+    if (lrc_audio_format_is(container_format, LRC_AUDIO_FORMAT_OPUS)
         && !audio_opus_sample_rate_valid(format->sample_rate)) {
         format->sample_rate = 48000;
     }

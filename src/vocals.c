@@ -61,7 +61,7 @@ lrc_vocals_extract_request_init(LrcVocalsExtractRequest *request) {
     request->model_path = NULL;
     request->temp_dir = "/tmp";
     request->ffmpeg_path = "ffmpeg";
-    request->container_format = "wav";
+    request->container_format = LRC_AUDIO_FORMAT_DEFAULT;
     request->print_info = true;
 
     audio_io_format_init(&request->output_format);
@@ -177,6 +177,15 @@ vocals_request_valid(
             result,
             LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
             "output container format is missing",
+            request->container_format
+        );
+        return false;
+    }
+    if (!lrc_audio_format_valid(request->container_format)) {
+        vocals_extract_result_set(
+            result,
+            LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
+            "output container format is invalid",
             request->container_format
         );
         return false;

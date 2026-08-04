@@ -10,11 +10,23 @@ enum OrtModelIoKind {
     ORT_MODEL_IO_OUTPUT,
 };
 
-enum OrtExecutionProvider {
-    ORT_EXECUTION_PROVIDER_AUTO,
-    ORT_EXECUTION_PROVIDER_CPU,
-    ORT_EXECUTION_PROVIDER_CUDA,
-};
+#define ORT_EXECUTION_PROVIDER_NAMES "auto|cpu|cuda"
+
+#define ORT_EXECUTION_PROVIDER_VALUES(X) \
+    X(ORT_EXECUTION_PROVIDER_AUTO, "auto") \
+    X(ORT_EXECUTION_PROVIDER_CPU, "cpu") \
+    X(ORT_EXECUTION_PROVIDER_CUDA, "cuda")
+
+#define ENUM_NAME OrtExecutionProvider
+#define ENUM_BITFLAGS 0
+#define ENUM_PREFIX_ ORT_EXECUTION_PROVIDER_
+#define ORT_EXECUTION_PROVIDER_ENUM_FIELD(e, name) X(e)
+#define ENUM_FIELDS \
+    ORT_EXECUTION_PROVIDER_VALUES(ORT_EXECUTION_PROVIDER_ENUM_FIELD)
+#define XENUMS_NO_TESTS 1
+#include "cbase/xenums.c"
+#undef XENUMS_NO_TESTS
+#undef ORT_EXECUTION_PROVIDER_ENUM_FIELD
 
 typedef struct OrtSessionConfig {
     enum OrtExecutionProvider execution_provider;

@@ -12,11 +12,25 @@
 #define LRC_CTC_INFERENCE_ENABLE_ORT 0
 #endif
 
-enum LrcCtcEmissionValuesKind {
-    LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES,
-    LRC_CTC_EMISSION_VALUES_LOGITS,
-    LRC_CTC_EMISSION_VALUES_PROBABILITIES,
-};
+#define LRC_CTC_EMISSION_VALUES_KIND_NAMES \
+    "logits|probabilities|log-probabilities"
+
+#define LRC_CTC_EMISSION_VALUES_KIND_VALUES(X) \
+    X(LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES, "log-probabilities") \
+    X(LRC_CTC_EMISSION_VALUES_LOGITS, "logits") \
+    X(LRC_CTC_EMISSION_VALUES_PROBABILITIES, "probabilities")
+
+#define ENUM_NAME LrcCtcEmissionValuesKind
+#define ENUM_BITFLAGS 0
+#define ENUM_PREFIX_ LRC_CTC_EMISSION_VALUES_
+#define LRC_CTC_EMISSION_VALUES_KIND_ENUM_FIELD(e, name) X(e)
+#define ENUM_FIELDS \
+    LRC_CTC_EMISSION_VALUES_KIND_VALUES( \
+        LRC_CTC_EMISSION_VALUES_KIND_ENUM_FIELD)
+#define XENUMS_NO_TESTS 1
+#include "cbase/xenums.c"
+#undef XENUMS_NO_TESTS
+#undef LRC_CTC_EMISSION_VALUES_KIND_ENUM_FIELD
 
 typedef struct LrcCtcInferenceResult {
     enum LsError error;
