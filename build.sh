@@ -13,7 +13,7 @@ alias trace_on='set -x'
 alias trace_off='{ set +x; } 2>/dev/null'
 
 dir=$(dirname "$(readlink -f "$0")")
-program=lyricsync
+program=$(basename "$(readlink -f "$(dirname "$0")")")
 program_path="bin/$program"
 library_path="bin/$program.so"
 cd "$dir" || exit
