@@ -752,9 +752,9 @@ lrc_ctc_model_input_validate_model_io(
 }
 
 #if TESTING_ctc_model
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
 #include "audio.c"
 #include "ctc_audio.c"
 
