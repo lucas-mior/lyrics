@@ -1580,9 +1580,7 @@ lrc_ctc_trellis_try_candidate(
     ASSERT(best_score);
     ASSERT(best_previous_state);
 
-    if (!lrc_ctc_align_graph_transition_allowed(graph,
-                                                 previous_state,
-                                                 state)) {
+    if (!lrc_ctc_align_graph_transition_allowed(graph, previous_state, state)) {
         return;
     }
 
