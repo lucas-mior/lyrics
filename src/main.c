@@ -666,6 +666,9 @@ main_apply_value_option(
         *(enum LrcCtcEmissionValuesKind *)field =
             (enum LrcCtcEmissionValuesKind)parsed;
         return true;
+    default:
+        error2("Invalid action.\n");
+        return false;
     }
 
     error2("internal error: unsupported value option action\n");
