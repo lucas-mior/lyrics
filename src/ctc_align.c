@@ -5447,10 +5447,8 @@ ctc_align_parsed_files_close(
             error2("LRC line %d kind mismatch\n", i);
             return false;
         }
-        if (!strequal2(actual_line->text,
-                       actual_line->text_len,
-                       expected_line->text,
-                       expected_line->text_len)) {
+        if (!STREQUAL(actual_line->text, actual_line->text_len,
+                      expected_line->text, expected_line->text_len)) {
             error2("LRC line %d text mismatch\n", i);
             return false;
         }
@@ -7584,10 +7582,7 @@ ctc_align_test_synthetic_lrc_uses_active_token_boundaries(void) {
     if (ok) {
         if (!read_entire_file(lrc_path, &written_lrc, &written_lrc_len)) {
             ok = false;
-        } else if (!strequal2(written_lrc,
-                              written_lrc_len,
-                              expected_lrc,
-                              strlen32(expected_lrc))) {
+        } else if (!STREQUAL(written_lrc, written_lrc_len, expected_lrc)) {
             ok = false;
         }
     }
@@ -7896,7 +7891,7 @@ ctc_align_test_word_spans_use_skipped_space_gaps(void) {
         fatal(ctc_align_test_fail("convert skipped-space word spans"));
     }
 
-    ASSERT(strequal2(normalized.text, normalized.text_len, "hi bob", 6));
+    ASSERT_EQUAL(normalized.text, "hi bob");
     ASSERT(tokens.token_count == 5);
     ASSERT(tokens.tokens[0].normalized_start == 0);
     ASSERT(tokens.tokens[1].normalized_start == 1);
@@ -7945,7 +7940,7 @@ ctc_align_test_word_spans_handle_removed_punctuation(void) {
                                          &tokens)) {
         fatal(ctc_align_test_fail("load punctuation word lyrics"));
     }
-    ASSERT(strequal2(normalized.text, normalized.text_len, "ab c", 4));
+    ASSERT_EQUAL(normalized.text, "ab c");
     if (!ctc_align_make_token_spans_from_tokens(&tokens,
                                                 0.5f,
                                                 0.25f,
@@ -8036,9 +8031,7 @@ ctc_align_test_word_spans_follow_reference_segments(void) {
         fatal(ctc_align_test_fail("convert reference segment word spans"));
     }
 
-    ASSERT(strequal2(normalized.text,
-                     normalized.text_len,
-                     STRLIT("hi world stop")));
+    ASSERT_EQUAL(normalized.text, "hi world stop");
     ASSERT(tokens.token_count == 11);
     ASSERT(normalized.segment_count == 2);
     ASSERT(word_spans.span_count == 2);
@@ -8779,7 +8772,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
     if (!ctc_align_normalize_current_lyrics(&lyrics, &normalized)) {
         fatal(ctc_align_test_fail("normalize synthetic lyrics"));
     }
-    ASSERT(strequal2(normalized.text, normalized.text_len, "ab cab", 6));
+    ASSERT_EQUAL(normalized.text, "ab cab");
 
     if (!ctc_align_load_alphabet_tokenizer(&tokenizer)) {
         fatal(ctc_align_test_fail("load synthetic tokenizer"));
@@ -9217,10 +9210,7 @@ ctc_align_test_full_synthetic_lrc_pipeline(void) {
     if (ok) {
         if (!read_entire_file(lrc_path, &written_lrc, &written_lrc_len)) {
             ok = false;
-        } else if (!strequal2(written_lrc,
-                              written_lrc_len,
-                              expected_lrc,
-                              strlen32(expected_lrc))) {
+        } else if (!STREQUAL(written_lrc, written_lrc_len, expected_lrc)) {
             ok = false;
         }
     }
