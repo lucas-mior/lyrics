@@ -553,7 +553,14 @@ default:
   * Don't use `memset(&my_struct, 0, SIZEOF(my_struct));`
 - To initialize a stack array to zero, use `MyType array[ARRAY_SIZE] = {0};`
   * Don't use `memset(&array, 0, SIZEOF(array));`
-- Try to keep the scope of variables reduced.
+- Try to keep the scope of variables reduced. Use of artificial blocks is
+  sometimes useful:
+  ```c
+  {
+      // this var only exists here and can't leak where it is not needed
+      int32 x;
+  }
+  ```
 - Prefer to declare variable at the top of blocks
   * Avoid mixing declarations and code (`-Wdeclaration-after-statement`)
   * Unless doing code generation / meta programming:
