@@ -733,9 +733,8 @@ main_option_needs_value(char *option) {
 
 static bool
 main_apply_flag_option(MainOptions *options, MainFlagOption *option) {
-    void *field;
+    void *field = (char *)options + option->offset;
 
-    field = (char *)options + option->offset;
     switch (option->action) {
     case MAIN_FLAG_HELP:
         main_print_usage(stdout);
@@ -745,10 +744,10 @@ main_apply_flag_option(MainOptions *options, MainFlagOption *option) {
     case MAIN_FLAG_ROMANIZE:
         lrc_pipeline_enable_preprocess_romanization(&options->config);
         return true;
+    default:
+        error2("internal error: unsupported flag option action\n");
+        return false;
     }
-
-    error2("internal error: unsupported flag option action\n");
-    return false;
 }
 
 static int32
