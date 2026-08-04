@@ -568,15 +568,6 @@ default:
 - Variable that have a "default return" value, or a "stub" value, shall be
   initialized:
   ```c
-  // good
-  static bool function(void *parameters) {
-      bool result = false;
-
-      // do stuff that might change result
-
-      return result;
-  }
-
   // bad
   static bool function(void *parameters) {
       bool result;
@@ -587,11 +578,35 @@ default:
 
       return result;
   }
+
+  // good
+  static bool function(void *parameters) {
+      bool result = false;
+
+      // do stuff that might change result
+
+      return result;
+  }
   ```
   * But initializing an "ORing" or "summing" variable is better done before the
     "ORing"/"summing" loop:
     ```c
-    // good (this makes it clear how the variable works)
+    // bad (this obscures the fact that 0 is not a dummy return, it is a valid
+    //      temporary state of the variable)
+    static uint32
+    function(void *params) {
+        uint32 mask = 0;
+        double other_var;
+
+        for (uint32 i = 0; i < N; i += 1) {
+            mask |= some_function(params, i);
+        }
+        return mask;
+    }
+
+    // better (this makes it clear how the variable works)
+    // prefer this only when there are many variables, which can confuse the
+    // reader. When there are fewer variables, use the // even better version
     static uint32
     function(void *params) {
         uint32 mask;
@@ -604,12 +619,11 @@ default:
         return mask;
     }
 
-    // bad (this obscures the fact that 0 is not a dummy return, it is a valid
-    //      temporary state of the variable)
+    // even better (now the important variable is initialized near the loop)
     static uint32
     function(void *params) {
-        uint32 mask = 0;
         double other_var;
+        uint32 mask = 0;
 
         for (uint32 i = 0; i < N; i += 1) {
             mask |= some_function(params, i);
