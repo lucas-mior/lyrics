@@ -2,25 +2,12 @@
 #define CTC_MODEL_H
 
 #include "cbase.h"
+#include "errors.h"
 #include "ctc_audio.h"
 #define LRC_CTC_MODEL_DEFAULT_INPUTS_TO_LOGITS_RATIO 320
 #define LRC_CTC_MODEL_DEFAULT_WINDOW_SECONDS 30
 #define LRC_CTC_MODEL_DEFAULT_CONTEXT_SECONDS 2
 #define LRC_CTC_MODEL_INPUT_RANK 2
-
-enum LrcCtcModelInputError {
-    LRC_CTC_MODEL_INPUT_ERROR_NONE,
-    LRC_CTC_MODEL_INPUT_ERROR_INVALID_ARGUMENT,
-    LRC_CTC_MODEL_INPUT_ERROR_INVALID_SAMPLE_RATE,
-    LRC_CTC_MODEL_INPUT_ERROR_INVALID_RATIO,
-    LRC_CTC_MODEL_INPUT_ERROR_INVALID_WINDOW,
-    LRC_CTC_MODEL_INPUT_ERROR_INVALID_CONTEXT,
-    LRC_CTC_MODEL_INPUT_ERROR_AUDIO_SAMPLE_RATE,
-    LRC_CTC_MODEL_INPUT_ERROR_EMPTY_AUDIO,
-    LRC_CTC_MODEL_INPUT_ERROR_NON_FINITE_SAMPLE,
-    LRC_CTC_MODEL_INPUT_ERROR_TOO_MANY_SAMPLES,
-    LRC_CTC_MODEL_INPUT_ERROR_INVALID_MODEL_IO,
-};
 
 typedef struct LrcCtcModelConfig {
     int32 sample_rate;
@@ -30,7 +17,7 @@ typedef struct LrcCtcModelConfig {
 } LrcCtcModelConfig;
 
 typedef struct LrcCtcModelInputResult {
-    enum LrcCtcModelInputError error;
+    enum LsError error;
     char *message;
 
     int64 sample_index;

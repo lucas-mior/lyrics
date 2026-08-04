@@ -2,37 +2,11 @@
 #define CTC_TOKENIZER_H
 
 #include "cbase.h"
+#include "errors.h"
 #include "lyrics.h"
 
-
-
-enum LrcCtcTokenizeError {
-    LRC_CTC_TOKENIZE_ERROR_NONE,
-    LRC_CTC_TOKENIZE_ERROR_INVALID_ARGUMENT,
-    LRC_CTC_TOKENIZE_ERROR_EMPTY_INPUT,
-    LRC_CTC_TOKENIZE_ERROR_TOO_MANY_TOKENS,
-    LRC_CTC_TOKENIZE_ERROR_UNSUPPORTED_TOKEN,
-};
-
-enum LrcCtcTokenizerError {
-    LRC_CTC_TOKENIZER_ERROR_NONE,
-    LRC_CTC_TOKENIZER_ERROR_INVALID_ARGUMENT,
-    LRC_CTC_TOKENIZER_ERROR_MISSING_PATH,
-    LRC_CTC_TOKENIZER_ERROR_OPEN_FAILED,
-    LRC_CTC_TOKENIZER_ERROR_READ_FAILED,
-    LRC_CTC_TOKENIZER_ERROR_FILE_TOO_LARGE,
-    LRC_CTC_TOKENIZER_ERROR_EMPTY,
-    LRC_CTC_TOKENIZER_ERROR_INVALID_UTF8,
-    LRC_CTC_TOKENIZER_ERROR_EMPTY_TOKEN,
-    LRC_CTC_TOKENIZER_ERROR_DUPLICATE_TOKEN,
-    LRC_CTC_TOKENIZER_ERROR_MISSING_BLANK,
-    LRC_CTC_TOKENIZER_ERROR_TOO_MANY_TOKENS,
-};
-
-
-
 typedef struct LrcCtcTokenizeResult {
-    enum LrcCtcTokenizeError error;
+    enum LsError error;
     char *message;
 
     int32 byte_offset;
@@ -58,7 +32,7 @@ typedef struct LrcCtcTokenizedText {
 } LrcCtcTokenizedText;
 
 typedef struct LrcCtcTokenizerResult {
-    enum LrcCtcTokenizerError error;
+    enum LsError error;
     char *message;
     char *path;
 
@@ -87,7 +61,6 @@ typedef struct LrcCtcTokenizer {
     int32 blank_id;
     int32 unknown_id;
 } LrcCtcTokenizer;
-
 
 static void lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result);
 static void lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text);

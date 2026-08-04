@@ -1051,7 +1051,7 @@ lyrics_extract_vocals(
     if (config == NULL) {
         lrc_vocals_extract_result_init(result);
         if (result) {
-            result->error = LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT;
+            result->error = LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT;
             result->message = "missing pipeline config";
         }
         return false;
@@ -1076,7 +1076,7 @@ lyrics_generate_lrc(
     if (config == NULL) {
         lrc_pipeline_generate_result_init(result);
         if (result) {
-            result->error = LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT;
+            result->error = LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT;
             result->message = "missing pipeline config";
         }
         return false;

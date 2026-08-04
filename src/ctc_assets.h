@@ -2,15 +2,7 @@
 #define CTC_ASSETS_H
 
 #include "cbase.h"
-
-enum LrcCtcAssetsError {
-    LRC_CTC_ASSETS_ERROR_NONE,
-    LRC_CTC_ASSETS_ERROR_INVALID_ARGUMENT,
-    LRC_CTC_ASSETS_ERROR_MISSING_MODEL_PATH,
-    LRC_CTC_ASSETS_ERROR_MISSING_TOKENIZER_PATH,
-    LRC_CTC_ASSETS_ERROR_MODEL_NOT_FOUND,
-    LRC_CTC_ASSETS_ERROR_TOKENIZER_NOT_FOUND,
-};
+#include "errors.h"
 
 typedef struct LrcCtcAssetsConfig {
     char *model_path;
@@ -18,7 +10,7 @@ typedef struct LrcCtcAssetsConfig {
 } LrcCtcAssetsConfig;
 
 typedef struct LrcCtcAssetsResult {
-    enum LrcCtcAssetsError error;
+    enum LsError error;
     char *message;
     char *path;
 } LrcCtcAssetsResult;

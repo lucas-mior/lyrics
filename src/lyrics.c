@@ -32,7 +32,7 @@ lrc_lyrics_load_result_init(LrcLyricsLoadResult *result) {
         return;
     }
 
-    result->error = LRC_LYRICS_LOAD_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
     result->path = NULL;
 
@@ -44,7 +44,7 @@ lrc_lyrics_load_result_init(LrcLyricsLoadResult *result) {
 static void
 lrc_lyrics_load_result_set(
     LrcLyricsLoadResult *result,
-    enum LrcLyricsLoadError error,
+    enum LsError error,
     char *message,
     char *path,
     int32 byte_offset
@@ -78,7 +78,7 @@ lrc_lyrics_normalize_text(
     if (!utf8_valid(file_text, file_len, &bad_offset)) {
         lrc_lyrics_load_result_set(
             result,
-            LRC_LYRICS_LOAD_ERROR_INVALID_UTF8,
+            LS_ERROR_LYRICS_LOAD_INVALID_UTF8,
             "lyrics file is not valid UTF-8",
             path,
             bad_offset
@@ -221,7 +221,7 @@ lrc_lyrics_load_file(
     if (lyrics == NULL) {
         lrc_lyrics_load_result_set(
             result,
-            LRC_LYRICS_LOAD_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_LYRICS_LOAD_INVALID_ARGUMENT,
             "lyrics object is missing",
             path,
             -1
@@ -231,7 +231,7 @@ lrc_lyrics_load_file(
     if (path_missing(path)) {
         lrc_lyrics_load_result_set(
             result,
-            LRC_LYRICS_LOAD_ERROR_MISSING_PATH,
+            LS_ERROR_LYRICS_LOAD_MISSING_PATH,
             "lyrics path is missing",
             path,
             -1
@@ -245,7 +245,7 @@ lrc_lyrics_load_file(
     if (!read_entire_file(path, &file_text, &file_len)) {
         lrc_lyrics_load_result_set(
             result,
-            LRC_LYRICS_LOAD_ERROR_READ_FAILED,
+            LS_ERROR_LYRICS_LOAD_READ_FAILED,
             "could not read lyrics file",
             path,
             -1
@@ -262,7 +262,7 @@ lrc_lyrics_load_file(
     if (!lrc_lyrics_split_lines(lyrics)) {
         lrc_lyrics_load_result_set(
             result,
-            LRC_LYRICS_LOAD_ERROR_FILE_TOO_LARGE,
+            LS_ERROR_LYRICS_LOAD_FILE_TOO_LARGE,
             "lyrics file has too many lines",
             path,
             -1
@@ -273,7 +273,7 @@ lrc_lyrics_load_file(
     if (lyrics->nonempty_line_count <= 0) {
         lrc_lyrics_load_result_set(
             result,
-            LRC_LYRICS_LOAD_ERROR_EMPTY,
+            LS_ERROR_LYRICS_LOAD_EMPTY,
             "lyrics file is empty",
             path,
             -1
@@ -445,7 +445,7 @@ lyrics_test_reject_empty(void) {
         test_remove_tree(temp_dir);
         return lyrics_test_fail("empty text accepted");
     }
-    ASSERT(result.error == LRC_LYRICS_LOAD_ERROR_EMPTY);
+    ASSERT(result.error == LS_ERROR_LYRICS_LOAD_EMPTY);
     ASSERT(lyrics.text == NULL);
     ASSERT(lyrics.line_count == 0);
 
@@ -479,7 +479,7 @@ lyrics_test_reject_invalid_utf8(void) {
         test_remove_tree(temp_dir);
         return lyrics_test_fail("invalid utf8 accepted");
     }
-    ASSERT(result.error == LRC_LYRICS_LOAD_ERROR_INVALID_UTF8);
+    ASSERT(result.error == LS_ERROR_LYRICS_LOAD_INVALID_UTF8);
     ASSERT(result.byte_offset == 3);
 
     test_remove_tree(temp_dir);

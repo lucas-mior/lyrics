@@ -13,7 +13,7 @@ lrc_parse_result_init(LrcParseResult *result) {
         return;
     }
 
-    result->error = LRC_PARSE_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
 
     result->line_index = -1;
@@ -25,7 +25,7 @@ lrc_parse_result_init(LrcParseResult *result) {
 static void
 lrc_parse_result_set(
     LrcParseResult *result,
-    enum LrcParseError error,
+    enum LsError error,
     char *message,
     int32 line_index,
     int32 byte_offset
@@ -49,7 +49,7 @@ lrc_format_result_init(LrcFormatResult *result) {
         return;
     }
 
-    result->error = LRC_FORMAT_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
 
     result->seconds = 0.0f;
@@ -61,7 +61,7 @@ lrc_format_result_init(LrcFormatResult *result) {
 static void
 lrc_format_result_set(
     LrcFormatResult *result,
-    enum LrcFormatError error,
+    enum LsError error,
     char *message,
     float seconds,
     int32 timestamp_hundredths
@@ -85,8 +85,8 @@ lrc_write_result_init(LrcWriteResult *result) {
         return;
     }
 
-    result->error = LRC_WRITE_ERROR_NONE;
-    result->format_error = LRC_FORMAT_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
+    result->format_error = LS_ERROR_NONE;
     result->message = "ok";
     result->path = NULL;
 
@@ -98,7 +98,7 @@ lrc_write_result_init(LrcWriteResult *result) {
 static void
 lrc_write_result_set(
     LrcWriteResult *result,
-    enum LrcWriteError error,
+    enum LsError error,
     char *message,
     char *path,
     int32 line_index
@@ -160,7 +160,7 @@ lrc_timestamp_hundredths_from_seconds(
     }
     if (timestamp_hundredths == NULL) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              LS_ERROR_FORMAT_INVALID_ARGUMENT,
                               "timestamp destination is missing",
                               seconds,
                               -1);
@@ -168,7 +168,7 @@ lrc_timestamp_hundredths_from_seconds(
     }
     if (!isfinite(seconds) || (seconds < 0.0f)) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_INVALID_TIMESTAMP,
+                              LS_ERROR_FORMAT_INVALID_TIMESTAMP,
                               "timestamp seconds are invalid",
                               seconds,
                               -1);
@@ -178,7 +178,7 @@ lrc_timestamp_hundredths_from_seconds(
     rounded = (double)seconds*100.0 + 0.5;
     if (rounded > (double)INT32_MAX) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_TOO_LARGE,
+                              LS_ERROR_FORMAT_TOO_LARGE,
                               "timestamp seconds are too large",
                               seconds,
                               -1);
@@ -208,7 +208,7 @@ lrc_format_timestamp_hundredths(
     }
     if ((buffer == NULL) || (buffer_len <= 0)) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              LS_ERROR_FORMAT_INVALID_ARGUMENT,
                               "timestamp buffer is missing",
                               0.0f,
                               timestamp_hundredths);
@@ -216,7 +216,7 @@ lrc_format_timestamp_hundredths(
     }
     if (timestamp_hundredths < 0) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_INVALID_TIMESTAMP,
+                              LS_ERROR_FORMAT_INVALID_TIMESTAMP,
                               "timestamp hundredths are invalid",
                               0.0f,
                               timestamp_hundredths);
@@ -226,7 +226,7 @@ lrc_format_timestamp_hundredths(
     len = lrc_timestamp_formatted_len(timestamp_hundredths);
     if (buffer_len <= len) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_TOO_LARGE,
+                              LS_ERROR_FORMAT_TOO_LARGE,
                               "timestamp buffer is too small",
                               0.0f,
                               timestamp_hundredths);
@@ -292,7 +292,7 @@ lrc_format_timestamped_line_hundredths(
     }
     if (builder == NULL) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              LS_ERROR_FORMAT_INVALID_ARGUMENT,
                               "line destination is missing",
                               0.0f,
                               timestamp_hundredths);
@@ -300,7 +300,7 @@ lrc_format_timestamped_line_hundredths(
     }
     if ((text == NULL) && (text_len > 0)) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              LS_ERROR_FORMAT_INVALID_ARGUMENT,
                               "line text is missing",
                               0.0f,
                               timestamp_hundredths);
@@ -308,7 +308,7 @@ lrc_format_timestamped_line_hundredths(
     }
     if (text_len < 0) {
         lrc_format_result_set(result,
-                              LRC_FORMAT_ERROR_INVALID_ARGUMENT,
+                              LS_ERROR_FORMAT_INVALID_ARGUMENT,
                               "line text length is negative",
                               0.0f,
                               timestamp_hundredths);
@@ -582,7 +582,7 @@ lrc_parse_line(
     }
     if (line_text[0] != '[') {
         lrc_parse_result_set(result,
-                             LRC_PARSE_ERROR_UNTIMED_TEXT,
+                             LS_ERROR_PARSE_UNTIMED_TEXT,
                              "LRC line is missing timestamp",
                              source_line_index,
                              line_start);
@@ -593,7 +593,7 @@ lrc_parse_line(
                              &timestamp_hundredths,
                              &timestamp_end)) {
         lrc_parse_result_set(result,
-                             LRC_PARSE_ERROR_MALFORMED_TIMESTAMP,
+                             LS_ERROR_PARSE_MALFORMED_TIMESTAMP,
                              "LRC timestamp is malformed",
                              source_line_index,
                              line_start);
@@ -617,7 +617,7 @@ lrc_parsed_file_copy_text(
 ) {
     if (text_len < 0) {
         lrc_parse_result_set(result,
-                             LRC_PARSE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_PARSE_INVALID_ARGUMENT,
                              "LRC text length is negative",
                              -1,
                              -1);
@@ -625,7 +625,7 @@ lrc_parsed_file_copy_text(
     }
     if (text_len >= INT32_MAX) {
         lrc_parse_result_set(result,
-                             LRC_PARSE_ERROR_TOO_LARGE,
+                             LS_ERROR_PARSE_TOO_LARGE,
                              "LRC text is too large",
                              -1,
                              -1);
@@ -658,7 +658,7 @@ lrc_parse_text(
     }
     if (parsed == NULL) {
         lrc_parse_result_set(result,
-                             LRC_PARSE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_PARSE_INVALID_ARGUMENT,
                              "LRC parsed-file destination is missing",
                              -1,
                              -1);
@@ -666,7 +666,7 @@ lrc_parse_text(
     }
     if ((text == NULL) && (text_len > 0)) {
         lrc_parse_result_set(result,
-                             LRC_PARSE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_PARSE_INVALID_ARGUMENT,
                              "LRC text is missing",
                              -1,
                              -1);
@@ -717,7 +717,7 @@ lrc_output_line_validate(
 ) {
     if (line == NULL) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output line is missing",
                              NULL,
                              line_index);
@@ -725,7 +725,7 @@ lrc_output_line_validate(
     }
     if (line->text_len < 0) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_LINE,
+                             LS_ERROR_WRITE_INVALID_LINE,
                              "LRC output line text length is negative",
                              NULL,
                              line_index);
@@ -733,7 +733,7 @@ lrc_output_line_validate(
     }
     if ((line->text == NULL) && (line->text_len > 0)) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_LINE,
+                             LS_ERROR_WRITE_INVALID_LINE,
                              "LRC output line text is missing",
                              NULL,
                              line_index);
@@ -744,7 +744,7 @@ lrc_output_line_validate(
     case LRC_OUTPUT_LINE_KIND_TIMESTAMPED:
         if (line->timestamp_hundredths < 0) {
             lrc_write_result_set(result,
-                                 LRC_WRITE_ERROR_INVALID_LINE,
+                                 LS_ERROR_WRITE_INVALID_LINE,
                                  "LRC output timestamp is invalid",
                                  NULL,
                                  line_index);
@@ -755,7 +755,7 @@ lrc_output_line_validate(
         break;
     default:
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_LINE,
+                             LS_ERROR_WRITE_INVALID_LINE,
                              "LRC output line kind is invalid",
                              NULL,
                              line_index);
@@ -777,7 +777,7 @@ lrc_format_output_lines(
     }
     if (builder == NULL) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output builder is missing",
                              NULL,
                              -1);
@@ -785,7 +785,7 @@ lrc_format_output_lines(
     }
     if (line_count < 0) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output line count is negative",
                              NULL,
                              -1);
@@ -793,7 +793,7 @@ lrc_format_output_lines(
     }
     if ((lines == NULL) && (line_count > 0)) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output lines are missing",
                              NULL,
                              -1);
@@ -819,7 +819,7 @@ lrc_format_output_lines(
                 &format_result
             )) {
                 lrc_write_result_set(result,
-                                     LRC_WRITE_ERROR_FORMAT_FAILED,
+                                     LS_ERROR_WRITE_FORMAT_FAILED,
                                      "LRC output line formatting failed",
                                      NULL,
                                      i);
@@ -886,7 +886,7 @@ lrc_write_text_file_atomic(
 
     if (path == NULL) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output path is missing",
                              path,
                              -1);
@@ -894,7 +894,7 @@ lrc_write_text_file_atomic(
     }
     if (path[0] == '\0') {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output path is empty",
                              path,
                              -1);
@@ -902,7 +902,7 @@ lrc_write_text_file_atomic(
     }
     if ((text == NULL) && (text_len > 0)) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output text is missing",
                              path,
                              -1);
@@ -910,7 +910,7 @@ lrc_write_text_file_atomic(
     }
     if (text_len < 0) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output text length is negative",
                              path,
                              -1);
@@ -918,7 +918,7 @@ lrc_write_text_file_atomic(
     }
     if (!lrc_make_temp_output_path(path, temp_path, SIZEOF(temp_path))) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_TEMP_PATH_TOO_LONG,
+                             LS_ERROR_WRITE_TEMP_PATH_TOO_LONG,
                              "LRC temporary output path is too long",
                              path,
                              -1);
@@ -928,7 +928,7 @@ lrc_write_text_file_atomic(
     fd = mkstemp(temp_path);
     if (fd < 0) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_TEMP_OPEN_FAILED,
+                             LS_ERROR_WRITE_TEMP_OPEN_FAILED,
                              "could not open temporary LRC output",
                              path,
                              -1);
@@ -937,7 +937,7 @@ lrc_write_text_file_atomic(
 
     if (!lrc_write_all_fd(fd, text, text_len)) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_WRITE_FAILED,
+                             LS_ERROR_WRITE_WRITE_FAILED,
                              "could not write temporary LRC output",
                              path,
                              -1);
@@ -948,7 +948,7 @@ lrc_write_text_file_atomic(
 
     if (close(fd) < 0) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_CLOSE_FAILED,
+                             LS_ERROR_WRITE_CLOSE_FAILED,
                              "could not close temporary LRC output",
                              path,
                              -1);
@@ -958,7 +958,7 @@ lrc_write_text_file_atomic(
 
     if (rename(temp_path, path) < 0) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_RENAME_FAILED,
+                             LS_ERROR_WRITE_RENAME_FAILED,
                              "could not rename temporary LRC output",
                              path,
                              -1);
@@ -983,7 +983,7 @@ lrc_write_output_file(
     }
     if (path == NULL) {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output path is missing",
                              path,
                              -1);
@@ -991,7 +991,7 @@ lrc_write_output_file(
     }
     if (path[0] == '\0') {
         lrc_write_result_set(result,
-                             LRC_WRITE_ERROR_INVALID_ARGUMENT,
+                             LS_ERROR_WRITE_INVALID_ARGUMENT,
                              "LRC output path is empty",
                              path,
                              -1);
@@ -1136,7 +1136,7 @@ lrc_test_reject_malformed_timestamps(void) {
         lrc_parsed_file_destroy(&parsed);
         return lrc_test_fail("accepted bad seconds");
     }
-    ASSERT(result.error == LRC_PARSE_ERROR_MALFORMED_TIMESTAMP);
+    ASSERT(result.error == LS_ERROR_PARSE_MALFORMED_TIMESTAMP);
     ASSERT(result.line_index == 0);
 
     memset64(&parsed, 0, SIZEOF(parsed));
@@ -1147,7 +1147,7 @@ lrc_test_reject_malformed_timestamps(void) {
         lrc_parsed_file_destroy(&parsed);
         return lrc_test_fail("accepted bad fraction");
     }
-    ASSERT(result.error == LRC_PARSE_ERROR_MALFORMED_TIMESTAMP);
+    ASSERT(result.error == LS_ERROR_PARSE_MALFORMED_TIMESTAMP);
     ASSERT(result.line_index == 0);
 
     return 0;
@@ -1163,7 +1163,7 @@ lrc_test_reject_untimed_text(void) {
         lrc_parsed_file_destroy(&parsed);
         return lrc_test_fail("accepted untimed text");
     }
-    ASSERT(result.error == LRC_PARSE_ERROR_UNTIMED_TEXT);
+    ASSERT(result.error == LS_ERROR_PARSE_UNTIMED_TEXT);
     ASSERT(result.line_index == 1);
 
     return 0;
@@ -1331,14 +1331,14 @@ lrc_test_format_reject_bad_inputs(void) {
                                               &result)) {
         return lrc_test_fail("accepted negative seconds");
     }
-    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_TIMESTAMP);
+    ASSERT(result.error == LS_ERROR_FORMAT_INVALID_TIMESTAMP);
 
     if (lrc_timestamp_hundredths_from_seconds(INFINITY,
                                               &hundredths,
                                               &result)) {
         return lrc_test_fail("accepted infinite seconds");
     }
-    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_TIMESTAMP);
+    ASSERT(result.error == LS_ERROR_FORMAT_INVALID_TIMESTAMP);
 
     if (lrc_format_timestamp_hundredths(-1,
                                         buffer,
@@ -1347,7 +1347,7 @@ lrc_test_format_reject_bad_inputs(void) {
                                         &result)) {
         return lrc_test_fail("accepted negative hundredths");
     }
-    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_TIMESTAMP);
+    ASSERT(result.error == LS_ERROR_FORMAT_INVALID_TIMESTAMP);
 
     if (lrc_format_timestamp_hundredths(0,
                                         buffer,
@@ -1356,7 +1356,7 @@ lrc_test_format_reject_bad_inputs(void) {
                                         &result)) {
         return lrc_test_fail("accepted small buffer");
     }
-    ASSERT(result.error == LRC_FORMAT_ERROR_TOO_LARGE);
+    ASSERT(result.error == LS_ERROR_FORMAT_TOO_LARGE);
 
     if (lrc_format_timestamped_line_hundredths(&builder,
                                                0,
@@ -1365,7 +1365,7 @@ lrc_test_format_reject_bad_inputs(void) {
                                                &result)) {
         return lrc_test_fail("accepted missing line text");
     }
-    ASSERT(result.error == LRC_FORMAT_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_FORMAT_INVALID_ARGUMENT);
 
     sb_free(&builder);
 
@@ -1425,7 +1425,7 @@ lrc_test_write_generated_file(void) {
         test_remove_tree(temp_dir);
         return lrc_test_fail("write generated lrc file");
     }
-    ASSERT(result.error == LRC_WRITE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(util_file_exists(path));
 
     if (!read_entire_file(path, &text, &text_len)) {
@@ -1563,27 +1563,27 @@ lrc_test_write_rejects_bad_inputs(void) {
     if (lrc_write_output_file(NULL, lines, 1, &result)) {
         return lrc_test_fail("accepted missing output path");
     }
-    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_WRITE_INVALID_ARGUMENT);
 
     if (lrc_write_output_file("", lines, 1, &result)) {
         return lrc_test_fail("accepted empty output path");
     }
-    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_WRITE_INVALID_ARGUMENT);
 
     if (lrc_write_output_file("bad.lrc", NULL, 1, &result)) {
         return lrc_test_fail("accepted missing output lines");
     }
-    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_WRITE_INVALID_ARGUMENT);
 
     if (lrc_write_output_file("bad.lrc", lines, -1, &result)) {
         return lrc_test_fail("accepted negative output line count");
     }
-    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_WRITE_INVALID_ARGUMENT);
 
     if (lrc_write_output_file("bad.lrc", lines, 1, &result)) {
         return lrc_test_fail("accepted negative output timestamp");
     }
-    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_LINE);
+    ASSERT(result.error == LS_ERROR_WRITE_INVALID_LINE);
     ASSERT(result.line_index == 0);
 
     lines[0].timestamp_hundredths = 0;
@@ -1592,7 +1592,7 @@ lrc_test_write_rejects_bad_inputs(void) {
     if (lrc_write_output_file("bad.lrc", lines, 1, &result)) {
         return lrc_test_fail("accepted missing output line text");
     }
-    ASSERT(result.error == LRC_WRITE_ERROR_INVALID_LINE);
+    ASSERT(result.error == LS_ERROR_WRITE_INVALID_LINE);
 
     return 0;
 }

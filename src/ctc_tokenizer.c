@@ -13,7 +13,7 @@ lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result) {
         return;
     }
 
-    result->error = LRC_CTC_TOKENIZE_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
 
     result->byte_offset = -1;
@@ -26,7 +26,7 @@ lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result) {
 static void
 lrc_ctc_tokenize_result_set(
     LrcCtcTokenizeResult *result,
-    enum LrcCtcTokenizeError error,
+    enum LsError error,
     char *message,
     int32 byte_offset,
     int32 line_index,
@@ -361,7 +361,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
     if ((tokenizer == NULL) || (normalized == NULL) || (tokens == NULL)) {
         lrc_ctc_tokenize_result_set(
             result,
-            LRC_CTC_TOKENIZE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_TOKENIZE_INVALID_ARGUMENT,
             "CTC tokenization received invalid arguments",
             -1,
             -1,
@@ -383,7 +383,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
     if ((text == NULL) || (text_len <= 0)) {
         lrc_ctc_tokenize_result_set(
             result,
-            LRC_CTC_TOKENIZE_ERROR_EMPTY_INPUT,
+            LS_ERROR_CTC_TOKENIZE_EMPTY_INPUT,
             "normalized lyrics are empty",
             -1,
             -1,
@@ -427,7 +427,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
                                                          &line_index)) {
                 lrc_ctc_tokenize_result_set(
                     result,
-                    LRC_CTC_TOKENIZE_ERROR_INVALID_ARGUMENT,
+                    LS_ERROR_CTC_TOKENIZE_INVALID_ARGUMENT,
                     "CTC token mapping failed",
                     i,
                     line_index,
@@ -455,7 +455,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
                                                starts_segment)) {
                 lrc_ctc_tokenize_result_set(
                     result,
-                    LRC_CTC_TOKENIZE_ERROR_TOO_MANY_TOKENS,
+                    LS_ERROR_CTC_TOKENIZE_TOO_MANY_TOKENS,
                     "tokenized lyrics contain too many tokens",
                     i,
                     line_index,
@@ -488,7 +488,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
                                                          &line_index)) {
                 lrc_ctc_tokenize_result_set(
                     result,
-                    LRC_CTC_TOKENIZE_ERROR_INVALID_ARGUMENT,
+                    LS_ERROR_CTC_TOKENIZE_INVALID_ARGUMENT,
                     "CTC token mapping failed",
                     i,
                     line_index,
@@ -516,7 +516,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
                                                starts_segment)) {
                 lrc_ctc_tokenize_result_set(
                     result,
-                    LRC_CTC_TOKENIZE_ERROR_TOO_MANY_TOKENS,
+                    LS_ERROR_CTC_TOKENIZE_TOO_MANY_TOKENS,
                     "tokenized lyrics contain too many tokens",
                     i,
                     line_index,
@@ -531,7 +531,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
 
         lrc_ctc_tokenize_result_set(
             result,
-            LRC_CTC_TOKENIZE_ERROR_UNSUPPORTED_TOKEN,
+            LS_ERROR_CTC_TOKENIZE_UNSUPPORTED_TOKEN,
             "normalized lyrics contain a token not in the CTC vocabulary",
             i,
             line_index,
@@ -544,7 +544,7 @@ lrc_ctc_tokenizer_tokenize_normalized(
     if (tokens->token_count <= 0) {
         lrc_ctc_tokenize_result_set(
             result,
-            LRC_CTC_TOKENIZE_ERROR_EMPTY_INPUT,
+            LS_ERROR_CTC_TOKENIZE_EMPTY_INPUT,
             "normalized lyrics produced no CTC tokens",
             -1,
             -1,
@@ -595,7 +595,7 @@ lrc_ctc_tokenizer_result_init(LrcCtcTokenizerResult *result) {
         return;
     }
 
-    result->error = LRC_CTC_TOKENIZER_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
     result->path = NULL;
 
@@ -608,7 +608,7 @@ lrc_ctc_tokenizer_result_init(LrcCtcTokenizerResult *result) {
 static void
 lrc_ctc_tokenizer_result_set(
     LrcCtcTokenizerResult *result,
-    enum LrcCtcTokenizerError error,
+    enum LsError error,
     char *message,
     char *path,
     int32 line_index,
@@ -809,7 +809,7 @@ lrc_ctc_tokenizer_add_token(
     if ((!is_blank && (token_len <= 0)) || (token_len < 0)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_EMPTY_TOKEN,
+            LS_ERROR_CTC_TOKENIZER_EMPTY_TOKEN,
             "CTC tokenizer contains an empty token",
             path,
             line_index,
@@ -820,7 +820,7 @@ lrc_ctc_tokenizer_add_token(
     if (tokenizer->token_count >= MAXOF(tokenizer->token_count)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_TOO_MANY_TOKENS,
+            LS_ERROR_CTC_TOKENIZER_TOO_MANY_TOKENS,
             "CTC tokenizer contains too many tokens",
             path,
             line_index,
@@ -832,7 +832,7 @@ lrc_ctc_tokenizer_add_token(
                                    &existing_id)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_DUPLICATE_TOKEN,
+            LS_ERROR_CTC_TOKENIZER_DUPLICATE_TOKEN,
             "CTC tokenizer contains a duplicate token",
             path,
             line_index,
@@ -843,7 +843,7 @@ lrc_ctc_tokenizer_add_token(
     if (!lrc_ctc_tokenizer_reserve_tokens(tokenizer, 1)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_TOO_MANY_TOKENS,
+            LS_ERROR_CTC_TOKENIZER_TOO_MANY_TOKENS,
             "CTC tokenizer contains too many tokens",
             path,
             line_index,
@@ -854,7 +854,7 @@ lrc_ctc_tokenizer_add_token(
     if (!lrc_ctc_tokenizer_reserve_text(tokenizer, token_len + 1)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_TOO_MANY_TOKENS,
+            LS_ERROR_CTC_TOKENIZER_TOO_MANY_TOKENS,
             "CTC tokenizer token text is too large",
             path,
             line_index,
@@ -940,7 +940,7 @@ lrc_ctc_tokenizer_parse_text(
     if (tokenizer->token_count <= 0) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_EMPTY,
+            LS_ERROR_CTC_TOKENIZER_EMPTY,
             "CTC tokenizer file is empty",
             path,
             -1,
@@ -951,7 +951,7 @@ lrc_ctc_tokenizer_parse_text(
     if (tokenizer->blank_id < 0) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_MISSING_BLANK,
+            LS_ERROR_CTC_TOKENIZER_MISSING_BLANK,
             "CTC tokenizer file does not define <blank>",
             path,
             -1,
@@ -980,7 +980,7 @@ lrc_ctc_tokenizer_load_file(
     if (tokenizer == NULL) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_TOKENIZER_INVALID_ARGUMENT,
             "CTC tokenizer load received invalid arguments",
             path,
             -1,
@@ -994,7 +994,7 @@ lrc_ctc_tokenizer_load_file(
     if (path_missing(path)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_MISSING_PATH,
+            LS_ERROR_CTC_TOKENIZER_MISSING_PATH,
             "CTC tokenizer path is missing",
             path,
             -1,
@@ -1005,7 +1005,7 @@ lrc_ctc_tokenizer_load_file(
     if (!read_entire_file(path, &file_text, &file_len)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_READ_FAILED,
+            LS_ERROR_CTC_TOKENIZER_READ_FAILED,
             "could not read CTC tokenizer file",
             path,
             -1,
@@ -1016,7 +1016,7 @@ lrc_ctc_tokenizer_load_file(
     if (!utf8_valid(file_text, file_len, &bad_offset)) {
         lrc_ctc_tokenizer_result_set(
             result,
-            LRC_CTC_TOKENIZER_ERROR_INVALID_UTF8,
+            LS_ERROR_CTC_TOKENIZER_INVALID_UTF8,
             "CTC tokenizer file is not valid UTF-8",
             path,
             bad_offset,
@@ -1142,7 +1142,7 @@ ctc_tokenizer_test_load_minimal_vocabulary(void) {
         return ctc_tokenizer_test_fail("load minimal vocabulary");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZER_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(tokenizer.token_count == 6);
     ASSERT(tokenizer.blank_id == 0);
     ASSERT(tokenizer.unknown_id == 5);
@@ -1199,7 +1199,7 @@ ctc_tokenizer_test_rejects_duplicate_tokens(void) {
         return ctc_tokenizer_test_fail("duplicate vocabulary accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZER_ERROR_DUPLICATE_TOKEN);
+    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_DUPLICATE_TOKEN);
     ASSERT(result.line_index == 3);
     ASSERT(result.token_id == 1);
     ASSERT(tokenizer.token_count == 0);
@@ -1231,7 +1231,7 @@ ctc_tokenizer_test_requires_blank_token(void) {
         return ctc_tokenizer_test_fail("no-blank vocabulary accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZER_ERROR_MISSING_BLANK);
+    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_MISSING_BLANK);
     ASSERT(tokenizer.token_count == 0);
 
     lrc_ctc_tokenizer_destroy(&tokenizer);
@@ -1261,7 +1261,7 @@ ctc_tokenizer_test_rejects_empty_token_line(void) {
         return ctc_tokenizer_test_fail("empty-token vocabulary accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZER_ERROR_EMPTY_TOKEN);
+    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_EMPTY_TOKEN);
     ASSERT(result.line_index == 2);
     ASSERT(tokenizer.token_count == 0);
 
@@ -1298,7 +1298,7 @@ ctc_tokenizer_test_rejects_invalid_utf8(void) {
         return ctc_tokenizer_test_fail("invalid UTF-8 vocabulary accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZER_ERROR_INVALID_UTF8);
+    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_INVALID_UTF8);
     ASSERT(result.line_index == 8);
     ASSERT(tokenizer.token_count == 0);
 
@@ -1342,7 +1342,7 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
         return ctc_tokenizer_test_fail("tokenize normalized lyrics");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(tokens.token_count == 4);
     ASSERT(tokens.tokens[0].token_id == 2);
     ASSERT(tokens.tokens[0].normalized_start == 0);
@@ -1403,7 +1403,7 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
         return ctc_tokenizer_test_fail("unsupported token accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZE_ERROR_UNSUPPORTED_TOKEN);
+    ASSERT(result.error == LS_ERROR_CTC_TOKENIZE_UNSUPPORTED_TOKEN);
     ASSERT(result.byte_offset == 2);
     ASSERT(result.line_index == 0);
     ASSERT(result.token_id == -1);
@@ -1523,7 +1523,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
         return ctc_tokenizer_test_fail("tokenize word target lyrics");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(tokens.token_count == 3);
     ASSERT(tokens.tokens[0].token_id == 2);
     ASSERT(tokens.tokens[0].normalized_start == 0);
@@ -1641,7 +1641,7 @@ ctc_tokenizer_test_skips_unmatched_spaces(void) {
         return ctc_tokenizer_test_fail("tokenize no-space lyrics");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(tokens.token_count == 3);
     ASSERT(tokens.tokens[0].token_id == 2);
     ASSERT(tokens.tokens[0].normalized_start == 0);
@@ -1671,7 +1671,7 @@ ctc_tokenizer_test_missing_path(void) {
         return ctc_tokenizer_test_fail("missing path accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_TOKENIZER_ERROR_MISSING_PATH);
+    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_MISSING_PATH);
     ASSERT(result.path == NULL);
     ASSERT(tokenizer.token_count == 0);
 

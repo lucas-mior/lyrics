@@ -2,21 +2,10 @@
 #define CTC_AUDIO_H
 
 #include "cbase.h"
+#include "errors.h"
 #include "audio.h"
 
 #define LRC_CTC_AUDIO_DEFAULT_SAMPLE_RATE 16000
-
-
-enum LrcCtcAudioError {
-    LRC_CTC_AUDIO_ERROR_NONE,
-    LRC_CTC_AUDIO_ERROR_INVALID_ARGUMENT,
-    LRC_CTC_AUDIO_ERROR_MISSING_PATH,
-    LRC_CTC_AUDIO_ERROR_MISSING_FFMPEG,
-    LRC_CTC_AUDIO_ERROR_INVALID_SAMPLE_RATE,
-    LRC_CTC_AUDIO_ERROR_DECODE_FAILED,
-    LRC_CTC_AUDIO_ERROR_EMPTY_AUDIO,
-    LRC_CTC_AUDIO_ERROR_NON_FINITE_SAMPLE,
-};
 
 typedef struct LrcCtcAudioConfig {
     char *ffmpeg_path;
@@ -25,7 +14,7 @@ typedef struct LrcCtcAudioConfig {
 } LrcCtcAudioConfig;
 
 typedef struct LrcCtcAudioResult {
-    enum LrcCtcAudioError error;
+    enum LsError error;
     char *message;
     char *path;
 

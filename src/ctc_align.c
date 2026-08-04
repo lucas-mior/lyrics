@@ -13,7 +13,7 @@ lrc_ctc_align_result_init(LrcCtcAlignResult *result) {
         return;
     }
 
-    result->error = LRC_CTC_ALIGN_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
 
     result->frame_index = -1;
@@ -25,7 +25,7 @@ lrc_ctc_align_result_init(LrcCtcAlignResult *result) {
 static void
 lrc_ctc_align_result_set(
     LrcCtcAlignResult *result,
-    enum LrcCtcAlignError error,
+    enum LsError error,
     char *message,
     int64 frame_index,
     int64 token_index
@@ -99,7 +99,7 @@ lrc_ctc_align_segment_star_count(
     if (target_segment_starts == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC segment-star markers are missing",
             -1,
             -1
@@ -127,7 +127,7 @@ lrc_ctc_align_star_mode_extra_labels(
     if (extra_labels == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC graph extra-label destination is missing",
             -1,
             -1
@@ -150,7 +150,7 @@ lrc_ctc_align_star_mode_extra_labels(
     default:
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC graph star mode is invalid",
             -1,
             star_mode
@@ -172,7 +172,7 @@ lrc_ctc_align_graph_label_count(
     if (label_count == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC graph label-count destination is missing",
             -1,
             -1
@@ -184,7 +184,7 @@ lrc_ctc_align_graph_label_count(
     if (target_token_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             "CTC graph target token count must be positive",
             -1,
             target_token_count
@@ -202,7 +202,7 @@ lrc_ctc_align_graph_label_count(
     if (target_token_count > INT64_MAX - extra_labels) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            LS_ERROR_CTC_ALIGN_TOO_LARGE,
             "CTC graph label count is too large",
             -1,
             target_token_count
@@ -228,7 +228,7 @@ lrc_ctc_align_graph_state_count_for_mode(
     if (state_count == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC graph state-count destination is missing",
             -1,
             -1
@@ -247,7 +247,7 @@ lrc_ctc_align_graph_state_count_for_mode(
     if (label_count > (INT64_MAX - 1)/2) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            LS_ERROR_CTC_ALIGN_TOO_LARGE,
             "CTC graph state count is too large",
             -1,
             target_token_count
@@ -311,7 +311,7 @@ lrc_ctc_align_checked_multiply(
     if (out == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC checked multiplication output is missing",
             left,
             right
@@ -323,7 +323,7 @@ lrc_ctc_align_checked_multiply(
     if ((left < 0) || (right < 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             message,
             left,
             right
@@ -333,7 +333,7 @@ lrc_ctc_align_checked_multiply(
     if ((right > 0) && (left > INT64_MAX/right)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            LS_ERROR_CTC_ALIGN_TOO_LARGE,
             message,
             left,
             right
@@ -406,7 +406,7 @@ lrc_ctc_align_graph_build_for_mode(
     if (graph == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC graph destination is missing",
             -1,
             -1
@@ -416,7 +416,7 @@ lrc_ctc_align_graph_build_for_mode(
     if (target_token_ids == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC graph target token ids are missing",
             -1,
             -1
@@ -747,7 +747,7 @@ lrc_ctc_token_spans_allocate(
     if (spans == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC token spans destination is missing",
             -1,
             -1
@@ -757,7 +757,7 @@ lrc_ctc_token_spans_allocate(
     if (span_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path does not contain token frames",
             -1,
             -1
@@ -807,7 +807,7 @@ lrc_ctc_path_segments_allocate(
     if (segments == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC path segments destination is missing",
             -1,
             -1
@@ -817,7 +817,7 @@ lrc_ctc_path_segments_allocate(
     if (segment_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path does not contain segments",
             -1,
             -1
@@ -865,7 +865,7 @@ lrc_ctc_aligned_token_intervals_allocate(
     if (intervals == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC aligned token intervals destination is missing",
             -1,
             -1
@@ -875,7 +875,7 @@ lrc_ctc_aligned_token_intervals_allocate(
     if (interval_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             "CTC aligned token interval count must be positive",
             -1,
             interval_count
@@ -924,7 +924,7 @@ lrc_ctc_path_allocate(
     if (path == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC path destination is missing",
             -1,
             -1
@@ -934,7 +934,7 @@ lrc_ctc_path_allocate(
     if (step_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             "CTC path step count must be positive",
             step_count,
             -1
@@ -981,7 +981,7 @@ lrc_ctc_trellis_dimensions_valid(
     if (cell_count == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC trellis cell-count output is missing",
             frame_count,
             target_token_count
@@ -993,7 +993,7 @@ lrc_ctc_trellis_dimensions_valid(
     if (frame_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             "CTC trellis frame count must be positive",
             frame_count,
             target_token_count
@@ -1003,7 +1003,7 @@ lrc_ctc_trellis_dimensions_valid(
     if (state_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             "CTC trellis state count must be positive",
             frame_count,
             state_count
@@ -1091,7 +1091,7 @@ lrc_ctc_trellis_allocate_for_state_count(
     if (trellis == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC trellis destination is missing",
             -1,
             -1
@@ -1179,7 +1179,7 @@ lrc_ctc_align_emissions_ready(
     if (emissions == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC emissions are missing",
             -1,
             -1
@@ -1190,7 +1190,7 @@ lrc_ctc_align_emissions_ready(
         || (emissions->vocabulary_size <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_EMISSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_EMISSIONS,
             "CTC emissions are not prepared",
             -1,
             -1
@@ -1200,7 +1200,7 @@ lrc_ctc_align_emissions_ready(
     if (emissions->frame_count > INT64_MAX/emissions->vocabulary_size) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            LS_ERROR_CTC_ALIGN_TOO_LARGE,
             "CTC emissions dimensions are too large",
             emissions->frame_count,
             emissions->vocabulary_size
@@ -1211,7 +1211,7 @@ lrc_ctc_align_emissions_ready(
         != emissions->frame_count*emissions->vocabulary_size) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_EMISSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_EMISSIONS,
             "CTC emissions value count does not match dimensions",
             -1,
             -1
@@ -1235,7 +1235,7 @@ lrc_ctc_trellis_emissions_ready(
         || ((int64)blank_token_id >= emissions->vocabulary_size)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_BLANK_TOKEN,
+            LS_ERROR_CTC_ALIGN_INVALID_BLANK_TOKEN,
             "CTC blank token id is outside the vocabulary",
             -1,
             blank_token_id
@@ -1269,7 +1269,7 @@ lrc_ctc_trellis_prepare_for_graph(
     if ((graph == NULL) || (graph->states == NULL)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC graph is missing for trellis preparation",
             -1,
             -1
@@ -1402,7 +1402,7 @@ lrc_ctc_target_tokens_valid(
     if (target_token_ids == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC target token ids are missing",
             -1,
             -1
@@ -1412,7 +1412,7 @@ lrc_ctc_target_tokens_valid(
     if (target_token_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             "CTC target token count must be positive",
             -1,
             target_token_count
@@ -1426,7 +1426,7 @@ lrc_ctc_target_tokens_valid(
             || (target_token_ids[i] == blank_token_id)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
+                LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN,
                 "CTC target token id is invalid",
                 -1,
                 i
@@ -1454,7 +1454,7 @@ lrc_ctc_star_token_valid(
         || (star_token_id == blank_token_id)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
+            LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN,
             "CTC star token id must be the synthetic emission column",
             -1,
             star_token_id
@@ -1495,7 +1495,7 @@ lrc_ctc_target_tokens_valid_for_mode(
             && (target_token_ids[i] == star_token_id)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
+                LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN,
                 "CTC target token id cannot be the star token",
                 -1,
                 i
@@ -1618,7 +1618,7 @@ lrc_ctc_trellis_score_forward_for_mode(
         lrc_ctc_align_graph_destroy(&graph);
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_TOO_LARGE,
+            LS_ERROR_CTC_ALIGN_TOO_LARGE,
             "CTC required alignment frame count is invalid",
             -1,
             target_token_count
@@ -1629,7 +1629,7 @@ lrc_ctc_trellis_score_forward_for_mode(
         lrc_ctc_align_graph_destroy(&graph);
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT,
+            LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT,
             "CTC emissions have too few frames for target tokens",
             emissions->frame_count,
             target_token_count
@@ -1803,7 +1803,7 @@ lrc_ctc_trellis_ready_for_backtracking(
     if (trellis == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC trellis is missing",
             -1,
             -1
@@ -1813,7 +1813,7 @@ lrc_ctc_trellis_ready_for_backtracking(
     if ((trellis->scores == NULL) || (trellis->previous_states == NULL)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+            LS_ERROR_CTC_ALIGN_INVALID_TRELLIS,
             "CTC trellis has not been scored",
             -1,
             -1
@@ -1838,7 +1838,7 @@ lrc_ctc_trellis_ready_for_backtracking(
         || (trellis->star_token_id != star_token_id)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+            LS_ERROR_CTC_ALIGN_INVALID_TRELLIS,
             "CTC trellis dimensions do not match inputs",
             trellis->frame_count,
             trellis->target_token_count
@@ -1857,7 +1857,7 @@ lrc_ctc_trellis_ready_for_backtracking(
     if (trellis->cell_count != expected_cell_count) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+            LS_ERROR_CTC_ALIGN_INVALID_TRELLIS,
             "CTC trellis cell count does not match dimensions",
             trellis->frame_count,
             trellis->state_count
@@ -2013,7 +2013,7 @@ lrc_ctc_trellis_best_final_state(
     if (!isfinite(*blank_cell) && !isfinite(*token_cell)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT,
+            LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT,
             "CTC target tokens cannot fit in the available frames",
             trellis->frame_count - 1,
             trellis->target_token_count - 1
@@ -2116,7 +2116,7 @@ lrc_ctc_trellis_backtrack_for_mode(
                                                      state)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS,
+                LS_ERROR_CTC_ALIGN_INVALID_TRELLIS,
                 "CTC trellis previous-state backpointer is invalid",
                 frame,
                 state
@@ -2221,7 +2221,7 @@ lrc_ctc_path_step_valid(
         || (step->frame_index >= emissions->frame_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path frame index is outside emissions",
             step->frame_index,
             step->token_index
@@ -2231,7 +2231,7 @@ lrc_ctc_path_step_valid(
     if (step->state_index < 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path state index is invalid",
             step->frame_index,
             step->token_index
@@ -2246,7 +2246,7 @@ lrc_ctc_path_step_valid(
             || ((int64)step->token_id != emissions->vocabulary_size)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC path star token is invalid",
                 step->frame_index,
                 step->token_index
@@ -2258,7 +2258,7 @@ lrc_ctc_path_step_valid(
     if (step->token_index < 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path token index is invalid",
             step->frame_index,
             step->token_index
@@ -2269,7 +2269,7 @@ lrc_ctc_path_step_valid(
         || ((int64)step->token_id >= emissions->vocabulary_size)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path token id is outside emissions",
             step->frame_index,
             step->token_index
@@ -2290,7 +2290,7 @@ lrc_ctc_path_ready_for_spans(
     if (path == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC path is missing",
             -1,
             -1
@@ -2300,7 +2300,7 @@ lrc_ctc_path_ready_for_spans(
     if ((path->steps == NULL) || (path->step_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path has no steps",
             -1,
             -1
@@ -2311,7 +2311,7 @@ lrc_ctc_path_ready_for_spans(
         || (frame_duration_seconds <= 0.0f)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_FRAME_DURATION,
+            LS_ERROR_CTC_ALIGN_INVALID_FRAME_DURATION,
             "CTC frame duration must be positive and finite",
             -1,
             -1
@@ -2385,7 +2385,7 @@ lrc_ctc_path_step_score(
     if (step->token_id < 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path step token id is invalid",
             step->frame_index,
             step->token_index
@@ -2397,7 +2397,7 @@ lrc_ctc_path_step_score(
             && ((int64)step->token_id >= emissions->vocabulary_size))) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path step token id is outside emissions",
             step->frame_index,
             step->token_index
@@ -2526,7 +2526,7 @@ lrc_ctc_path_segment_valid_for_intervals(
         || (segment->start_frame < previous_end_frame)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path segment frame range is invalid",
             segment->start_frame,
             segment_index
@@ -2537,7 +2537,7 @@ lrc_ctc_path_segment_valid_for_intervals(
         if (segment->is_star || (segment->token_index != -1)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC blank path segment has invalid labels",
                 segment->start_frame,
                 segment_index
@@ -2550,7 +2550,7 @@ lrc_ctc_path_segment_valid_for_intervals(
         if ((segment->token_id < 0) || (segment->token_index != -1)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC star path segment has invalid labels",
                 segment->start_frame,
                 segment_index
@@ -2562,7 +2562,7 @@ lrc_ctc_path_segment_valid_for_intervals(
     if ((segment->token_index < 0) || (segment->token_id < 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC token path segment has invalid labels",
             segment->start_frame,
             segment_index
@@ -2584,7 +2584,7 @@ lrc_ctc_path_segments_ready_for_intervals(
     if ((segments == NULL) || (intervals == NULL)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC segment interval conversion received invalid arguments",
             -1,
             -1
@@ -2594,7 +2594,7 @@ lrc_ctc_path_segments_ready_for_intervals(
     if ((segments->segments == NULL) || (segments->segment_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path segments are empty",
             -1,
             -1
@@ -2630,7 +2630,7 @@ lrc_ctc_interval_segment_matches_state(
         if (!segment->is_star || (segment->token_id != state->token_id)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC path segment does not match target star",
                 segment->start_frame,
                 label_index
@@ -2642,7 +2642,7 @@ lrc_ctc_interval_segment_matches_state(
     if (state->kind != LRC_CTC_ALIGN_STATE_TOKEN) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC interval target stream contains an invalid label",
             segment->start_frame,
             label_index
@@ -2653,7 +2653,7 @@ lrc_ctc_interval_segment_matches_state(
         || (segment->token_index != state->token_index)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path segment does not match target token",
             segment->start_frame,
             segment_index
@@ -2692,7 +2692,7 @@ lrc_ctc_path_segments_to_aligned_token_intervals(
         && (star_token_id < 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN,
+            LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN,
             "CTC interval star token id is invalid",
             -1,
             star_token_id
@@ -2732,7 +2732,7 @@ lrc_ctc_path_segments_to_aligned_token_intervals(
         if (label_index >= label_count) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC path segments contain too many target labels",
                 segment->start_frame,
                 i
@@ -2768,7 +2768,7 @@ lrc_ctc_path_segments_to_aligned_token_intervals(
     if (ok && (label_index != label_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path segments do not cover all target labels",
             -1,
             label_index
@@ -2797,7 +2797,7 @@ lrc_ctc_aligned_token_interval_valid_for_padding(
         || (interval->segment_end_index > segment_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC aligned token interval segment range is invalid",
             -1,
             interval_index
@@ -2808,7 +2808,7 @@ lrc_ctc_aligned_token_interval_valid_for_padding(
         || (interval->token_end_frame <= interval->token_start_frame)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC aligned token interval frame range is invalid",
             interval->token_start_frame,
             interval_index
@@ -2819,7 +2819,7 @@ lrc_ctc_aligned_token_interval_valid_for_padding(
         if (interval->target_token_index != -1) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC aligned star interval has target token index",
                 interval->token_start_frame,
                 interval_index
@@ -2831,7 +2831,7 @@ lrc_ctc_aligned_token_interval_valid_for_padding(
     if (interval->target_token_index < 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC aligned token interval target index is invalid",
             interval->token_start_frame,
             interval_index
@@ -2853,7 +2853,7 @@ lrc_ctc_aligned_token_intervals_ready_for_padding(
         || (frame_duration_seconds <= 0.0f)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_FRAME_DURATION,
+            LS_ERROR_CTC_ALIGN_INVALID_FRAME_DURATION,
             "CTC frame duration must be positive and finite",
             -1,
             -1
@@ -2869,7 +2869,7 @@ lrc_ctc_aligned_token_intervals_ready_for_padding(
         || (intervals->interval_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS,
+            LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS,
             "CTC aligned token intervals are empty",
             -1,
             -1
@@ -2926,7 +2926,7 @@ lrc_ctc_pad_token_intervals_with_blanks(
     if (path_segments == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC path segments are empty",
             -1,
             -1
@@ -2972,7 +2972,7 @@ lrc_ctc_pad_token_intervals_with_blanks(
         if (padded_end_frame < padded_start_frame) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC padded token interval frame range is invalid",
                 padded_start_frame,
                 i
@@ -3125,7 +3125,7 @@ lrc_ctc_path_to_token_spans(
             if (step->token_index != previous_token_index + 1) {
                 lrc_ctc_align_result_set(
                     result,
-                    LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                    LS_ERROR_CTC_ALIGN_INVALID_PATH,
                     "CTC path token states are not target ordered",
                     step->frame_index,
                     step->token_index
@@ -3210,7 +3210,7 @@ lrc_ctc_token_span_padded_timing_valid(
         || (span->padded_end_seconds < span->padded_start_seconds)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC padded token span timing is invalid",
             span->padded_start_frame,
             span_index
@@ -3234,7 +3234,7 @@ lrc_ctc_token_span_apply_padded_interval(
         || (span->end_frame != interval->token_end_frame)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC padded interval does not match token span",
             interval->token_start_frame,
             span_index
@@ -3248,7 +3248,7 @@ lrc_ctc_token_span_apply_padded_interval(
         || (interval->padded_end_seconds < interval->padded_start_seconds)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC padded interval timing is invalid",
             interval->padded_start_frame,
             interval_index
@@ -3275,7 +3275,7 @@ lrc_ctc_token_spans_apply_padded_intervals(
     if ((token_spans == NULL) || (intervals == NULL)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC padded-token conversion received invalid arguments",
             -1,
             -1
@@ -3285,7 +3285,7 @@ lrc_ctc_token_spans_apply_padded_intervals(
     if ((token_spans->spans == NULL) || (token_spans->span_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token spans are empty",
             -1,
             -1
@@ -3295,7 +3295,7 @@ lrc_ctc_token_spans_apply_padded_intervals(
     if ((intervals->intervals == NULL) || (intervals->interval_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC aligned token intervals are empty",
             -1,
             -1
@@ -3314,7 +3314,7 @@ lrc_ctc_token_spans_apply_padded_intervals(
         if (span_index >= token_spans->span_count) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+                LS_ERROR_CTC_ALIGN_INVALID_PATH,
                 "CTC aligned token intervals have too many tokens",
                 -1,
                 i
@@ -3335,7 +3335,7 @@ lrc_ctc_token_spans_apply_padded_intervals(
     if (span_index != token_spans->span_count) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_PATH,
+            LS_ERROR_CTC_ALIGN_INVALID_PATH,
             "CTC aligned token intervals do not cover token spans",
             -1,
             span_index
@@ -3369,7 +3369,7 @@ lrc_ctc_path_to_padded_token_spans_for_mode(
     if ((target_token_ids == NULL) || (target_token_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC padded-token conversion target stream is missing",
             -1,
             -1
@@ -3511,7 +3511,7 @@ lrc_ctc_word_spans_allocate(
     if (spans == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC word spans destination is missing",
             -1,
             -1
@@ -3521,7 +3521,7 @@ lrc_ctc_word_spans_allocate(
     if (span_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC token spans did not produce words",
             -1,
             -1
@@ -3574,7 +3574,7 @@ lrc_ctc_word_inputs_ready(
         || (normalized == NULL) || (word_spans == NULL)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC word-span conversion received invalid arguments",
             -1,
             -1
@@ -3584,7 +3584,7 @@ lrc_ctc_word_inputs_ready(
     if ((token_spans->spans == NULL) || (token_spans->span_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token spans are empty",
             -1,
             -1
@@ -3594,7 +3594,7 @@ lrc_ctc_word_inputs_ready(
     if ((tokens->tokens == NULL) || (tokens->token_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC tokenized text is empty",
             -1,
             -1
@@ -3605,7 +3605,7 @@ lrc_ctc_word_inputs_ready(
         || (normalized->byte_count != normalized->text_len)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_NORMALIZED_TEXT,
             "normalized lyrics are not ready",
             -1,
             -1
@@ -3615,7 +3615,7 @@ lrc_ctc_word_inputs_ready(
     if (token_spans->span_count != tokens->token_count) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token spans must match tokenized text",
             token_spans->span_count,
             tokens->token_count
@@ -3638,7 +3638,7 @@ lrc_ctc_token_range_valid(
         || (token->normalized_end > normalized->text_len)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC token normalized range is invalid",
             token->normalized_start,
             token_index
@@ -3649,7 +3649,7 @@ lrc_ctc_token_range_valid(
         || (token->line_index >= normalized->line_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC token line index is invalid",
             -1,
             token_index
@@ -3678,7 +3678,7 @@ lrc_ctc_token_span_resolve_token(
         || (span->token_index >= tokens->token_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token span target index is outside tokenized text",
             -1,
             span_index
@@ -3688,7 +3688,7 @@ lrc_ctc_token_span_resolve_token(
     if (span->token_index != previous_token_index + 1) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token spans must cover target tokens in order",
             -1,
             span_index
@@ -3700,7 +3700,7 @@ lrc_ctc_token_span_resolve_token(
     if (span->token_id != token->token_id) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token span id does not match target token index",
             -1,
             span->token_index
@@ -3711,7 +3711,7 @@ lrc_ctc_token_span_resolve_token(
         || (span->end_seconds < span->start_seconds)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token span timing is invalid",
             -1,
             span->token_index
@@ -3726,7 +3726,7 @@ lrc_ctc_token_span_resolve_token(
     if (!isfinite(span->score)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token span score is invalid",
             -1,
             span->token_index
@@ -3822,7 +3822,7 @@ lrc_ctc_token_segment_valid(
         || (token->segment_index >= normalized->segment_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC token segment index is invalid",
             -1,
             token_index
@@ -3836,7 +3836,7 @@ lrc_ctc_token_segment_valid(
         || (segment->normalized_end > normalized->text_len)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_NORMALIZED_TEXT,
             "CTC segment normalized range is invalid",
             segment->normalized_start,
             token_index
@@ -3847,7 +3847,7 @@ lrc_ctc_token_segment_valid(
         || (segment->line_index >= normalized->line_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_NORMALIZED_TEXT,
             "CTC segment line index is invalid",
             -1,
             token_index
@@ -3857,7 +3857,7 @@ lrc_ctc_token_segment_valid(
     if (token->line_index != segment->line_index) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC token line index does not match its segment",
             -1,
             token_index
@@ -3868,7 +3868,7 @@ lrc_ctc_token_segment_valid(
         || (token->normalized_end > segment->normalized_end)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC token normalized range is outside its segment",
             token->normalized_start,
             token_index
@@ -3927,7 +3927,7 @@ lrc_ctc_segment_word_count(
         if (token->segment_index < previous_segment_index) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+                LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
                 "CTC token segments must be ordered",
                 -1,
                 span->token_index
@@ -3984,7 +3984,7 @@ lrc_ctc_segment_word_span_extend(
     if (segment->line_index != word->line_index) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC segment cannot cross lyric lines",
             segment->normalized_start,
             token_span->token_index
@@ -3995,7 +3995,7 @@ lrc_ctc_segment_word_span_extend(
         < word->end_seconds) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token spans must be time ordered",
             -1,
             token_span->token_index
@@ -4074,7 +4074,7 @@ lrc_ctc_token_spans_to_segment_word_spans(
         if (token->segment_index < previous_segment_index) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+                LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
                 "CTC token segments must be ordered",
                 -1,
                 token_span->token_index
@@ -4182,7 +4182,7 @@ lrc_ctc_word_count(
                                                token->normalized_end)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+                LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
                 "CTC token spans cannot split a mixed word/space token",
                 token->normalized_start,
                 i
@@ -4238,7 +4238,7 @@ lrc_ctc_word_span_extend(
     if (token->line_index != word->line_index) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT,
             "CTC word cannot cross lyric lines",
             token->normalized_start,
             token_span->token_index
@@ -4249,7 +4249,7 @@ lrc_ctc_word_span_extend(
         < word->end_seconds) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS,
             "CTC token spans must be time ordered",
             -1,
             token_span->token_index
@@ -4400,7 +4400,7 @@ lrc_ctc_line_timestamps_allocate(
     if (timestamps == NULL) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC line timestamps destination is missing",
             -1,
             -1
@@ -4410,7 +4410,7 @@ lrc_ctc_line_timestamps_allocate(
     if (line_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word spans did not produce lyric lines",
             -1,
             -1
@@ -4466,7 +4466,7 @@ lrc_ctc_word_span_valid_for_lines(
         || (word->line_index >= normalized->line_count)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word span has invalid indexes",
             -1,
             word_index
@@ -4479,7 +4479,7 @@ lrc_ctc_word_span_valid_for_lines(
                                           &line_end)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word span does not belong to an alignable lyric line",
             -1,
             word_index
@@ -4491,7 +4491,7 @@ lrc_ctc_word_span_valid_for_lines(
         || (word->normalized_end <= word->normalized_start)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word span normalized range is invalid",
             word->normalized_start,
             word_index
@@ -4502,7 +4502,7 @@ lrc_ctc_word_span_valid_for_lines(
         || (word->end_seconds < word->start_seconds)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word span timing is invalid",
             -1,
             word_index
@@ -4512,7 +4512,7 @@ lrc_ctc_word_span_valid_for_lines(
     if (!isfinite(word->score)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word span score is invalid",
             -1,
             word_index
@@ -4537,7 +4537,7 @@ lrc_ctc_line_inputs_ready(
         || (line_timestamps == NULL)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT,
             "CTC line timestamp conversion received invalid arguments",
             -1,
             -1
@@ -4547,7 +4547,7 @@ lrc_ctc_line_inputs_ready(
     if ((word_spans->spans == NULL) || (word_spans->span_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word spans are empty",
             -1,
             -1
@@ -4557,7 +4557,7 @@ lrc_ctc_line_inputs_ready(
     if ((normalized->lines == NULL) || (normalized->line_count <= 0)) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_NORMALIZED_TEXT,
+            LS_ERROR_CTC_ALIGN_INVALID_NORMALIZED_TEXT,
             "normalized lyric lines are not ready",
             -1,
             -1
@@ -4581,7 +4581,7 @@ lrc_ctc_line_inputs_ready(
         if (word->line_index < previous_line) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+                LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
                 "CTC word spans must be ordered by lyric line",
                 -1,
                 i
@@ -4592,7 +4592,7 @@ lrc_ctc_line_inputs_ready(
             && ((word->start_seconds + 0.00001f) < previous_start)) {
             lrc_ctc_align_result_set(
                 result,
-                LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+                LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
                 "CTC word spans must be time ordered inside each line",
                 -1,
                 i
@@ -4605,7 +4605,7 @@ lrc_ctc_line_inputs_ready(
                 || (word->span_start_index < previous->span_end_index)) {
                 lrc_ctc_align_result_set(
                     result,
-                    LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+                    LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
                     "CTC word spans must be target-token ordered",
                     -1,
                     i
@@ -4679,7 +4679,7 @@ lrc_ctc_count_line_timestamp_entries(
     if (*line_count <= 0) {
         lrc_ctc_align_result_set(
             result,
-            LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS,
+            LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS,
             "CTC word spans did not map to lyric lines",
             -1,
             -1
@@ -5415,7 +5415,7 @@ ctc_align_test_empty_initializers(void) {
 
     lrc_ctc_align_result_init(&result);
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
     ASSERT(result.frame_index == -1);
     ASSERT(result.token_index == -1);
@@ -5466,7 +5466,7 @@ ctc_align_test_graph_build_layout(void) {
     if (!lrc_ctc_align_graph_build(&graph, one_token, 1, &result)) {
         return ctc_align_test_fail("build one-token CTC graph");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 1);
     ASSERT(graph.state_count == 3);
     ASSERT(graph.states[0].kind == LRC_CTC_ALIGN_STATE_BLANK);
@@ -5523,7 +5523,7 @@ ctc_align_test_graph_build_edge_stars(void) {
                                             &result)) {
         return ctc_align_test_fail("build edge-star graph");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 2);
     ASSERT(graph.state_count == 9);
     ASSERT(graph.states[0].kind == LRC_CTC_ALIGN_STATE_BLANK);
@@ -5582,7 +5582,7 @@ ctc_align_test_graph_build_segment_stars(void) {
         return ctc_align_test_fail("build segment-star graph");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 3);
     ASSERT(graph.state_count == 11);
     ASSERT(graph.states[1].kind == LRC_CTC_ALIGN_STATE_STAR);
@@ -5620,29 +5620,29 @@ ctc_align_test_graph_rejects_bad_inputs(void) {
     if (lrc_ctc_align_graph_build(NULL, tokens, 1, &result)) {
         return ctc_align_test_fail("missing graph accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_build(&graph, NULL, 1, &result)) {
         return ctc_align_test_fail("missing graph tokens accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_build(&graph, tokens, 0, &result)) {
         return ctc_align_test_fail("zero graph tokens accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
 
     if (lrc_ctc_align_graph_state_count(1, NULL, &result)) {
         return ctc_align_test_fail("missing state-count destination accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_state_count(INT64_MAX/2 + 1,
                                         &state_count,
                                         &result)) {
         return ctc_align_test_fail("huge graph state count accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_TOO_LARGE);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
     ASSERT(state_count == 0);
     ASSERT(graph.states == NULL);
 
@@ -5723,7 +5723,7 @@ ctc_align_test_score_rejects_too_few_repeated_frames(void) {
                                        &result)) {
         return ctc_align_test_fail("too-few repeated frames accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
     ASSERT(result.frame_index == 2);
     ASSERT(result.token_index == 2);
     ASSERT(trellis.scores == NULL);
@@ -5740,7 +5740,7 @@ ctc_align_test_allocate_initializes_to_negative_infinity(void) {
         return ctc_align_test_fail("allocate 3x3 trellis");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(trellis.frame_count == 3);
     ASSERT(trellis.target_token_count == 2);
     ASSERT(trellis.state_count == 5);
@@ -5769,26 +5769,26 @@ ctc_align_test_rejects_invalid_dimensions(void) {
     if (lrc_ctc_trellis_allocate(NULL, 1, 1, &result)) {
         return ctc_align_test_fail("missing trellis accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_trellis_allocate(&trellis, 0, 1, &result)) {
         return ctc_align_test_fail("zero frames accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
     ASSERT(result.frame_index == 0);
     ASSERT(result.token_index == 1);
 
     if (lrc_ctc_trellis_allocate(&trellis, 1, 0, &result)) {
         return ctc_align_test_fail("zero target tokens accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_DIMENSIONS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
     ASSERT(result.frame_index == -1);
     ASSERT(result.token_index == 0);
 
     if (lrc_ctc_trellis_allocate(&trellis, INT64_MAX, 2, &result)) {
         return ctc_align_test_fail("huge trellis accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_TOO_LARGE);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
 
     ASSERT(trellis.scores == NULL);
 
@@ -5815,7 +5815,7 @@ ctc_align_test_prepare_initializes_start_state(void) {
         return ctc_align_test_fail("prepare state trellis");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(trellis.frame_count == 3);
     ASSERT(trellis.target_token_count == 2);
     ASSERT(trellis.state_count == 5);
@@ -5866,7 +5866,7 @@ ctc_align_test_forward_scores_simple_path(void) {
         return ctc_align_test_fail("score simple forward path");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(trellis.state_count == 5);
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
                                  -0.20f,
@@ -5910,7 +5910,7 @@ ctc_align_test_forward_prefers_blank_stay(void) {
         return ctc_align_test_fail("score blank stay path");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(trellis.state_count == 3);
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
                                  -0.30f,
@@ -6053,7 +6053,7 @@ ctc_align_test_forward_rejects_bad_targets(void) {
                                       &result)) {
         return ctc_align_test_fail("missing target ids accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_trellis_score_forward(&trellis,
                                       &emissions,
@@ -6063,7 +6063,7 @@ ctc_align_test_forward_rejects_bad_targets(void) {
                                       &result)) {
         return ctc_align_test_fail("bad target id accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
     ASSERT(result.token_index == 1);
     ASSERT(trellis.scores == NULL);
 
@@ -6104,7 +6104,7 @@ ctc_align_test_backtracks_simple_path(void) {
         return ctc_align_test_fail("backtrack simple path");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(path.step_count == 4);
     ASSERT(path.steps[0].frame_index == 0);
     ASSERT(path.steps[0].state_index == 0);
@@ -6164,7 +6164,7 @@ ctc_align_test_backtracks_repeated_tokens(void) {
         return ctc_align_test_fail("backtrack repeated-token path");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(path.step_count == 4);
     ASSERT(path.steps[1].frame_index == 1);
     ASSERT(path.steps[1].state_index == 1);
@@ -6371,7 +6371,7 @@ ctc_align_test_edge_stars_reject_bad_star_token(void) {
                                                        &result)) {
         return ctc_align_test_fail("target token accepted as star");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
 
     if (lrc_ctc_trellis_score_forward_with_edge_stars(&trellis,
                                                        &emissions,
@@ -6382,7 +6382,7 @@ ctc_align_test_edge_stars_reject_bad_star_token(void) {
                                                        &result)) {
         return ctc_align_test_fail("out-of-range star token accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TARGET_TOKEN);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
 
     lrc_ctc_trellis_destroy(&trellis);
 
@@ -6422,7 +6422,7 @@ ctc_align_test_backtrack_rejects_impossible_alignment(void) {
         return ctc_align_test_fail("impossible path accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_IMPOSSIBLE_ALIGNMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
     ASSERT(path.steps == NULL);
     ASSERT(path.step_count == 0);
     ASSERT(path.step_cap == 0);
@@ -6455,7 +6455,7 @@ ctc_align_test_backtrack_rejects_invalid_trellis(void) {
         return ctc_align_test_fail("unscored trellis accepted");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TRELLIS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TRELLIS);
     ASSERT(path.steps == NULL);
 
     return 0;
@@ -6497,7 +6497,7 @@ ctc_align_test_path_segments_merge_blanks_and_tokens(void) {
         return ctc_align_test_fail("merge blank/token path segments");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(segments.segment_count == 5);
     ASSERT(segments.segments[0].is_blank);
     ASSERT(!segments.segments[0].is_star);
@@ -6944,7 +6944,7 @@ ctc_align_test_token_spans_from_backtracked_path(void) {
         return ctc_align_test_fail("path to token spans");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(spans.span_count == 2);
     ASSERT(spans.spans[0].token_index == 0);
     ASSERT(spans.spans[0].token_id == 1);
@@ -7116,7 +7116,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         return ctc_align_test_fail("missing path accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_path_to_token_spans(&path,
                                     &emissions,
@@ -7125,7 +7125,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         return ctc_align_test_fail("empty path accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_PATH);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
 
     if (!lrc_ctc_path_allocate(&path, 2, &result)) {
         return ctc_align_test_fail("allocate invalid span path");
@@ -7139,7 +7139,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         return ctc_align_test_fail("zero frame duration accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_FRAME_DURATION);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_FRAME_DURATION);
 
     path.steps[1].token_id = 2;
     if (lrc_ctc_path_to_token_spans(&path,
@@ -7149,7 +7149,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         return ctc_align_test_fail("bad path token id accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_PATH);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
     ASSERT(spans.spans == NULL);
 
     lrc_ctc_path_destroy(&path);
@@ -7181,7 +7181,7 @@ ctc_align_test_token_spans_reject_out_of_order_targets(void) {
                                     &result)) {
         return ctc_align_test_fail("out-of-order path target accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_PATH);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
     ASSERT(spans.spans == NULL);
 
     lrc_ctc_path_destroy(&path);
@@ -7688,7 +7688,7 @@ ctc_align_test_word_spans_group_generated_words(void) {
         return ctc_align_test_fail("convert generated word spans");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(word_spans.span_count == 4);
     ctc_align_assert_word_text(&normalized,
                                word_spans.spans + 0,
@@ -8006,7 +8006,7 @@ ctc_align_test_word_spans_keep_repeated_token_positions(void) {
         return ctc_align_test_fail("convert repeated word spans");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(word_spans.span_count == 1);
     ctc_align_assert_word_text(&normalized,
                                word_spans.spans + 0,
@@ -8202,7 +8202,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         return ctc_align_test_fail("missing token spans accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (!ctc_align_load_tokenized_lyrics(text,
                                          strlen32(text),
@@ -8227,7 +8227,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         return ctc_align_test_fail("short token spans accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
     token_spans.span_count += 1;
 
     token_spans.spans[0].token_id = 999;
@@ -8238,7 +8238,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         return ctc_align_test_fail("mismatched token span accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TOKEN_SPANS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
     token_spans.spans[0].token_id = tokens.tokens[0].token_id;
 
     tokens.tokens[0].normalized_end = normalized.text_len;
@@ -8249,7 +8249,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         return ctc_align_test_fail("mixed word/space token accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_TOKENIZED_TEXT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT);
 
     lrc_ctc_word_spans_destroy(&word_spans);
     lrc_ctc_token_spans_destroy(&token_spans);
@@ -8393,7 +8393,7 @@ ctc_align_test_line_timestamps_from_generated_words(void) {
         return ctc_align_test_fail("convert generated line timestamps");
     }
 
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(line_timestamps.line_count == 4);
     ASSERT(line_timestamps.timestamped_line_count == 3);
     ASSERT(line_timestamps.blank_line_count == 1);
@@ -8463,7 +8463,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &result)) {
         return ctc_align_test_fail("missing word spans accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (!ctc_align_load_tokenized_lyrics(text,
                                          strlen32(text),
@@ -8494,7 +8494,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &result)) {
         return ctc_align_test_fail("bad word line accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
     word_spans.spans[0].line_index = 0;
 
     word_spans.spans[1].line_index = 0;
@@ -8505,7 +8505,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &result)) {
         return ctc_align_test_fail("bad word timing accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_WORD_SPANS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
 
     lrc_ctc_line_timestamps_destroy(&line_timestamps);
     lrc_ctc_word_spans_destroy(&word_spans);
@@ -8728,7 +8728,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
         return ctc_align_test_fail("span synthetic full path");
     }
 
-    ASSERT(align_result.error == LRC_CTC_ALIGN_ERROR_NONE);
+    ASSERT(align_result.error == LS_ERROR_NONE);
     ASSERT(spans.span_count == token_count);
     for (int64 i = 0; i < spans.span_count; i += 1) {
         float expected_start;
@@ -9706,20 +9706,20 @@ ctc_align_test_prepare_rejects_invalid_emissions(void) {
     if (lrc_ctc_trellis_prepare(&trellis, NULL, 1, 0, &result)) {
         return ctc_align_test_fail("missing emissions accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     ctc_align_make_emissions(&emissions, values, 1, 2);
     emissions.value_count = 1;
     if (lrc_ctc_trellis_prepare(&trellis, &emissions, 1, 0, &result)) {
         return ctc_align_test_fail("bad emissions value count accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_EMISSIONS);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_EMISSIONS);
 
     ctc_align_make_emissions(&emissions, values, 1, 2);
     if (lrc_ctc_trellis_prepare(&trellis, &emissions, 1, 2, &result)) {
         return ctc_align_test_fail("bad blank token accepted");
     }
-    ASSERT(result.error == LRC_CTC_ALIGN_ERROR_INVALID_BLANK_TOKEN);
+    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_BLANK_TOKEN);
     ASSERT(result.token_index == 2);
 
     ASSERT(trellis.scores == NULL);

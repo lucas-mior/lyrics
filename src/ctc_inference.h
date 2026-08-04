@@ -2,6 +2,7 @@
 #define CTC_INFERENCE_H
 
 #include "cbase.h"
+#include "errors.h"
 #include "ctc_model.h"
 #include "ort.h"
 
@@ -11,19 +12,6 @@
 #define LRC_CTC_INFERENCE_ENABLE_ORT 0
 #endif
 
-enum LrcCtcInferenceError {
-    LRC_CTC_INFERENCE_ERROR_NONE,
-    LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
-    LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
-    LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
-    LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
-    LRC_CTC_INFERENCE_ERROR_NON_FINITE_OUTPUT,
-    LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY,
-    LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
-    LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
-    LRC_CTC_INFERENCE_ERROR_MODEL_LOAD_FAILED,
-};
-
 enum LrcCtcEmissionValuesKind {
     LRC_CTC_EMISSION_VALUES_LOG_PROBABILITIES,
     LRC_CTC_EMISSION_VALUES_LOGITS,
@@ -31,7 +19,7 @@ enum LrcCtcEmissionValuesKind {
 };
 
 typedef struct LrcCtcInferenceResult {
-    enum LrcCtcInferenceError error;
+    enum LsError error;
     char *message;
 
     int64 output_index;

@@ -2,19 +2,8 @@
 #define LYRICS_FILE_H
 
 #include "cbase.h"
+#include "errors.h"
 #include "ctc_text.h"
-
-
-enum LrcLyricsLoadError {
-    LRC_LYRICS_LOAD_ERROR_NONE,
-    LRC_LYRICS_LOAD_ERROR_INVALID_ARGUMENT,
-    LRC_LYRICS_LOAD_ERROR_MISSING_PATH,
-    LRC_LYRICS_LOAD_ERROR_OPEN_FAILED,
-    LRC_LYRICS_LOAD_ERROR_READ_FAILED,
-    LRC_LYRICS_LOAD_ERROR_FILE_TOO_LARGE,
-    LRC_LYRICS_LOAD_ERROR_INVALID_UTF8,
-    LRC_LYRICS_LOAD_ERROR_EMPTY,
-};
 
 typedef struct LrcLyricsLine {
     char *text;
@@ -38,7 +27,7 @@ struct LrcLyrics {
 };
 
 typedef struct LrcLyricsLoadResult {
-    enum LrcLyricsLoadError error;
+    enum LsError error;
     char *message;
     char *path;
 

@@ -2,37 +2,11 @@
 #define LRC_H
 
 #include "cbase.h"
-
-enum LrcParseError {
-    LRC_PARSE_ERROR_NONE,
-    LRC_PARSE_ERROR_INVALID_ARGUMENT,
-    LRC_PARSE_ERROR_TOO_LARGE,
-    LRC_PARSE_ERROR_MALFORMED_TIMESTAMP,
-    LRC_PARSE_ERROR_UNTIMED_TEXT,
-};
+#include "errors.h"
 
 enum LrcParsedLineKind {
     LRC_PARSED_LINE_KIND_TIMESTAMPED,
     LRC_PARSED_LINE_KIND_BLANK,
-};
-
-enum LrcFormatError {
-    LRC_FORMAT_ERROR_NONE,
-    LRC_FORMAT_ERROR_INVALID_ARGUMENT,
-    LRC_FORMAT_ERROR_INVALID_TIMESTAMP,
-    LRC_FORMAT_ERROR_TOO_LARGE,
-};
-
-enum LrcWriteError {
-    LRC_WRITE_ERROR_NONE,
-    LRC_WRITE_ERROR_INVALID_ARGUMENT,
-    LRC_WRITE_ERROR_INVALID_LINE,
-    LRC_WRITE_ERROR_FORMAT_FAILED,
-    LRC_WRITE_ERROR_TEMP_PATH_TOO_LONG,
-    LRC_WRITE_ERROR_TEMP_OPEN_FAILED,
-    LRC_WRITE_ERROR_WRITE_FAILED,
-    LRC_WRITE_ERROR_CLOSE_FAILED,
-    LRC_WRITE_ERROR_RENAME_FAILED,
 };
 
 enum LrcOutputLineKind {
@@ -52,7 +26,7 @@ typedef struct LrcParsedLine {
 } LrcParsedLine;
 
 typedef struct LrcParseResult {
-    enum LrcParseError error;
+    enum LsError error;
     char *message;
 
     int32 line_index;
@@ -60,7 +34,7 @@ typedef struct LrcParseResult {
 } LrcParseResult;
 
 typedef struct LrcFormatResult {
-    enum LrcFormatError error;
+    enum LsError error;
     char *message;
 
     float seconds;
@@ -68,8 +42,8 @@ typedef struct LrcFormatResult {
 } LrcFormatResult;
 
 typedef struct LrcWriteResult {
-    enum LrcWriteError error;
-    enum LrcFormatError format_error;
+    enum LsError error;
+    enum LsError format_error;
     char *message;
     char *path;
 

@@ -18,7 +18,7 @@ lrc_ctc_inference_result_init(LrcCtcInferenceResult *result) {
         return;
     }
 
-    result->error = LRC_CTC_INFERENCE_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
 
     result->output_index = -1;
@@ -29,7 +29,7 @@ lrc_ctc_inference_result_init(LrcCtcInferenceResult *result) {
 static void
 lrc_ctc_inference_result_set(
     LrcCtcInferenceResult *result,
-    enum LrcCtcInferenceError error,
+    enum LsError error,
     char *message,
     int64 output_index
 ) {
@@ -83,7 +83,7 @@ lrc_ctc_emissions_shape_valid(
         || (shape_len > LRC_CTC_EMISSIONS_MAX_RANK)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC emissions must have rank 2 or rank 3",
             -1
         );
@@ -102,7 +102,7 @@ lrc_ctc_emissions_shape_valid(
     if ((rows <= 0) || (row_emissions <= 0) || (vocab <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC emissions have invalid dimensions",
             -1
         );
@@ -111,7 +111,7 @@ lrc_ctc_emissions_shape_valid(
     if (rows > INT64_MAX/row_emissions) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC emissions frame count is too large",
             -1
         );
@@ -121,7 +121,7 @@ lrc_ctc_emissions_shape_valid(
     if (total_emissions > INT64_MAX/vocab) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC emissions tensor is too large",
             -1
         );
@@ -147,7 +147,7 @@ lrc_ctc_emissions_values_valid(
     if ((values == NULL) || (value_count <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC emissions values are missing",
             -1
         );
@@ -158,7 +158,7 @@ lrc_ctc_emissions_values_valid(
         if (!isfinite((double)values[i])) {
             lrc_ctc_inference_result_set(
                 result,
-                LRC_CTC_INFERENCE_ERROR_NON_FINITE_OUTPUT,
+                LS_ERROR_CTC_INFERENCE_NON_FINITE_OUTPUT,
                 "CTC emissions contain a non-finite value",
                 i
             );
@@ -190,7 +190,7 @@ lrc_ctc_emissions_copy_shape(
     if (emissions == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC emissions destination is missing",
             -1
         );
@@ -211,7 +211,7 @@ lrc_ctc_emissions_copy_shape(
     if (value_count != expected_count) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC emissions value count does not match shape",
             -1
         );
@@ -223,7 +223,7 @@ lrc_ctc_emissions_copy_shape(
     if (value_count > INT64_MAX/SIZEOF(*emissions->values)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC emissions copy is too large",
             -1
         );
@@ -255,7 +255,7 @@ lrc_ctc_emissions_value_count(
     if (value_count == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC trimmed emission value count destination is missing",
             -1
         );
@@ -265,7 +265,7 @@ lrc_ctc_emissions_value_count(
     if ((emission_count <= 0) || (vocabulary_size <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC trimmed emissions have invalid dimensions",
             -1
         );
@@ -274,7 +274,7 @@ lrc_ctc_emissions_value_count(
     if (emission_count > INT64_MAX/vocabulary_size) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC trimmed emissions frame count is too large",
             -1
         );
@@ -285,7 +285,7 @@ lrc_ctc_emissions_value_count(
     if (*value_count > INT64_MAX/SIZEOF(float)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC trimmed emissions copy is too large",
             -1
         );
@@ -304,7 +304,7 @@ lrc_ctc_emissions_input_chunks_ready(
     if ((input == NULL) || (input->chunks == NULL)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_INPUT,
             "CTC rank-3 emission trimming requires chunk metadata",
             -1
         );
@@ -313,7 +313,7 @@ lrc_ctc_emissions_input_chunks_ready(
     if ((input->chunk_count <= 0) || (input->chunk_count != raw_chunk_count)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC rank-3 output chunk count does not match input metadata",
             -1
         );
@@ -327,7 +327,7 @@ lrc_ctc_emissions_input_chunks_ready(
                 < input->original_emission_count)) {
             lrc_ctc_inference_result_set(
                 result,
-                LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
+                LS_ERROR_CTC_INFERENCE_INVALID_INPUT,
                 "CTC input chunk metadata is invalid",
                 -1
             );
@@ -348,7 +348,7 @@ lrc_ctc_emissions_output_frame_count(
     if (output_frame_count == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC trimmed output frame count destination is missing",
             -1
         );
@@ -358,7 +358,7 @@ lrc_ctc_emissions_output_frame_count(
     if ((input == NULL) || (raw_chunk_emission_count <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC trimmed output frame count arguments are invalid",
             -1
         );
@@ -373,7 +373,7 @@ lrc_ctc_emissions_output_frame_count(
     if (*output_frame_count <= 0) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC rank-3 output trimming produced no frames",
             -1
         );
@@ -400,7 +400,7 @@ lrc_ctc_emissions_chunk_trim_range(
         || (kept_count == NULL)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_INPUT,
             "CTC input chunk metadata entry is missing",
             chunk_index
         );
@@ -411,7 +411,7 @@ lrc_ctc_emissions_chunk_trim_range(
     if (raw_chunk_emission_count <= 0) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC rank-3 output chunk has invalid frame count",
             chunk_index
         );
@@ -430,7 +430,7 @@ lrc_ctc_emissions_chunk_trim_range(
         || (count > raw_chunk_emission_count - offset)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC rank-3 output is too short for input chunk trimming",
             chunk_index
         );
@@ -477,7 +477,7 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     if (value_count != raw_value_count) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC rank-3 output value count does not match shape",
             -1
         );
@@ -486,7 +486,7 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     if (values == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC rank-3 output values are missing",
             -1
         );
@@ -560,7 +560,7 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     if (kept_frame != output_frame_count) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC rank-3 output trimming produced too few frames",
             kept_frame
         );
@@ -608,7 +608,7 @@ lrc_ctc_emissions_copy_model_output(
     if (emissions == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC emissions destination is missing",
             -1
         );
@@ -636,7 +636,7 @@ lrc_ctc_emissions_copy_model_output(
 
     lrc_ctc_inference_result_set(
         result,
-        LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+        LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
         "CTC emissions must have rank 2 or rank 3",
         -1
     );
@@ -651,7 +651,7 @@ lrc_ctc_emissions_ready(
     if (emissions == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC emissions are missing",
             -1
         );
@@ -662,7 +662,7 @@ lrc_ctc_emissions_ready(
         || (emissions->vocabulary_size <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC emissions are not prepared",
             -1
         );
@@ -672,7 +672,7 @@ lrc_ctc_emissions_ready(
         > INT64_MAX/emissions->vocabulary_size) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC emissions dimensions are too large",
             -1
         );
@@ -682,7 +682,7 @@ lrc_ctc_emissions_ready(
         != emissions->frame_count*emissions->vocabulary_size) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC emissions value count does not match dimensions",
             -1
         );
@@ -706,7 +706,7 @@ lrc_ctc_emissions_log_softmax_row(
     if ((row == NULL) || (vocabulary_size <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC log-softmax row arguments are invalid",
             row_offset
         );
@@ -727,7 +727,7 @@ lrc_ctc_emissions_log_softmax_row(
     if (!isfinite(sum) || (sum <= 0.0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY,
+            LS_ERROR_CTC_INFERENCE_INVALID_PROBABILITY,
             "CTC log-softmax row has invalid normalizer",
             row_offset
         );
@@ -752,7 +752,7 @@ lrc_ctc_emissions_log_probabilities_from_probabilities_row(
     if ((row == NULL) || (vocabulary_size <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC probability row arguments are invalid",
             row_offset
         );
@@ -763,7 +763,7 @@ lrc_ctc_emissions_log_probabilities_from_probabilities_row(
         if (!isfinite((double)row[i]) || (row[i] <= 0.0f)) {
             lrc_ctc_inference_result_set(
                 result,
-                LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY,
+                LS_ERROR_CTC_INFERENCE_INVALID_PROBABILITY,
                 "CTC probabilities must be finite and positive",
                 row_offset + i
             );
@@ -823,7 +823,7 @@ lrc_ctc_emissions_convert_to_log_probabilities(
     default:
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC emission value kind is invalid",
             -1
         );
@@ -871,7 +871,7 @@ lrc_ctc_inference_input_ready(
     if (input == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC inference input is missing",
             -1
         );
@@ -881,7 +881,7 @@ lrc_ctc_inference_input_ready(
         || (input->shape_len != LRC_CTC_MODEL_INPUT_RANK)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_INPUT,
             "CTC inference input tensor is not prepared",
             -1
         );
@@ -905,7 +905,7 @@ lrc_ctc_inference_run(
         || (emissions == NULL)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC inference backend arguments are invalid",
             -1
         );
@@ -1009,7 +1009,7 @@ lrc_ctc_fake_inference_run(
     if (fake == NULL) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "fake CTC inference backend is missing",
             -1
         );
@@ -1142,7 +1142,7 @@ lrc_ctc_onnx_chunk_output_shape(
         || (chunk_value_count == NULL)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC chunk output shape arguments are invalid",
             chunk_index
         );
@@ -1163,7 +1163,7 @@ lrc_ctc_onnx_chunk_output_shape(
     } else {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC chunk output must have rank 2 or rank 3",
             chunk_index
         );
@@ -1183,7 +1183,7 @@ lrc_ctc_onnx_chunk_output_shape(
     if (row_count != 1) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC chunk output batch size must be one",
             chunk_index
         );
@@ -1192,7 +1192,7 @@ lrc_ctc_onnx_chunk_output_shape(
     if (output->data_len != value_count) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC chunk output value count does not match shape",
             chunk_index
         );
@@ -1220,7 +1220,7 @@ lrc_ctc_onnx_inference_load(
     if ((onnx == NULL) || (model_path == NULL) || (model_path[0] == '\0')) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC ONNX inference load received invalid arguments",
             -1
         );
@@ -1232,7 +1232,7 @@ lrc_ctc_onnx_inference_load(
     if (!ort_context_init(&onnx->context)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_MODEL_LOAD_FAILED,
+            LS_ERROR_CTC_INFERENCE_MODEL_LOAD_FAILED,
             "could not initialize ONNX Runtime for CTC inference",
             -1
         );
@@ -1243,7 +1243,7 @@ lrc_ctc_onnx_inference_load(
     if (!ort_model_load(&onnx->context, &onnx->model, model_path)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_MODEL_LOAD_FAILED,
+            LS_ERROR_CTC_INFERENCE_MODEL_LOAD_FAILED,
             "could not load CTC ONNX model",
             -1
         );
@@ -1260,7 +1260,7 @@ lrc_ctc_onnx_inference_load(
     (void)session_config;
     lrc_ctc_inference_result_set(
         result,
-        LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
+        LS_ERROR_CTC_INFERENCE_BACKEND_UNAVAILABLE,
         "CTC ONNX inference backend is not enabled in this build",
         -1
     );
@@ -1293,7 +1293,7 @@ lrc_ctc_onnx_chunked_prepare_values(
         || (chunk_value_count <= 0)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT,
             "CTC chunked output allocation arguments are invalid",
             -1
         );
@@ -1306,7 +1306,7 @@ lrc_ctc_onnx_chunked_prepare_values(
         || (input->chunk_count > INT64_MAX/chunk_value_count)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC chunked output tensor is too large",
             -1
         );
@@ -1317,7 +1317,7 @@ lrc_ctc_onnx_chunked_prepare_values(
     if (*value_count > INT64_MAX/SIZEOF(**values)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_OUTPUT_TOO_LARGE,
+            LS_ERROR_CTC_INFERENCE_OUTPUT_TOO_LARGE,
             "CTC chunked output copy is too large",
             -1
         );
@@ -1353,7 +1353,7 @@ lrc_ctc_onnx_run_one_chunk(
                                LRC_CTC_MODEL_INPUT_RANK)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
+            LS_ERROR_CTC_INFERENCE_BACKEND_FAILED,
             "could not create CTC ONNX chunk input tensor",
             chunk_index
         );
@@ -1365,7 +1365,7 @@ lrc_ctc_onnx_run_one_chunk(
                            output)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
+            LS_ERROR_CTC_INFERENCE_BACKEND_FAILED,
             "could not run CTC ONNX chunk inference",
             chunk_index
         );
@@ -1420,7 +1420,7 @@ lrc_ctc_onnx_chunked_copy_output(
                || (current_value_count != *chunk_value_count)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT,
             "CTC chunk output shape changed between chunks",
             chunk_index
         );
@@ -1545,7 +1545,7 @@ lrc_ctc_onnx_inference_run(
     if ((onnx == NULL) || !onnx->loaded) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
+            LS_ERROR_CTC_INFERENCE_BACKEND_UNAVAILABLE,
             "CTC ONNX inference backend is not loaded",
             -1
         );
@@ -1557,7 +1557,7 @@ lrc_ctc_onnx_inference_run(
                                               &input_result)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_INVALID_INPUT,
+            LS_ERROR_CTC_INFERENCE_INVALID_INPUT,
             "CTC model input does not match ONNX model input",
             -1
         );
@@ -1583,7 +1583,7 @@ lrc_ctc_onnx_inference_run(
                                input->shape_len)) {
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
+            LS_ERROR_CTC_INFERENCE_BACKEND_FAILED,
             "could not create CTC ONNX input tensor",
             -1
         );
@@ -1616,7 +1616,7 @@ lrc_ctc_onnx_inference_run(
         lrc_progress_cancel(&progress);
         lrc_ctc_inference_result_set(
             result,
-            LRC_CTC_INFERENCE_ERROR_BACKEND_FAILED,
+            LS_ERROR_CTC_INFERENCE_BACKEND_FAILED,
             "could not run CTC ONNX inference",
             -1
         );
@@ -1634,7 +1634,7 @@ lrc_ctc_onnx_inference_run(
     (void)print_progress;
     lrc_ctc_inference_result_set(
         result,
-        LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE,
+        LS_ERROR_CTC_INFERENCE_BACKEND_UNAVAILABLE,
         "CTC ONNX inference backend is not enabled in this build",
         -1
     );
@@ -1876,7 +1876,7 @@ ctc_inference_test_empty_initializers(void) {
     lrc_ctc_inference_result_init(&result);
     lrc_ctc_fake_inference_backend(&fake, &backend);
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
     ASSERT(result.output_index == -1);
 
@@ -1919,7 +1919,7 @@ ctc_inference_test_fake_rank2(void) {
         return ctc_inference_test_fail("run fake rank-2 backend");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(emissions.value_count == 6);
     ASSERT(emissions.row_count == 1);
     ASSERT(emissions.row_frame_count == 2);
@@ -2077,7 +2077,7 @@ ctc_inference_test_rank3_logits_converted_after_trim(void) {
         return ctc_inference_test_fail("run rank-3 logits backend");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(emissions.frame_count == 2);
     ASSERT(emissions.vocabulary_size == 2);
     ASSERT(ctc_inference_float_close(emissions.values[0],
@@ -2135,7 +2135,7 @@ ctc_inference_test_rank3_probability_trim_before_convert(void) {
         return ctc_inference_test_fail("run rank-3 probabilities backend");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(emissions.frame_count == 2);
     ASSERT(emissions.vocabulary_size == 2);
     ASSERT(ctc_inference_float_close(emissions.values[0],
@@ -2202,7 +2202,7 @@ ctc_inference_test_rank3_accepts_short_actual_model_length(void) {
         return ctc_inference_test_fail("run short actual rank-3 output");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(emissions.frame_count == 3);
     ASSERT(emissions.value_count == 3);
     ASSERT(emissions.values[0] == 10.0f);
@@ -2262,7 +2262,7 @@ ctc_inference_test_rank3_accepts_wav2vec_actual_chunk_length(void) {
         return ctc_inference_test_fail("run actual wav2vec rank-3 output");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(emissions.frame_count == LENGTH(expected));
     for (int32 i = 0; i < LENGTH(expected); i += 1) {
         ASSERT(emissions.values[i] == expected[i]);
@@ -2549,7 +2549,7 @@ ctc_inference_test_onnx_chunk_output_shape(void) {
                                         &result)) {
         return ctc_inference_test_fail("multi-row chunk output accepted");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT);
 
     return 0;
 }
@@ -2585,7 +2585,7 @@ ctc_inference_test_rank3_rejects_mismatched_chunks(void) {
     if (lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
         return ctc_inference_test_fail("mismatched rank-3 chunks accepted");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_OUTPUT);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_INVALID_OUTPUT);
 
     return 0;
 }
@@ -2605,18 +2605,18 @@ ctc_inference_test_rejects_invalid_inputs(void) {
     if (lrc_ctc_inference_run(NULL, &input, &emissions, &result)) {
         return ctc_inference_test_fail("missing backend accepted");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT);
 
     if (lrc_ctc_inference_run(&backend, NULL, &emissions, &result)) {
         return ctc_inference_test_fail("missing input accepted");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT);
 
     input.samples = NULL;
     if (lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
         return ctc_inference_test_fail("unprepared input accepted");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_INPUT);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_INVALID_INPUT);
     ctc_inference_make_input(&input);
 
     if (lrc_ctc_fake_inference_set(&fake, values, 1, 2)) {
@@ -2624,7 +2624,7 @@ ctc_inference_test_rejects_invalid_inputs(void) {
         if (lrc_ctc_inference_run(&backend, &input, &emissions, &result)) {
             return ctc_inference_test_fail("non-finite emissions accepted");
         }
-        ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NON_FINITE_OUTPUT);
+        ASSERT(result.error == LS_ERROR_CTC_INFERENCE_NON_FINITE_OUTPUT);
         ASSERT(result.output_index == 1);
     } else {
         return ctc_inference_test_fail("set non-finite fake emissions");
@@ -2690,7 +2690,7 @@ ctc_inference_test_log_probability_bypass(void) {
         return ctc_inference_test_fail("bypass log probabilities");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     for (int32 i = 0; i < LENGTH(values); i += 1) {
         ASSERT(emissions.values[i] == values[i]);
     }
@@ -2734,7 +2734,7 @@ ctc_inference_test_logits_to_log_probabilities(void) {
         return ctc_inference_test_fail("convert logits to log probabilities");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(ctc_inference_float_close(emissions.values[0],
                                      (float)-row1_norm,
                                      0.00001f));
@@ -2788,7 +2788,7 @@ ctc_inference_test_probabilities_to_log_probabilities(void) {
         return ctc_inference_test_fail("convert probabilities");
     }
 
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(ctc_inference_float_close(emissions.values[0],
                                      logf(values[0]),
                                      0.00001f));
@@ -2830,7 +2830,7 @@ ctc_inference_test_rejects_invalid_probability_conversion(void) {
             &result)) {
         return ctc_inference_test_fail("zero probability accepted");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_PROBABILITY);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_INVALID_PROBABILITY);
     ASSERT(result.output_index == 1);
 
     values[1] = 1.0f;
@@ -2848,7 +2848,7 @@ ctc_inference_test_rejects_invalid_probability_conversion(void) {
             &result)) {
         return ctc_inference_test_fail("invalid value kind accepted");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_INVALID_ARGUMENT);
 
     lrc_ctc_emissions_destroy(&emissions);
 
@@ -2898,7 +2898,7 @@ ctc_inference_test_optional_onnx_backend(void) {
                                      &result)) {
         return ctc_inference_test_fail("disabled ONNX backend loaded");
     }
-    ASSERT(result.error == LRC_CTC_INFERENCE_ERROR_BACKEND_UNAVAILABLE);
+    ASSERT(result.error == LS_ERROR_CTC_INFERENCE_BACKEND_UNAVAILABLE);
 #endif
 
     return 0;

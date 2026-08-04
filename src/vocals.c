@@ -25,7 +25,7 @@ lrc_vocals_extract_result_init(LrcVocalsExtractResult *result) {
         return;
     }
 
-    result->error = LRC_VOCALS_EXTRACT_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
     result->path = NULL;
 
@@ -35,7 +35,7 @@ lrc_vocals_extract_result_init(LrcVocalsExtractResult *result) {
 static void
 vocals_extract_result_set(
     LrcVocalsExtractResult *result,
-    enum LrcVocalsExtractError error,
+    enum LsError error,
     char *message,
     char *path
 ) {
@@ -121,7 +121,7 @@ vocals_request_valid(
     if (request == NULL) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
             "vocals extraction request is missing",
             NULL
         );
@@ -130,7 +130,7 @@ vocals_request_valid(
     if (path_missing(request->input_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MISSING_INPUT,
+            LS_ERROR_VOCALS_EXTRACT_MISSING_INPUT,
             "input audio path is missing",
             request->input_path
         );
@@ -139,7 +139,7 @@ vocals_request_valid(
     if (path_missing(request->output_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MISSING_OUTPUT,
+            LS_ERROR_VOCALS_EXTRACT_MISSING_OUTPUT,
             "output vocals path is missing",
             request->output_path
         );
@@ -148,7 +148,7 @@ vocals_request_valid(
     if (path_missing(request->model_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MISSING_MODEL,
+            LS_ERROR_VOCALS_EXTRACT_MISSING_MODEL,
             "vocals extraction model path is missing",
             request->model_path
         );
@@ -157,7 +157,7 @@ vocals_request_valid(
     if (path_missing(request->temp_dir)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MISSING_TEMP_DIR,
+            LS_ERROR_VOCALS_EXTRACT_MISSING_TEMP_DIR,
             "temporary directory path is missing",
             request->temp_dir
         );
@@ -166,7 +166,7 @@ vocals_request_valid(
     if (path_missing(request->ffmpeg_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MISSING_FFMPEG,
+            LS_ERROR_VOCALS_EXTRACT_MISSING_FFMPEG,
             "FFmpeg executable path is missing",
             request->ffmpeg_path
         );
@@ -175,7 +175,7 @@ vocals_request_valid(
     if (path_missing(request->container_format)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
             "output container format is missing",
             request->container_format
         );
@@ -184,7 +184,7 @@ vocals_request_valid(
     if (!audio_io_format_valid(&request->output_format)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
             "output audio format is invalid",
             NULL
         );
@@ -210,7 +210,7 @@ vocals_prepare_runtime(
     if (!audio_check_ffmpeg(config->ffmpeg_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_FFMPEG_UNAVAILABLE,
+            LS_ERROR_VOCALS_EXTRACT_FFMPEG_UNAVAILABLE,
             "could not run ffmpeg",
             config->ffmpeg_path
         );
@@ -220,7 +220,7 @@ vocals_prepare_runtime(
     if (!audio_can_decode_file(input_path, config->ffmpeg_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_INPUT_DECODE_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_INPUT_DECODE_FAILED,
             "could not decode input audio with ffmpeg",
             input_path
         );
@@ -230,7 +230,7 @@ vocals_prepare_runtime(
     if (!util_file_exists(config->model_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MODEL_OPEN_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_MODEL_OPEN_FAILED,
             "could not read ONNX model",
             config->model_path
         );
@@ -240,7 +240,7 @@ vocals_prepare_runtime(
     if (!stft_plan_init(stft_plan, mdx_config->n_fft, mdx_config->hop)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_STFT_INIT_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_STFT_INIT_FAILED,
             "could not initialize STFT plan",
             NULL
         );
@@ -250,7 +250,7 @@ vocals_prepare_runtime(
     if (!ort_context_init(ort_context)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_ORT_INIT_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_ORT_INIT_FAILED,
             "could not initialize ONNX Runtime",
             NULL
         );
@@ -262,7 +262,7 @@ vocals_prepare_runtime(
     if (!ort_model_load(ort_context, ort_model, config->model_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_ORT_MODEL_LOAD_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_ORT_MODEL_LOAD_FAILED,
             "could not load ONNX model",
             config->model_path
         );
@@ -272,7 +272,7 @@ vocals_prepare_runtime(
     if (!mdx_model_inspect(mdx_info, mdx_config, ort_model)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_UNSUPPORTED_MDX_MODEL,
+            LS_ERROR_VOCALS_EXTRACT_UNSUPPORTED_MDX_MODEL,
             "ONNX model is not a supported MDX-Net model",
             config->model_path
         );
@@ -282,7 +282,7 @@ vocals_prepare_runtime(
     if (!mdx_config_prepare(mdx_config)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MDX_CONFIG_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_MDX_CONFIG_FAILED,
             "could not prepare MDX configuration",
             NULL
         );
@@ -312,7 +312,7 @@ vocals_read_input_audio(
                                 ffmpeg_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_INPUT_READ_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_INPUT_READ_FAILED,
             "could not decode input audio",
             input_path
         );
@@ -348,7 +348,7 @@ vocals_extract_audio(
     if ((output_audio == NULL) || (input_path == NULL) || (config == NULL)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
             "vocals extraction received invalid arguments",
             NULL
         );
@@ -406,7 +406,7 @@ vocals_extract_audio(
                                          config->print_info)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_MDX_PROCESS_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_MDX_PROCESS_FAILED,
             "could not process audio through MDX model",
             NULL
         );
@@ -461,7 +461,7 @@ lrc_extract_vocals(
                                  request->ffmpeg_path)) {
         vocals_extract_result_set(
             result,
-            LRC_VOCALS_EXTRACT_ERROR_OUTPUT_WRITE_FAILED,
+            LS_ERROR_VOCALS_EXTRACT_OUTPUT_WRITE_FAILED,
             "could not write output audio",
             request->output_path
         );
@@ -520,7 +520,7 @@ vocals_test_request_defaults(void) {
     ASSERT(request.output_format.channel_count == 2);
     ASSERT(request.mdx_config.sample_rate == 44100);
     ASSERT(request.mdx_config.channel_count == 2);
-    ASSERT(result.error == LRC_VOCALS_EXTRACT_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
     ASSERT(result.path == NULL);
 
@@ -536,7 +536,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         return vocals_test_fail("missing input accepted");
     }
-    if (result.error != LRC_VOCALS_EXTRACT_ERROR_MISSING_INPUT) {
+    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_INPUT) {
         return vocals_test_fail("missing input error");
     }
 
@@ -544,7 +544,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         return vocals_test_fail("missing output accepted");
     }
-    if (result.error != LRC_VOCALS_EXTRACT_ERROR_MISSING_OUTPUT) {
+    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_OUTPUT) {
         return vocals_test_fail("missing output error");
     }
 
@@ -552,7 +552,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         return vocals_test_fail("missing model accepted");
     }
-    if (result.error != LRC_VOCALS_EXTRACT_ERROR_MISSING_MODEL) {
+    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_MODEL) {
         return vocals_test_fail("missing model error");
     }
 
@@ -561,7 +561,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         return vocals_test_fail("missing temp dir accepted");
     }
-    if (result.error != LRC_VOCALS_EXTRACT_ERROR_MISSING_TEMP_DIR) {
+    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_TEMP_DIR) {
         return vocals_test_fail("missing temp dir error");
     }
 
@@ -570,7 +570,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         return vocals_test_fail("missing ffmpeg accepted");
     }
-    if (result.error != LRC_VOCALS_EXTRACT_ERROR_MISSING_FFMPEG) {
+    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_FFMPEG) {
         return vocals_test_fail("missing ffmpeg error");
     }
 
@@ -579,7 +579,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         return vocals_test_fail("invalid output format accepted");
     }
-    if (result.error != LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT) {
+    if (result.error != LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT) {
         return vocals_test_fail("invalid output format error");
     }
 
@@ -601,7 +601,7 @@ vocals_test_missing_external_resources(void) {
     if (lrc_extract_vocals(&request, &result)) {
         return vocals_test_fail("missing ffmpeg extraction accepted");
     }
-    if (result.error != LRC_VOCALS_EXTRACT_ERROR_FFMPEG_UNAVAILABLE) {
+    if (result.error != LS_ERROR_VOCALS_EXTRACT_FFMPEG_UNAVAILABLE) {
         return vocals_test_fail("missing ffmpeg extraction error");
     }
 

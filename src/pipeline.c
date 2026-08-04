@@ -37,7 +37,7 @@ typedef struct LrcPipelineLineTimingAudio {
 static void
 lrc_pipeline_error_set(
     LrcPipeline *pipeline,
-    enum LrcPipelineError error,
+    enum LsError error,
     char *message,
     char *path
 ) {
@@ -55,7 +55,7 @@ lrc_pipeline_error_set(
 static void
 lrc_pipeline_vocals_result_set(
     LrcVocalsExtractResult *result,
-    enum LrcVocalsExtractError error,
+    enum LsError error,
     char *message,
     char *path
 ) {
@@ -77,7 +77,7 @@ lrc_pipeline_store_owned_temp_dir(LrcPipeline *pipeline) {
     if (path_missing(pipeline->config.temp_dir)) {
         lrc_pipeline_error_set(
             pipeline,
-            LRC_PIPELINE_ERROR_TEMP_DIR_MISSING,
+            LS_ERROR_PIPELINE_TEMP_DIR_MISSING,
             "temporary directory path is missing",
             pipeline->config.temp_dir
         );
@@ -91,7 +91,7 @@ lrc_pipeline_store_owned_temp_dir(LrcPipeline *pipeline) {
     if ((len <= 0) || (len >= SIZEOF(pipeline->owned_temp_dir))) {
         lrc_pipeline_error_set(
             pipeline,
-            LRC_PIPELINE_ERROR_TEMP_PATH_TOO_LONG,
+            LS_ERROR_PIPELINE_TEMP_PATH_TOO_LONG,
             "temporary directory path is too long",
             pipeline->config.temp_dir
         );
@@ -101,7 +101,7 @@ lrc_pipeline_store_owned_temp_dir(LrcPipeline *pipeline) {
     if (mkdtemp(pipeline->owned_temp_dir) == NULL) {
         lrc_pipeline_error_set(
             pipeline,
-            LRC_PIPELINE_ERROR_TEMP_DIR_CREATE_FAILED,
+            LS_ERROR_PIPELINE_TEMP_DIR_CREATE_FAILED,
             "could not create temporary directory",
             pipeline->owned_temp_dir
         );
@@ -130,7 +130,7 @@ lrc_pipeline_store_owned_vocals_path(LrcPipeline *pipeline) {
     if ((len <= 0) || (len >= SIZEOF(pipeline->owned_vocals_path))) {
         lrc_pipeline_error_set(
             pipeline,
-            LRC_PIPELINE_ERROR_TEMP_PATH_TOO_LONG,
+            LS_ERROR_PIPELINE_TEMP_PATH_TOO_LONG,
             "temporary vocals path is too long",
             pipeline->owned_temp_dir
         );
@@ -203,7 +203,7 @@ lrc_pipeline_init(LrcPipeline *pipeline, LrcPipelineConfig *config) {
 
     memset64(pipeline, 0, SIZEOF(*pipeline));
     lrc_pipeline_error_set(pipeline,
-                           LRC_PIPELINE_ERROR_NONE,
+                           LS_ERROR_NONE,
                            "ok",
                            NULL);
 
@@ -229,7 +229,7 @@ lrc_pipeline_prepare(LrcPipeline *pipeline) {
     }
 
     lrc_pipeline_error_set(pipeline,
-                           LRC_PIPELINE_ERROR_NONE,
+                           LS_ERROR_NONE,
                            "ok",
                            NULL);
 
@@ -257,7 +257,7 @@ lrc_pipeline_cleanup(LrcPipeline *pipeline) {
         if ((unlink(pipeline->owned_vocals_path) < 0) && (errno != ENOENT)) {
             lrc_pipeline_error_set(
                 pipeline,
-                LRC_PIPELINE_ERROR_TEMP_CLEANUP_FAILED,
+                LS_ERROR_PIPELINE_TEMP_CLEANUP_FAILED,
                 "could not remove temporary vocals file",
                 pipeline->owned_vocals_path
             );
@@ -269,7 +269,7 @@ lrc_pipeline_cleanup(LrcPipeline *pipeline) {
         if ((rmdir(pipeline->owned_temp_dir) < 0) && (errno != ENOENT)) {
             lrc_pipeline_error_set(
                 pipeline,
-                LRC_PIPELINE_ERROR_TEMP_CLEANUP_FAILED,
+                LS_ERROR_PIPELINE_TEMP_CLEANUP_FAILED,
                 "could not remove temporary directory",
                 pipeline->owned_temp_dir
             );
@@ -295,7 +295,7 @@ lrc_pipeline_vocals_request(
         if (pipeline) {
             lrc_pipeline_error_set(
                 pipeline,
-                LRC_PIPELINE_ERROR_INVALID_ARGUMENT,
+                LS_ERROR_PIPELINE_INVALID_ARGUMENT,
                 "pipeline vocals request received invalid arguments",
                 NULL
             );
@@ -310,7 +310,7 @@ lrc_pipeline_vocals_request(
     if (!path_missing(pipeline->config.existing_vocals_path)) {
         lrc_pipeline_error_set(
             pipeline,
-            LRC_PIPELINE_ERROR_VOCALS_ALREADY_AVAILABLE,
+            LS_ERROR_PIPELINE_VOCALS_ALREADY_AVAILABLE,
             "pipeline already has an extracted vocals path",
             pipeline->config.existing_vocals_path
         );
@@ -362,7 +362,7 @@ lrc_pipeline_validate_ctc_assets(
     if (pipeline == NULL) {
         lrc_ctc_assets_result_init(result);
         if (result) {
-            result->error = LRC_CTC_ASSETS_ERROR_INVALID_ARGUMENT;
+            result->error = LS_ERROR_CTC_ASSETS_INVALID_ARGUMENT;
             result->message = "pipeline is missing";
             result->path = NULL;
         }
@@ -373,7 +373,7 @@ lrc_pipeline_validate_ctc_assets(
     if (!lrc_ctc_assets_validate(&pipeline->ctc_assets, &config, result)) {
         lrc_pipeline_error_set(
             pipeline,
-            LRC_PIPELINE_ERROR_CTC_ASSETS_INVALID,
+            LS_ERROR_PIPELINE_CTC_ASSETS_INVALID,
             "CTC assets are invalid",
             NULL
         );
@@ -395,7 +395,7 @@ lrc_pipeline_extract_vocals(
 
     lrc_pipeline_vocals_result_set(
         result,
-        LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+        LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
         "pipeline is missing",
         NULL
     );
@@ -404,7 +404,7 @@ lrc_pipeline_extract_vocals(
         if (pipeline) {
             lrc_pipeline_vocals_result_set(
                 result,
-                LRC_VOCALS_EXTRACT_ERROR_INVALID_ARGUMENT,
+                LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT,
                 pipeline->message,
                 pipeline->path
             );
@@ -414,7 +414,7 @@ lrc_pipeline_extract_vocals(
 
     lrc_pipeline_vocals_result_set(
         result,
-        LRC_VOCALS_EXTRACT_ERROR_MDX_PROCESS_FAILED,
+        LS_ERROR_VOCALS_EXTRACT_MDX_PROCESS_FAILED,
         "vocals extraction failed",
         request.output_path
     );
@@ -422,7 +422,7 @@ lrc_pipeline_extract_vocals(
     if (!lrc_extract_vocals(&request, result)) {
         lrc_pipeline_error_set(
             pipeline,
-            LRC_PIPELINE_ERROR_VOCALS_EXTRACT_FAILED,
+            LS_ERROR_PIPELINE_VOCALS_EXTRACT_FAILED,
             "vocals extraction failed",
             request.output_path
         );
@@ -439,7 +439,7 @@ lrc_pipeline_generate_result_init(LrcPipelineGenerateResult *result) {
         return;
     }
 
-    result->error = LRC_PIPELINE_GENERATE_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
     result->path = NULL;
 
@@ -453,7 +453,7 @@ lrc_pipeline_generate_result_init(LrcPipelineGenerateResult *result) {
 static void
 lrc_pipeline_generate_result_set(
     LrcPipelineGenerateResult *result,
-    enum LrcPipelineGenerateError error,
+    enum LsError error,
     char *message,
     char *path
 ) {
@@ -1401,7 +1401,7 @@ lrc_pipeline_debug_dump_check_writer(
 
     lrc_pipeline_generate_result_set(
         result,
-        LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+        LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
         "could not write CTC debug dump",
         pipeline->config.ctc_debug_dump_path
     );
@@ -1461,7 +1461,7 @@ lrc_pipeline_debug_dump_write_active_word_spans(
         }
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             message,
             NULL
         );
@@ -1521,7 +1521,7 @@ lrc_pipeline_debug_dump_write_path_segments(
         }
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             message,
             NULL
         );
@@ -1534,7 +1534,7 @@ lrc_pipeline_debug_dump_write_path_segments(
     if (!writer->ok) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
             "could not write CTC debug dump",
             pipeline->config.ctc_debug_dump_path
         );
@@ -1562,7 +1562,7 @@ lrc_pipeline_debug_dump_open_and_write_text(
     )) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
             "could not open CTC debug dump",
             pipeline->config.ctc_debug_dump_path
         );
@@ -1577,7 +1577,7 @@ lrc_pipeline_debug_dump_open_and_write_text(
     if (!writer->ok) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
             "could not write CTC debug dump",
             pipeline->config.ctc_debug_dump_path
         );
@@ -1638,7 +1638,7 @@ lrc_pipeline_trellis_score_forward(
     default:
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             "star frequency is invalid",
             NULL
         );
@@ -1648,7 +1648,7 @@ lrc_pipeline_trellis_score_forward(
     if (!ok) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             align_result->message,
             NULL
         );
@@ -1715,7 +1715,7 @@ lrc_pipeline_trellis_backtrack(
     default:
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             "star frequency is invalid",
             NULL
         );
@@ -1725,7 +1725,7 @@ lrc_pipeline_trellis_backtrack(
     if (!ok) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             align_result->message,
             NULL
         );
@@ -1794,7 +1794,7 @@ lrc_pipeline_path_to_padded_token_spans(
     default:
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             "star frequency is invalid",
             NULL
         );
@@ -1804,7 +1804,7 @@ lrc_pipeline_path_to_padded_token_spans(
     if (!ok) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             align_result->message,
             NULL
         );
@@ -1832,7 +1832,7 @@ lrc_pipeline_line_timing_audio_from_ctc_audio(
         || (audio->sample_count <= 0) || (audio->sample_rate <= 0)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT,
             "line timing audio context is invalid",
             NULL
         );
@@ -2149,7 +2149,7 @@ lrc_pipeline_output_line_set_timestamped(
                                                &format_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_OUTPUT_LINES_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_OUTPUT_LINES_FAILED,
             "could not format LRC timestamp",
             NULL
         );
@@ -2198,7 +2198,7 @@ lrc_pipeline_line_timestamps_correct_ends_from_audio(
         || (audio->sample_rate <= 0)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT,
             "line timing audio correction arguments are invalid",
             NULL
         );
@@ -2302,7 +2302,7 @@ lrc_pipeline_output_lines_from_timestamps(
         || (line_count == NULL)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT,
             "LRC output line conversion arguments are invalid",
             NULL
         );
@@ -2314,7 +2314,7 @@ lrc_pipeline_output_lines_from_timestamps(
         || (line_cap > INT32_MAX)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+            LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
             "too many LRC output lines",
             NULL
         );
@@ -2331,7 +2331,7 @@ lrc_pipeline_output_lines_from_timestamps(
             || (timestamp->line_index >= lyrics->line_count)) {
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_OUTPUT_LINES_FAILED,
+                LS_ERROR_PIPELINE_GENERATE_OUTPUT_LINES_FAILED,
                 "LRC timestamp line index is invalid",
                 NULL
             );
@@ -2343,7 +2343,7 @@ lrc_pipeline_output_lines_from_timestamps(
         if (out_index >= line_cap) {
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
                 "too many LRC output lines",
                 NULL
             );
@@ -2369,7 +2369,7 @@ lrc_pipeline_output_lines_from_timestamps(
             if (out_index >= line_cap) {
                 lrc_pipeline_generate_result_set(
                     result,
-                    LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                    LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
                     "too many LRC output lines",
                     NULL
                 );
@@ -2396,7 +2396,7 @@ lrc_pipeline_output_lines_from_timestamps(
         default:
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_OUTPUT_LINES_FAILED,
+                LS_ERROR_PIPELINE_GENERATE_OUTPUT_LINES_FAILED,
                 "LRC timestamp kind is invalid",
                 NULL
             );
@@ -2425,7 +2425,7 @@ lrc_pipeline_generate_targets(
         || (tokens->token_count <= 0)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_TOKENIZE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_TOKENIZE_FAILED,
             "CTC tokenized lyrics are empty",
             NULL
         );
@@ -2437,7 +2437,7 @@ lrc_pipeline_generate_targets(
         || (count > INT64_MAX/SIZEOF(**target_segment_starts))) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+            LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
             "CTC target token allocation is too large",
             NULL
         );
@@ -2465,7 +2465,7 @@ lrc_pipeline_prepare_vocals_stage_for_generation(
     if (!lrc_pipeline_prepare(pipeline)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_PREPARE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_PREPARE_FAILED,
             pipeline->message,
             pipeline->path
         );
@@ -2479,7 +2479,7 @@ lrc_pipeline_prepare_vocals_stage_for_generation(
     if (!lrc_pipeline_extract_vocals(pipeline, &vocals_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_VOCALS_EXTRACT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_VOCALS_EXTRACT_FAILED,
             vocals_result.message,
             vocals_result.path
         );
@@ -2492,7 +2492,7 @@ lrc_pipeline_prepare_vocals_stage_for_generation(
 static bool
 lrc_generate_config_path_ready(
     char *path,
-    enum LrcPipelineGenerateError error,
+    enum LsError error,
     char *message,
     LrcPipelineGenerateResult *result
 ) {
@@ -2519,7 +2519,7 @@ lrc_generate_from_song(
     if (config == NULL) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT,
             "generation configuration is missing",
             NULL
         );
@@ -2527,7 +2527,7 @@ lrc_generate_from_song(
     }
     if (!lrc_generate_config_path_ready(
         config->song_path,
-        LRC_PIPELINE_GENERATE_ERROR_MISSING_SONG,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_SONG,
         "input song path is missing",
         result
     )) {
@@ -2535,7 +2535,7 @@ lrc_generate_from_song(
     }
     if (!lrc_generate_config_path_ready(
         config->lyrics_text_path,
-        LRC_PIPELINE_GENERATE_ERROR_MISSING_LYRICS,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS,
         "lyrics text path is missing",
         result
     )) {
@@ -2543,7 +2543,7 @@ lrc_generate_from_song(
     }
     if (!lrc_generate_config_path_ready(
         config->output_lrc_path,
-        LRC_PIPELINE_GENERATE_ERROR_MISSING_OUTPUT,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT,
         "output LRC path is missing",
         result
     )) {
@@ -2551,7 +2551,7 @@ lrc_generate_from_song(
     }
     if (!lrc_generate_config_path_ready(
         config->vocals_model_path,
-        LRC_PIPELINE_GENERATE_ERROR_MISSING_VOCALS_MODEL,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_VOCALS_MODEL,
         "vocals model path is missing",
         result
     )) {
@@ -2559,7 +2559,7 @@ lrc_generate_from_song(
     }
     if (!lrc_generate_config_path_ready(
         config->ctc_model_path,
-        LRC_PIPELINE_GENERATE_ERROR_MISSING_CTC_MODEL,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_CTC_MODEL,
         "CTC model path is missing",
         result
     )) {
@@ -2567,7 +2567,7 @@ lrc_generate_from_song(
     }
     if (!lrc_generate_config_path_ready(
         config->tokenizer_path,
-        LRC_PIPELINE_GENERATE_ERROR_MISSING_TOKENIZER,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_TOKENIZER,
         "CTC tokenizer path is missing",
         result
     )) {
@@ -2629,7 +2629,7 @@ lrc_pipeline_generate_lrc(
     if (pipeline == NULL) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT,
             "pipeline is missing",
             NULL
         );
@@ -2638,7 +2638,7 @@ lrc_pipeline_generate_lrc(
     if (path_missing(pipeline->config.lyrics_text_path)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_MISSING_LYRICS,
+            LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS,
             "lyrics text path is missing",
             pipeline->config.lyrics_text_path
         );
@@ -2647,7 +2647,7 @@ lrc_pipeline_generate_lrc(
     if (path_missing(pipeline->config.output_lrc_path)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_MISSING_OUTPUT,
+            LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT,
             "output LRC path is missing",
             pipeline->config.output_lrc_path
         );
@@ -2673,7 +2673,7 @@ lrc_pipeline_generate_lrc(
     if (ok && !lrc_pipeline_validate_ctc_assets(pipeline, &assets_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_CTC_ASSETS_INVALID,
+            LS_ERROR_PIPELINE_GENERATE_CTC_ASSETS_INVALID,
             assets_result.message,
             assets_result.path
         );
@@ -2684,7 +2684,7 @@ lrc_pipeline_generate_lrc(
                                     &lyrics_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_LYRICS_LOAD_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_LYRICS_LOAD_FAILED,
             lyrics_result.message,
             lyrics_result.path
         );
@@ -2697,7 +2697,7 @@ lrc_pipeline_generate_lrc(
     )) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_LYRICS_NORMALIZE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_LYRICS_NORMALIZE_FAILED,
             "could not normalize lyrics",
             pipeline->config.lyrics_text_path
         );
@@ -2708,7 +2708,7 @@ lrc_pipeline_generate_lrc(
                                            &tokenizer_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_TOKENIZER_LOAD_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_TOKENIZER_LOAD_FAILED,
             tokenizer_result.message,
             tokenizer_result.path
         );
@@ -2720,7 +2720,7 @@ lrc_pipeline_generate_lrc(
                                                      &tokenize_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_TOKENIZE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_TOKENIZE_FAILED,
             tokenize_result.message,
             NULL
         );
@@ -2748,7 +2748,7 @@ lrc_pipeline_generate_lrc(
                                          &audio_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_AUDIO_DECODE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_AUDIO_DECODE_FAILED,
             audio_result.message,
             audio_result.path
         );
@@ -2763,7 +2763,7 @@ lrc_pipeline_generate_lrc(
                                            &model_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_MODEL_INPUT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_MODEL_INPUT_FAILED,
             model_result.message,
             pipeline->vocals_stage_path
         );
@@ -2782,7 +2782,7 @@ lrc_pipeline_generate_lrc(
     )) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_CTC_MODEL_LOAD_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_CTC_MODEL_LOAD_FAILED,
             inference_result.message,
             pipeline->ctc_assets.model_path
         );
@@ -2798,7 +2798,7 @@ lrc_pipeline_generate_lrc(
                                    &inference_result)) {
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_CTC_INFERENCE_FAILED,
+                LS_ERROR_PIPELINE_GENERATE_CTC_INFERENCE_FAILED,
                 inference_result.message,
                 pipeline->ctc_assets.model_path
             );
@@ -2819,7 +2819,7 @@ lrc_pipeline_generate_lrc(
         if (emissions.vocabulary_size > MAXOF(star_token_id)) {
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
                 "CTC vocabulary is too large for a star token",
                 NULL
             );
@@ -2839,7 +2839,7 @@ lrc_pipeline_generate_lrc(
         if (!debug_dump.ok) {
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+                LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
                 "could not write CTC debug dump",
                 pipeline->config.ctc_debug_dump_path
             );
@@ -2920,7 +2920,7 @@ lrc_pipeline_generate_lrc(
                                                  &align_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             align_result.message,
             NULL
         );
@@ -2941,7 +2941,7 @@ lrc_pipeline_generate_lrc(
                                                      &align_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_ALIGNMENT_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
             align_result.message,
             NULL
         );
@@ -2966,7 +2966,7 @@ lrc_pipeline_generate_lrc(
             || (output_line_cap > INT64_MAX/SIZEOF(*output_lines))) {
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_TOO_LARGE,
+                LS_ERROR_PIPELINE_GENERATE_TOO_LARGE,
                 "LRC output line allocation is too large",
                 NULL
             );
@@ -2990,7 +2990,7 @@ lrc_pipeline_generate_lrc(
                                      &write_result)) {
         lrc_pipeline_generate_result_set(
             result,
-            LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+            LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
             write_result.message,
             write_result.path
         );
@@ -3004,7 +3004,7 @@ lrc_pipeline_generate_lrc(
         if (!lrc_ctc_debug_dump_writer_close(&debug_dump) && ok) {
             lrc_pipeline_generate_result_set(
                 result,
-                LRC_PIPELINE_GENERATE_ERROR_LRC_WRITE_FAILED,
+                LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
                 "could not close CTC debug dump",
                 pipeline->config.ctc_debug_dump_path
             );
@@ -3023,7 +3023,7 @@ lrc_pipeline_generate_lrc(
             path_arg = result->path;
         }
         lrc_pipeline_error_set(pipeline,
-                               LRC_PIPELINE_ERROR_GENERATE_FAILED,
+                               LS_ERROR_PIPELINE_GENERATE_FAILED,
                                message,
                                path_arg);
     }
@@ -3119,7 +3119,7 @@ lrc_lyrics_load_file(
     (void)lyrics;
 
     if (result) {
-        result->error = LRC_LYRICS_LOAD_ERROR_OPEN_FAILED;
+        result->error = LS_ERROR_LYRICS_LOAD_OPEN_FAILED;
         result->message = "lyrics load stub failed";
         result->path = path;
         result->byte_offset = -1;
@@ -3164,7 +3164,7 @@ static void
 lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result) {
     memset64(result, 0, SIZEOF(*result));
 
-    result->error = LRC_CTC_TOKENIZE_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
     result->byte_offset = -1;
     result->line_index = -1;
@@ -3199,7 +3199,7 @@ static void
 lrc_ctc_tokenizer_result_init(LrcCtcTokenizerResult *result) {
     memset64(result, 0, SIZEOF(*result));
 
-    result->error = LRC_CTC_TOKENIZER_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
     result->line_index = -1;
     result->token_id = -1;
@@ -3735,7 +3735,7 @@ lrc_vocals_extract_request_init(LrcVocalsExtractRequest *request) {
 
 static void
 lrc_vocals_extract_result_init(LrcVocalsExtractResult *result) {
-    result->error = LRC_VOCALS_EXTRACT_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
     result->path = NULL;
 
@@ -4473,7 +4473,7 @@ pipeline_test_line_timing_audio_available(void) {
                                                        &result)) {
         return pipeline_test_fail("line timing audio context");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(line_audio.samples == samples);
     ASSERT(line_audio.sample_count == LENGTH(samples));
     ASSERT(line_audio.sample_rate == 16000);
@@ -5547,7 +5547,7 @@ pipeline_test_config_defaults(void) {
                      STRLIT("eng")));
     ASSERT(config.ctc_emission_values_kind
            == LRC_CTC_EMISSION_VALUES_LOGITS);
-    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_NONE);
+    ASSERT(pipeline.error == LS_ERROR_NONE);
     ASSERT(strequal(pipeline.message, "ok"));
     ASSERT(pipeline.path == NULL);
     ASSERT(!pipeline.prepared);
@@ -5750,7 +5750,7 @@ pipeline_test_existing_vocals_path(void) {
     if (lrc_pipeline_vocals_request(&pipeline, &request)) {
         return pipeline_test_fail("existing vocals extraction accepted");
     }
-    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_VOCALS_ALREADY_AVAILABLE);
+    ASSERT(pipeline.error == LS_ERROR_PIPELINE_VOCALS_ALREADY_AVAILABLE);
 
     lrc_pipeline_cleanup(&pipeline);
 
@@ -5808,11 +5808,11 @@ pipeline_test_ctc_assets_validate(void) {
         test_remove_tree(temp_dir);
         return pipeline_test_fail("validate ctc assets");
     }
-    ASSERT(result.error == LRC_CTC_ASSETS_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(strequal(pipeline.ctc_assets.model_path, model_path));
     ASSERT(strequal(pipeline.ctc_assets.tokenizer_path, tokenizer_path));
     ASSERT(pipeline.ctc_assets.validated);
-    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_NONE);
+    ASSERT(pipeline.error == LS_ERROR_NONE);
 
     test_remove_tree(temp_dir);
 
@@ -5832,8 +5832,8 @@ pipeline_test_ctc_assets_missing_path(void) {
     if (lrc_pipeline_validate_ctc_assets(&pipeline, &result)) {
         return pipeline_test_fail("accepted missing ctc model path");
     }
-    ASSERT(result.error == LRC_CTC_ASSETS_ERROR_MISSING_MODEL_PATH);
-    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_CTC_ASSETS_INVALID);
+    ASSERT(result.error == LS_ERROR_CTC_ASSETS_MISSING_MODEL_PATH);
+    ASSERT(pipeline.error == LS_ERROR_PIPELINE_CTC_ASSETS_INVALID);
     ASSERT(!pipeline.ctc_assets.validated);
 
     return 0;
@@ -5868,9 +5868,9 @@ pipeline_test_ctc_assets_missing_file(void) {
         test_remove_tree(temp_dir);
         return pipeline_test_fail("accepted missing ctc model file");
     }
-    ASSERT(result.error == LRC_CTC_ASSETS_ERROR_MODEL_NOT_FOUND);
+    ASSERT(result.error == LS_ERROR_CTC_ASSETS_MODEL_NOT_FOUND);
     ASSERT(strequal(result.path, model_path));
-    ASSERT(pipeline.error == LRC_PIPELINE_ERROR_CTC_ASSETS_INVALID);
+    ASSERT(pipeline.error == LS_ERROR_PIPELINE_CTC_ASSETS_INVALID);
     ASSERT(strequal(pipeline.path, model_path));
     ASSERT(!pipeline.ctc_assets.validated);
 
@@ -5895,14 +5895,14 @@ pipeline_test_generate_requires_lyrics_and_output(void) {
     if (lrc_pipeline_generate_lrc(&pipeline, &result)) {
         return pipeline_test_fail("accepted missing lyrics path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_LYRICS);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS);
 
     config.lyrics_text_path = "lyrics.txt";
     lrc_pipeline_init(&pipeline, &config);
     if (lrc_pipeline_generate_lrc(&pipeline, &result)) {
         return pipeline_test_fail("accepted missing output path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_OUTPUT);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT);
 
     return 0;
 }
@@ -5916,37 +5916,37 @@ pipeline_test_generate_from_song_requires_full_config(void) {
     if (lrc_generate_from_song(&config, &result)) {
         return pipeline_test_fail("accepted missing song path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_SONG);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_SONG);
 
     config.song_path = "song.flac";
     if (lrc_generate_from_song(&config, &result)) {
         return pipeline_test_fail("accepted missing lyrics path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_LYRICS);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS);
 
     config.lyrics_text_path = "lyrics.txt";
     if (lrc_generate_from_song(&config, &result)) {
         return pipeline_test_fail("accepted missing output path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_OUTPUT);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT);
 
     config.output_lrc_path = "out.lrc";
     if (lrc_generate_from_song(&config, &result)) {
         return pipeline_test_fail("accepted missing vocals model path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_VOCALS_MODEL);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_VOCALS_MODEL);
 
     config.vocals_model_path = "vocals.onnx";
     if (lrc_generate_from_song(&config, &result)) {
         return pipeline_test_fail("accepted missing CTC model path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_CTC_MODEL);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_CTC_MODEL);
 
     config.ctc_model_path = "ctc.onnx";
     if (lrc_generate_from_song(&config, &result)) {
         return pipeline_test_fail("accepted missing tokenizer path");
     }
-    ASSERT(result.error == LRC_PIPELINE_GENERATE_ERROR_MISSING_TOKENIZER);
+    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_TOKENIZER);
 
     return 0;
 }

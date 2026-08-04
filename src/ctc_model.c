@@ -28,7 +28,7 @@ lrc_ctc_model_input_result_init(LrcCtcModelInputResult *result) {
         return;
     }
 
-    result->error = LRC_CTC_MODEL_INPUT_ERROR_NONE;
+    result->error = LS_ERROR_NONE;
     result->message = "ok";
 
     result->sample_index = -1;
@@ -39,7 +39,7 @@ lrc_ctc_model_input_result_init(LrcCtcModelInputResult *result) {
 static void
 lrc_ctc_model_input_result_set(
     LrcCtcModelInputResult *result,
-    enum LrcCtcModelInputError error,
+    enum LsError error,
     char *message,
     int64 sample_index
 ) {
@@ -109,7 +109,7 @@ lrc_ctc_model_config_prepare(
     if (config == NULL) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_ARGUMENT,
             "CTC model input configuration is missing",
             -1
         );
@@ -118,7 +118,7 @@ lrc_ctc_model_config_prepare(
     if (config->sample_rate <= 0) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_SAMPLE_RATE,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_SAMPLE_RATE,
             "CTC model input sample rate is invalid",
             -1
         );
@@ -127,7 +127,7 @@ lrc_ctc_model_config_prepare(
     if (config->inputs_to_logits_ratio <= 0) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_RATIO,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_RATIO,
             "CTC model input stride ratio is invalid",
             -1
         );
@@ -139,7 +139,7 @@ lrc_ctc_model_config_prepare(
         || (*window_samples <= 0)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_WINDOW,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_WINDOW,
             "CTC model input window is invalid",
             -1
         );
@@ -150,7 +150,7 @@ lrc_ctc_model_config_prepare(
                                           context_samples)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_CONTEXT,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_CONTEXT,
             "CTC model input context is invalid",
             -1
         );
@@ -159,7 +159,7 @@ lrc_ctc_model_config_prepare(
     if ((*window_samples % config->inputs_to_logits_ratio) != 0) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_WINDOW,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_WINDOW,
             "CTC model input window is not aligned to model stride",
             -1
         );
@@ -168,7 +168,7 @@ lrc_ctc_model_config_prepare(
     if ((*context_samples % config->inputs_to_logits_ratio) != 0) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_CONTEXT,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_CONTEXT,
             "CTC model input context is not aligned to model stride",
             -1
         );
@@ -187,7 +187,7 @@ lrc_ctc_model_audio_valid(
     if (audio == NULL) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_ARGUMENT,
             "CTC model input audio is missing",
             -1
         );
@@ -196,7 +196,7 @@ lrc_ctc_model_audio_valid(
     if (audio->sample_rate != config->sample_rate) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_AUDIO_SAMPLE_RATE,
+            LS_ERROR_CTC_MODEL_INPUT_AUDIO_SAMPLE_RATE,
             "CTC model input audio sample rate does not match config",
             -1
         );
@@ -205,7 +205,7 @@ lrc_ctc_model_audio_valid(
     if ((audio->samples == NULL) || (audio->sample_count <= 0)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_EMPTY_AUDIO,
+            LS_ERROR_CTC_MODEL_INPUT_EMPTY_AUDIO,
             "CTC model input audio is empty",
             -1
         );
@@ -216,7 +216,7 @@ lrc_ctc_model_audio_valid(
         if (!isfinite((double)audio->samples[i])) {
             lrc_ctc_model_input_result_set(
                 result,
-                LRC_CTC_MODEL_INPUT_ERROR_NON_FINITE_SAMPLE,
+                LS_ERROR_CTC_MODEL_INPUT_NON_FINITE_SAMPLE,
                 "CTC model input audio contains a non-finite sample",
                 i
             );
@@ -377,7 +377,7 @@ lrc_ctc_model_input_allocate(
     if (input->sample_count > INT64_MAX/SIZEOF(*input->samples)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_TOO_MANY_SAMPLES,
+            LS_ERROR_CTC_MODEL_INPUT_TOO_MANY_SAMPLES,
             "CTC model input tensor is too large",
             -1
         );
@@ -386,7 +386,7 @@ lrc_ctc_model_input_allocate(
     if (input->chunk_count > INT64_MAX/SIZEOF(*input->chunks)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_TOO_MANY_SAMPLES,
+            LS_ERROR_CTC_MODEL_INPUT_TOO_MANY_SAMPLES,
             "CTC model input chunk metadata is too large",
             -1
         );
@@ -622,7 +622,7 @@ lrc_ctc_model_input_prepare(
     if (input == NULL) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_ARGUMENT,
             "CTC model input destination is missing",
             -1
         );
@@ -664,7 +664,7 @@ lrc_ctc_model_input_prepare(
                                                  input)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_TOO_MANY_SAMPLES,
+            LS_ERROR_CTC_MODEL_INPUT_TOO_MANY_SAMPLES,
             "CTC model input tensor shape is too large",
             -1
         );
@@ -686,7 +686,7 @@ lrc_ctc_model_input_prepare(
     if (!lrc_ctc_model_input_prepare_chunk_metadata(input)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_TOO_MANY_SAMPLES,
+            LS_ERROR_CTC_MODEL_INPUT_TOO_MANY_SAMPLES,
             "CTC model input chunk metadata could not be prepared",
             -1
         );
@@ -722,7 +722,7 @@ lrc_ctc_model_input_validate_model_io(
     if ((input == NULL) || (info == NULL)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_ARGUMENT,
             "CTC model input shape validation received invalid arguments",
             -1
         );
@@ -733,7 +733,7 @@ lrc_ctc_model_input_validate_model_io(
         || (input->samples == NULL)) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_ARGUMENT,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_ARGUMENT,
             "CTC model input tensor is not prepared",
             -1
         );
@@ -743,7 +743,7 @@ lrc_ctc_model_input_validate_model_io(
         || !info->is_float32) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_MODEL_IO,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO,
             "CTC model input must be one rank-2 float tensor",
             -1
         );
@@ -753,7 +753,7 @@ lrc_ctc_model_input_validate_model_io(
         || !lrc_ctc_model_dim_matches(info->shape[1], input->shape[1])) {
         lrc_ctc_model_input_result_set(
             result,
-            LRC_CTC_MODEL_INPUT_ERROR_INVALID_MODEL_IO,
+            LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO,
             "CTC model input shape does not match prepared tensor",
             -1
         );
@@ -821,7 +821,7 @@ ctc_model_test_defaults_and_invalid_inputs(void) {
     ASSERT(config.inputs_to_logits_ratio == 320);
     ASSERT(config.window_seconds == 30);
     ASSERT(config.context_seconds == 2);
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(strequal(result.message, "ok"));
     ASSERT(result.sample_index == -1);
     ASSERT(input.samples == NULL);
@@ -830,34 +830,34 @@ ctc_model_test_defaults_and_invalid_inputs(void) {
     if (lrc_ctc_model_input_prepare(NULL, &audio, &config, &result)) {
         return ctc_model_test_fail("null input destination accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_ARGUMENT);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_ARGUMENT);
 
     config.sample_rate = 0;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         return ctc_model_test_fail("invalid sample rate accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_SAMPLE_RATE);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_SAMPLE_RATE);
 
     lrc_ctc_model_config_init(&config);
     config.inputs_to_logits_ratio = 0;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         return ctc_model_test_fail("invalid stride ratio accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_RATIO);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_RATIO);
 
     lrc_ctc_model_config_init(&config);
     config.sample_rate = 8000;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         return ctc_model_test_fail("mismatched audio sample rate accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_AUDIO_SAMPLE_RATE);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_AUDIO_SAMPLE_RATE);
 
     lrc_ctc_model_config_init(&config);
     samples[1] = NAN;
     if (lrc_ctc_model_input_prepare(&input, &audio, &config, &result)) {
         return ctc_model_test_fail("non-finite sample accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_NON_FINITE_SAMPLE);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_NON_FINITE_SAMPLE);
     ASSERT(result.sample_index == 1);
     samples[1] = 0.1f;
 
@@ -881,7 +881,7 @@ ctc_model_test_prepares_short_input(void) {
         return ctc_model_test_fail("prepare short input");
     }
 
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_NONE);
+    ASSERT(result.error == LS_ERROR_NONE);
     ASSERT(!input.chunked);
     ASSERT(input.sample_rate == 16000);
     ASSERT(input.inputs_to_logits_ratio == 320);
@@ -1195,7 +1195,7 @@ ctc_model_test_rejects_unaligned_window_or_context(void) {
         lrc_ctc_model_input_destroy(&input);
         return ctc_model_test_fail("unaligned window accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_WINDOW);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_WINDOW);
 
     config.inputs_to_logits_ratio = 4;
     config.window_seconds = 2;
@@ -1204,7 +1204,7 @@ ctc_model_test_rejects_unaligned_window_or_context(void) {
         lrc_ctc_model_input_destroy(&input);
         return ctc_model_test_fail("unaligned context accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_CONTEXT);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_CONTEXT);
 
     lrc_ctc_model_input_destroy(&input);
 
@@ -1248,7 +1248,7 @@ ctc_model_test_validates_model_io(void) {
         lrc_ctc_model_input_destroy(&input);
         return ctc_model_test_fail("non-float IO accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_MODEL_IO);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO);
 
     info.is_float32 = true;
     info.shape_len = 3;
@@ -1256,7 +1256,7 @@ ctc_model_test_validates_model_io(void) {
         lrc_ctc_model_input_destroy(&input);
         return ctc_model_test_fail("rank-3 IO accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_MODEL_IO);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO);
 
     info.shape_len = 2;
     info.shape[0] = 1;
@@ -1265,7 +1265,7 @@ ctc_model_test_validates_model_io(void) {
         lrc_ctc_model_input_destroy(&input);
         return ctc_model_test_fail("mismatched IO width accepted");
     }
-    ASSERT(result.error == LRC_CTC_MODEL_INPUT_ERROR_INVALID_MODEL_IO);
+    ASSERT(result.error == LS_ERROR_CTC_MODEL_INPUT_INVALID_MODEL_IO);
 
     lrc_ctc_model_input_destroy(&input);
 
