@@ -26,18 +26,6 @@ lrc_ctc_inference_result_init(LrcCtcInferenceResult *result) {
     return;
 }
 
-static int32
-lrc_ctc_inference_result_context_int32(int64 value) {
-    if (value < INT32_MIN) {
-        return INT32_MIN;
-    }
-    if (value > INT32_MAX) {
-        return INT32_MAX;
-    }
-
-    return (int32)value;
-}
-
 static void
 lrc_ctc_inference_result_set(
     LrcCtcInferenceResult *result,
@@ -52,8 +40,7 @@ lrc_ctc_inference_result_set(
     result->error = error;
     result->message = message;
 
-    result->output_index =
-        lrc_ctc_inference_result_context_int32(output_index);
+    result->output_index = CLAMP(output_index, INT32_MIN, INT32_MAX);
 
     return;
 }
