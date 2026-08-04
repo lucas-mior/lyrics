@@ -123,9 +123,8 @@ audio_file_info_parse(AudioFileInfo *info, char *output) {
         char *line;
         char *value;
         char saved;
-        int32 end;
+        int32 end = start;
 
-        end = start;
         while ((output[end] != '\0') && (output[end] != '\n')) {
             end += 1;
         }
@@ -239,9 +238,8 @@ audio_buffer_init(AudioBuffer *audio) {
 
 static void
 audio_buffer_destroy(AudioBuffer *audio) {
-    int64 allocation_size;
+    int64 allocation_size = audio->frame_count*SIZEOF(*audio->left);
 
-    allocation_size = audio->frame_count*SIZEOF(*audio->left);
     free2(audio->left, allocation_size);
     free2(audio->right, allocation_size);
     audio_buffer_init(audio);
@@ -380,9 +378,8 @@ audio_read_file_format(
 
     raw = command.result.stdout_output;
     for (int64 i = 0; i < audio->frame_count; i += 1) {
-        int64 frame_offset;
+        int64 frame_offset = frame_bytes*i;
 
-        frame_offset = frame_bytes*i;
         memcpy64(&audio->left[i],
                  raw + frame_offset,
                  SIZEOF(*audio->left));
@@ -1106,10 +1103,9 @@ audio_compare_result_print(
     AudioCompareResult *result,
     char *name
 ) {
-    char *label;
+    char *label = name;
     char *mode;
 
-    label = name;
     if (label == NULL) {
         label = "audio";
     }

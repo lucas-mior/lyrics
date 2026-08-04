@@ -159,9 +159,8 @@ lrc_lyrics_append_line(LrcLyrics *lyrics, int32 start, int32 end) {
 
 static bool
 lrc_lyrics_split_lines(LrcLyrics *lyrics) {
-    int32 line_start;
+    int32 line_start = 0;
 
-    line_start = 0;
     for (int32 i = 0; i < lyrics->text_len; i += 1) {
         if (lyrics->text[i] == '\n') {
             if (!lrc_lyrics_append_line(lyrics, line_start, i)) {

@@ -48,9 +48,8 @@ stft_plan_init(StftPlan *plan, int32 n_fft, int32 hop) {
         return false;
     }
     for (int32 i = 0; i < n_fft; i += 1) {
-        double phase;
+        double phase = 2.0*STFT_PI*(double)i/(double)n_fft;
 
-        phase = 2.0*STFT_PI*(double)i/(double)n_fft;
         plan->window[i] = (float)(0.5 - 0.5*cos(phase));
     }
 
@@ -105,13 +104,11 @@ stft_forward_channel(
 
     center = n_fft/2;
     for (int32 frame_index = 0; frame_index < frame_count; frame_index += 1) {
-        int64 start;
+        int64 start = (int64)frame_index*(int64)hop - (int64)center;
 
-        start = (int64)frame_index*(int64)hop - (int64)center;
         for (int32 i = 0; i < n_fft; i += 1) {
-            int64 input_index;
+            int64 input_index = start + (int64)i;
 
-            input_index = start + (int64)i;
             if ((input_index < 0) || (input_index >= input_len)) {
                 plan->frame[i] = 0.0f;
             } else {

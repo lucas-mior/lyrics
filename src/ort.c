@@ -301,16 +301,14 @@ ort_model_read_tensor_info(
     int64 *shape,
     int32 *shape_len
 ) {
-    OrtApi *api;
-    OrtTypeInfo *type_info;
+    OrtApi *api = (OrtApi *)context->api;
+    OrtTypeInfo *type_info = NULL;
     OrtStatus *status;
     ONNXTensorElementDataType element_type;
     OrtTensorTypeAndShapeInfo *tensor_info;
     int64_t dims[ORT_TENSOR_MAX_RANK];
     size_t dim_count;
 
-    api = (OrtApi *)context->api;
-    type_info = NULL;
     if (input) {
         status = api->SessionGetInputTypeInfo(session, 0, &type_info);
         if (!ort_check(context, status, "getting ONNX input type info")) {
@@ -518,9 +516,8 @@ ort_context_init(OrtContext *context) {
 
 static void
 ort_context_destroy(OrtContext *context) {
-    OrtApi *api;
+    OrtApi *api = (OrtApi *)context->api;
 
-    api = (OrtApi *)context->api;
     if (api) {
         if (context->memory_info) {
             api->ReleaseMemoryInfo((OrtMemoryInfo *)context->memory_info);
@@ -602,11 +599,10 @@ ort_model_load(OrtContext *context, OrtModel *model, char *model_path) {
 
 static bool
 ort_model_get_io_info(OrtContext *context, OrtModel *model) {
-    OrtApi *api;
+    OrtApi *api = (OrtApi *)context->api;
     OrtStatus *status;
     size_t count;
 
-    api = (OrtApi *)context->api;
     if ((api == NULL) || (model->session == NULL)) {
         error2("ONNX Runtime model is not loaded\n");
         return false;
@@ -691,10 +687,9 @@ ort_model_get_io_info(OrtContext *context, OrtModel *model) {
 
 static void
 ort_model_destroy(OrtContext *context, OrtModel *model) {
-    OrtApi *api;
+    OrtApi *api = (OrtApi *)context->api;
     OrtStatus *status;
 
-    api = (OrtApi *)context->api;
     if (api) {
         if (model->input_name) {
             status = api->AllocatorFree((OrtAllocator *)context->allocator,
@@ -951,9 +946,8 @@ ort_model_run_f32(
 
 static void
 ort_tensor_destroy(OrtContext *context, OrtTensor *tensor) {
-    OrtApi *api;
+    OrtApi *api = (OrtApi *)context->api;
 
-    api = (OrtApi *)context->api;
     if (api && tensor->value) {
         api->ReleaseValue((OrtValue *)tensor->value);
     }

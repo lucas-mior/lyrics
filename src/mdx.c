@@ -13,9 +13,8 @@ mdx_output_sample(
     float input_sample,
     float model_sample
 ) {
-    float sample;
+    float sample = model_sample;
 
-    sample = model_sample;
     if (config->model_output == MDX_MODEL_OUTPUT_INSTRUMENTAL) {
         sample = input_sample - model_sample;
     }
@@ -275,10 +274,9 @@ mdx_pack_input(
     channel_stride = (int64)config->dim_f*(int64)config->dim_t;
     for (int32 bin = 0; bin < config->dim_f; bin += 1) {
         for (int32 frame = 0; frame < config->dim_t; frame += 1) {
-            int64 input_index;
+            int64 input_index = (int64)bin*(int64)stft_frames + (int64)frame;
             int64 output_index;
 
-            input_index = (int64)bin*(int64)stft_frames + (int64)frame;
             output_index = (int64)bin*(int64)config->dim_t
                            + (int64)frame;
 
@@ -380,11 +378,9 @@ mdx_unpack_output(
     channel_stride = (int64)config->dim_f*(int64)config->dim_t;
     for (int32 bin = 0; bin < config->dim_f; bin += 1) {
         for (int32 frame = 0; frame < config->dim_t; frame += 1) {
-            int64 input_index;
-            int64 output_index;
+            int64 input_index = (int64)bin*(int64)config->dim_t + (int64)frame;
+            int64 output_index = (int64)bin*(int64)stft_frames + (int64)frame;
 
-            input_index = (int64)bin*(int64)config->dim_t + (int64)frame;
-            output_index = (int64)bin*(int64)stft_frames + (int64)frame;
 
             left_real[output_index] = tensor[input_index];
             left_imag[output_index] = tensor[channel_stride + input_index];
@@ -527,10 +523,9 @@ mdx_process_song_with_progress(
     for (int64 region_start = 0;
          region_start < input->frame_count;
          region_start += song_chunk_size) {
-        int64 region_end;
+        int64 region_end = region_start + song_chunk_size;
         int64 region_len;
 
-        region_end = region_start + song_chunk_size;
         if (region_end > input->frame_count) {
             region_end = input->frame_count;
         }
@@ -551,11 +546,10 @@ mdx_process_song_with_progress(
     for (int64 region_start = 0;
          region_start < input->frame_count;
          region_start += song_chunk_size) {
-        int64 region_end;
+        int64 region_end = region_start + song_chunk_size;
         int64 region_source_start;
         int64 region_source_end;
 
-        region_end = region_start + song_chunk_size;
         if (region_end > input->frame_count) {
             region_end = input->frame_count;
         }
@@ -571,18 +565,16 @@ mdx_process_song_with_progress(
         for (int64 output_start = region_start;
              output_start < region_end;
              output_start += config->gen_size) {
-            int64 output_count;
+            int64 output_count = region_end - output_start;
             int64 source_start;
 
-            output_count = region_end - output_start;
             if (output_count > config->gen_size) {
                 output_count = config->gen_size;
             }
             source_start = output_start - config->trim;
             for (int32 i = 0; i < config->chunk_size; i += 1) {
-                int64 source_index;
+                int64 source_index = source_start + (int64)i;
 
-                source_index = source_start + (int64)i;
                 if ((source_index < 0) || (source_index >= input->frame_count)
                     || (source_index < region_source_start)
                     || (source_index >= region_source_end)) {
@@ -638,11 +630,9 @@ mdx_process_song_with_progress(
             }
 
             for (int64 i = 0; i < output_count; i += 1) {
-                int64 output_index;
-                int64 window_index;
+                int64 output_index = output_start + i;
+                int64 window_index = (int64)config->trim + i;
 
-                output_index = output_start + i;
-                window_index = (int64)config->trim + i;
                 output->left[output_index] = mdx_output_sample(
                     config,
                     input->left[output_index],
@@ -1102,11 +1092,9 @@ main(void) {
     channel_stride = (int64)config.dim_f*(int64)config.dim_t;
     for (int32 bin = 0; bin < config.dim_f; bin += 1) {
         for (int32 frame = 0; frame < config.dim_t; frame += 1) {
-            int64 input_index;
-            int64 output_index;
+            int64 input_index = (int64)bin*(int64)config.dim_t + (int64)frame;
+            int64 output_index = (int64)bin*(int64)config.dim_t + (int64)frame;
 
-            input_index = (int64)bin*(int64)config.dim_t + (int64)frame;
-            output_index = (int64)bin*(int64)config.dim_t + (int64)frame;
             MDX_TEST_CHECK(mdx_float_close(tensor[output_index],
                                            left_real[input_index]),
                            "left real tensor channel");

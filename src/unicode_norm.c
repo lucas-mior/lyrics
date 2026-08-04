@@ -110,9 +110,8 @@ ctc_unicode_norm_preflight_utf16_from_utf8(
     int32 text_len,
     int32 *utf16_len
 ) {
-    UErrorCode status;
+    UErrorCode status = U_ZERO_ERROR;
 
-    status = U_ZERO_ERROR;
     u_strFromUTF8(NULL,
                   0,
                   (int32_t *)utf16_len,
@@ -131,9 +130,8 @@ ctc_unicode_norm_utf16_from_utf8(
     int32 utf16_cap,
     int32 *utf16_len
 ) {
-    UErrorCode status;
+    UErrorCode status = U_ZERO_ERROR;
 
-    status = U_ZERO_ERROR;
     u_strFromUTF8(utf16,
                   (int32_t)utf16_cap,
                   (int32_t *)utf16_len,
@@ -151,9 +149,8 @@ ctc_unicode_norm_preflight_nfkc(
     UNormalizer2 *normalizer,
     int32 *nfkc_len
 ) {
-    UErrorCode status;
+    UErrorCode status = U_ZERO_ERROR;
 
-    status = U_ZERO_ERROR;
     *nfkc_len = (int32)unorm2_normalize(normalizer,
                                         utf16,
                                         (int32_t)utf16_len,
@@ -173,9 +170,8 @@ ctc_unicode_norm_nfkc(
     int32 nfkc_cap,
     int32 *nfkc_len
 ) {
-    UErrorCode status;
+    UErrorCode status = U_ZERO_ERROR;
 
-    status = U_ZERO_ERROR;
     *nfkc_len = (int32)unorm2_normalize(normalizer,
                                         utf16,
                                         (int32_t)utf16_len,
@@ -192,9 +188,8 @@ ctc_unicode_norm_preflight_lower(
     int32 nfkc_len,
     int32 *lower_len
 ) {
-    UErrorCode status;
+    UErrorCode status = U_ZERO_ERROR;
 
-    status = U_ZERO_ERROR;
     *lower_len = (int32)u_strToLower(NULL,
                                      0,
                                      nfkc,
@@ -213,9 +208,8 @@ ctc_unicode_norm_lower(
     int32 lower_cap,
     int32 *lower_len
 ) {
-    UErrorCode status;
+    UErrorCode status = U_ZERO_ERROR;
 
-    status = U_ZERO_ERROR;
     *lower_len = (int32)u_strToLower(lower,
                                      (int32_t)lower_cap,
                                      nfkc,
@@ -232,9 +226,8 @@ ctc_unicode_norm_preflight_utf8_from_utf16(
     int32 utf16_len,
     int32 *utf8_len
 ) {
-    UErrorCode status;
+    UErrorCode status = U_ZERO_ERROR;
 
-    status = U_ZERO_ERROR;
     u_strToUTF8(NULL,
                 0,
                 (int32_t *)utf8_len,
@@ -520,10 +513,9 @@ ctc_unicode_norm_transliterate_latin_icu(
     }
 
     for (int32 multiplier = 8; multiplier <= 128; multiplier *= 2) {
-        int32 work_cap;
+        int32 work_cap = source_len*multiplier + 64;
         bool needs_more;
 
-        work_cap = source_len*multiplier + 64;
         if (ctc_unicode_norm_transliterate_latin_try_cap(transliterator,
                                                          source,
                                                          source_len,
@@ -659,9 +651,8 @@ unicode_norm_test_icu_transliterate_latin(void) {
 
 int32
 main(void) {
-    int32 status;
+    int32 status = 0;
 
-    status = 0;
 
     status += unicode_norm_test_fallback_or_icu_copy();
 #if LRC_UNICODE_ENABLE_ICU

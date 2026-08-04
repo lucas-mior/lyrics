@@ -86,10 +86,9 @@ lrc_ctc_audio_validate_samples(
 ) {
     audio->max_abs_sample = 0.0f;
     for (int64 i = 0; i < audio->sample_count; i += 1) {
-        float sample;
+        float sample = audio->samples[i];
         float abs_sample;
 
-        sample = audio->samples[i];
         if (!isfinite((double)sample)) {
             lrc_ctc_audio_result_set(
                 result,

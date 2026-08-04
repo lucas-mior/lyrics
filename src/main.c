@@ -573,11 +573,10 @@ main_apply_value_option(
     char *value
 ) {
     enum OrtExecutionProvider provider;
-    void *field;
+    void *field = (char *)options + option->offset;
     int32 parsed;
     float parsed_float;
 
-    field = (char *)options + option->offset;
     switch (option->action) {
     case MAIN_VALUE_STRING:
         *(char **)field = value;
@@ -855,16 +854,14 @@ main_input_prefix_path(
     char *extension,
     char *description
 ) {
-    LrcPipelineConfig *config;
-    char *input_path;
+    LrcPipelineConfig *config = &options->config;
+    char *input_path = config->song_path;
     int32 input_len;
     int32 slash_index;
     int32 dot_index;
     int32 prefix_len;
     int32 len;
 
-    config = &options->config;
-    input_path = config->song_path;
     if (path_missing(input_path)) {
         input_path = config->existing_vocals_path;
     }
@@ -910,9 +907,8 @@ main_input_prefix_path(
 
 static bool
 main_default_lyrics_text_path(MainOptions *options) {
-    LrcPipelineConfig *config;
+    LrcPipelineConfig *config = &options->config;
 
-    config = &options->config;
     if (!path_missing(config->lyrics_text_path)) {
         return true;
     }
@@ -937,9 +933,8 @@ main_default_lyrics_text_path(MainOptions *options) {
 
 static bool
 main_default_lrc_path(MainOptions *options) {
-    LrcPipelineConfig *config;
+    LrcPipelineConfig *config = &options->config;
 
-    config = &options->config;
     if (!main_input_prefix_path(options,
                                 options->output_lrc_path,
                                 SIZEOF(options->output_lrc_path),

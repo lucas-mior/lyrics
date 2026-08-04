@@ -425,9 +425,8 @@ lrc_parse_timestamp(
         return false;
     }
     while ((i < text_len) && lrc_is_digit(text[i])) {
-        int32 digit;
+        int32 digit = text[i] - '0';
 
-        digit = text[i] - '0';
         if (minutes > (INT32_MAX - digit)/10) {
             return false;
         }
@@ -531,13 +530,11 @@ lrc_parse_line(
     int32 line_end,
     LrcParseResult *result
 ) {
-    char *line_text;
-    int32 line_len;
+    char *line_text = parsed->text + line_start;
+    int32 line_len = line_end - line_start;
     int32 timestamp_hundredths;
     int32 timestamp_end;
 
-    line_text = parsed->text + line_start;
-    line_len = line_end - line_start;
     if ((line_len > 0) && (line_text[line_len - 1] == '\r')) {
         line_len -= 1;
         parsed->text[line_start + line_len] = '\0';
@@ -779,9 +776,8 @@ lrc_format_output_lines(
     }
 
     for (int32 i = 0; i < line_count; i += 1) {
-        LrcOutputLine *line;
+        LrcOutputLine *line = lines + i;
 
-        line = lines + i;
         if (!lrc_output_line_validate(line, i, result)) {
             return false;
         }
@@ -833,9 +829,8 @@ lrc_make_temp_output_path(char *path, char *buffer, int32 buffer_len) {
 
 static bool
 lrc_write_all_fd(int32 fd, char *text, int32 text_len) {
-    int32 written;
+    int32 written = 0;
 
-    written = 0;
     while (written < text_len) {
         int64 n;
 
@@ -1603,9 +1598,8 @@ lrc_test_optional_maxwell_formatting(void) {
 
     sb_init(&builder);
     for (int32 i = 0; i < parsed.line_count; i += 1) {
-        LrcParsedLine *line;
+        LrcParsedLine *line = parsed.lines + i;
 
-        line = parsed.lines + i;
         if (line->kind == LRC_PARSED_LINE_KIND_TIMESTAMPED) {
             if (!lrc_format_timestamped_line_hundredths(
                 &builder,
@@ -1663,10 +1657,9 @@ lrc_test_output_lines_from_parsed(
     LrcOutputLine *lines
 ) {
     for (int32 i = 0; i < parsed->line_count; i += 1) {
-        LrcParsedLine *parsed_line;
+        LrcParsedLine *parsed_line = parsed->lines + i;
         enum LrcOutputLineKind kind;
 
-        parsed_line = parsed->lines + i;
         if (parsed_line->kind == LRC_PARSED_LINE_KIND_TIMESTAMPED) {
             kind = LRC_OUTPUT_LINE_KIND_TIMESTAMPED;
         } else {

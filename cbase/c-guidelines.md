@@ -631,6 +631,21 @@ default:
         return mask;
     }
     ```
+- Variables that are aliases/copies, shall be declared and initialized in the
+  same line:
+  ```c
+  // bad
+  void my_function(ProgramOptions *options) {
+      char *name;
+
+      name = options->name;
+  }
+
+  // good
+  void my_function(ProgramOptions *options) {
+      char *name = options->name;
+  }
+  ```
 
 ## Utilities
 Use the following available functions from `cbase/util.c` for common programming

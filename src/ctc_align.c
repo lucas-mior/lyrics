@@ -510,12 +510,10 @@ lrc_ctc_align_graph_build_for_mode(
     token_index = 0;
     segment_star_pending = false;
     for (int32 label_index = 0; label_index < label_count; label_index += 1) {
-        LrcCtcAlignState *state;
-        int32 state_index;
+        int32 state_index = 2*label_index + 1;
+        LrcCtcAlignState *state = graph->states + state_index;
         bool is_star;
 
-        state_index = 2*label_index + 1;
-        state = graph->states + state_index;
         is_star = lrc_ctc_align_graph_label_is_edge_star(label_index,
                                                          label_count,
                                                          star_mode);
@@ -3045,17 +3043,13 @@ lrc_ctc_pad_token_intervals_with_blanks(
     }
 
     for (int32 i = 0; i < intervals->interval_count; i += 1) {
-        LrcCtcAlignedTokenInterval *interval;
-        LrcCtcPathSegment *previous;
+        LrcCtcAlignedTokenInterval *interval = intervals->intervals + i;
+        LrcCtcPathSegment *previous = NULL;
         LrcCtcPathSegment *next;
-        int32 padded_start_frame;
-        int32 padded_end_frame;
+        int32 padded_start_frame = interval->token_start_frame;
+        int32 padded_end_frame = interval->token_end_frame;
 
-        interval = intervals->intervals + i;
-        padded_start_frame = interval->token_start_frame;
-        padded_end_frame = interval->token_end_frame;
 
-        previous = NULL;
         if (interval->segment_start_index > 0) {
             previous = path_segments + interval->segment_start_index - 1;
         }
@@ -4050,11 +4044,10 @@ lrc_ctc_segment_word_count(
     previous_token_index = -1;
     previous_segment_index = -1;
     for (int32 i = 0; i < token_spans->span_count; i += 1) {
-        LrcCtcTokenSpan *span;
+        LrcCtcTokenSpan *span = token_spans->spans + i;
         LrcCtcTextToken *token;
         CtcTextSegment *segment;
 
-        span = token_spans->spans + i;
         if (!lrc_ctc_token_span_resolve_token(span,
                                               tokens,
                                               i,
@@ -4201,11 +4194,10 @@ lrc_ctc_token_spans_to_segment_word_spans(
     previous_token_index = -1;
     previous_segment_index = -1;
     for (int32 i = 0; i < token_spans->span_count; i += 1) {
-        LrcCtcTokenSpan *token_span;
+        LrcCtcTokenSpan *token_span = token_spans->spans + i;
         LrcCtcTextToken *token;
         CtcTextSegment *segment;
 
-        token_span = token_spans->spans + i;
         if (!lrc_ctc_token_span_resolve_token(token_span,
                                               tokens,
                                               i,
@@ -4296,10 +4288,9 @@ lrc_ctc_word_count(
     previous_token_index = -1;
     previous_end = -1;
     for (int32 i = 0; i < token_spans->span_count; i += 1) {
-        LrcCtcTokenSpan *span;
+        LrcCtcTokenSpan *span = token_spans->spans + i;
         LrcCtcTextToken *token;
 
-        span = token_spans->spans + i;
         if (!lrc_ctc_token_span_resolve_token(span,
                                               tokens,
                                               i,
@@ -4473,10 +4464,9 @@ lrc_ctc_token_spans_to_word_spans(
     previous_token_index = -1;
     previous_end = -1;
     for (int32 i = 0; i < token_spans->span_count; i += 1) {
-        LrcCtcTokenSpan *token_span;
+        LrcCtcTokenSpan *token_span = token_spans->spans + i;
         LrcCtcTextToken *token;
 
-        token_span = token_spans->spans + i;
         if (!lrc_ctc_token_span_resolve_token(token_span,
                                               tokens,
                                               i,
@@ -4719,10 +4709,9 @@ lrc_ctc_line_inputs_ready(
     previous_line = -1;
     previous_start = -INFINITY;
     for (int32 i = 0; i < word_spans->span_count; i += 1) {
-        LrcCtcWordSpan *word;
+        LrcCtcWordSpan *word = word_spans->spans + i;
         LrcCtcWordSpan *previous;
 
-        word = word_spans->spans + i;
         if (!lrc_ctc_word_span_valid_for_lines(word,
                                                normalized,
                                                i,
@@ -4779,11 +4768,9 @@ lrc_ctc_line_has_words(
     int32 *first_word_index,
     int32 *end_word_index
 ) {
-    int32 first;
-    int32 end;
+    int32 first = -1;
+    int32 end = -1;
 
-    first = -1;
-    end = -1;
     for (int32 i = 0; i < word_spans->span_count; i += 1) {
         if (word_spans->spans[i].line_index != line_index) {
             continue;
@@ -5172,11 +5159,9 @@ ctc_align_make_token_spans_from_tokens(
     }
 
     for (int32 i = 0; i < tokens->token_count; i += 1) {
-        LrcCtcTokenSpan *span;
-        float start_seconds;
+        LrcCtcTokenSpan *span = spans->spans + i;
+        float start_seconds = first_start_seconds + (float)i*token_seconds;
 
-        start_seconds = first_start_seconds + (float)i*token_seconds;
-        span = spans->spans + i;
         span->token_index = i;
         span->start_frame = i;
         span->end_frame = i + 1;
@@ -5514,12 +5499,11 @@ ctc_align_output_lines_from_timestamps(
     }
 
     for (int32 i = 0; i < timestamps->line_count; i += 1) {
-        LrcCtcLineTimestamp *timestamp;
+        LrcCtcLineTimestamp *timestamp = timestamps->lines + i;
         LrcLyricsLine *lyrics_line;
         LrcFormatResult result;
         int32 hundredths;
 
-        timestamp = timestamps->lines + i;
         if ((timestamp->line_index < 0)
             || (timestamp->line_index >= lyrics->line_count)) {
             return false;
@@ -8459,11 +8443,10 @@ ctc_align_test_maxwell_word_line_mapping(void) {
 
     ASSERT(word_spans.span_count == LENGTH(expected_lines));
     for (int32 i = 0; i < word_spans.span_count; i += 1) {
-        LrcCtcWordSpan *word;
+        LrcCtcWordSpan *word = word_spans.spans + i;
         int32 line_start;
         int32 line_end;
 
-        word = word_spans.spans + i;
         ASSERT(word->line_index == expected_lines[i]);
         ASSERT(lrc_lyrics_normalized_line_range(&normalized,
                                                 word->line_index,
@@ -8710,12 +8693,11 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
 
     word_index = 0;
     for (int32 i = 0; i < parsed.line_count; i += 1) {
-        LrcParsedLine *line;
+        LrcParsedLine *line = parsed.lines + i;
         LrcCtcWordSpan *word;
         int32 line_start;
         int32 line_end;
 
-        line = parsed.lines + i;
         if (line->kind != LRC_PARSED_LINE_KIND_TIMESTAMPED) {
             continue;
         }
@@ -8752,11 +8734,9 @@ ctc_align_test_maxwell_line_timestamp_comparison(void) {
            == parsed.timestamped_line_count);
     ASSERT(line_timestamps.blank_line_count == parsed.blank_line_count);
     for (int32 i = 0; i < parsed.line_count; i += 1) {
-        LrcParsedLine *expected;
-        LrcCtcLineTimestamp *actual;
+        LrcParsedLine *expected = parsed.lines + i;
+        LrcCtcLineTimestamp *actual = line_timestamps.lines + i;
 
-        expected = parsed.lines + i;
-        actual = line_timestamps.lines + i;
         ASSERT(actual->line_index == expected->source_line_index);
         if (expected->kind == LRC_PARSED_LINE_KIND_BLANK) {
             ASSERT(actual->kind == LRC_CTC_LINE_TIMESTAMP_KIND_BLANK);
@@ -8872,11 +8852,9 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
     ASSERT(align_result.error == LS_ERROR_NONE);
     ASSERT(spans.span_count == token_count);
     for (int32 i = 0; i < spans.span_count; i += 1) {
-        float expected_start;
-        float expected_end;
+        float expected_start = (float)(i + 1)*frame_duration_seconds;
+        float expected_end = (float)(i + 2)*frame_duration_seconds;
 
-        expected_start = (float)(i + 1)*frame_duration_seconds;
-        expected_end = (float)(i + 2)*frame_duration_seconds;
         ASSERT(spans.spans[i].token_index == i);
         ASSERT(spans.spans[i].token_id == target_token_ids[i]);
         ASSERT(spans.spans[i].start_frame == i + 1);
@@ -9681,14 +9659,12 @@ ctc_align_test_rank3_trimmed_fake_inference_pipeline(void) {
     }
 
     if (ok) {
-        int32 output_frame;
+        int32 output_frame = 0;
 
-        output_frame = 0;
         for (int32 i = 0; i < input.chunk_count; i += 1) {
-            LrcCtcModelChunk *chunk;
+            LrcCtcModelChunk *chunk = &input.chunks[i];
             int64 kept_offset;
 
-            chunk = &input.chunks[i];
             kept_offset = chunk->kept_emission_start
                           - chunk->raw_emission_start;
             for (int32 j = 0; j < chunk->kept_emission_count; j += 1) {

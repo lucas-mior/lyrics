@@ -135,9 +135,8 @@ ctc_text_normalized_byte_fill(
     int32 source_start,
     int32 source_end
 ) {
-    LrcLyricsNormalizedByte *map;
+    LrcLyricsNormalizedByte *map = map_ptr;
 
-    map = map_ptr;
     map->line_index = line_index;
     map->source_start = source_start;
     map->source_end = source_end;
@@ -152,9 +151,8 @@ ctc_text_target_byte_fill(
     int32 normalized_start,
     int32 normalized_end
 ) {
-    LrcLyricsTargetByte *map;
+    LrcLyricsTargetByte *map = map_ptr;
 
-    map = map_ptr;
     map->line_index = line_index;
     map->normalized_start = normalized_start;
     map->normalized_end = normalized_end;
@@ -250,9 +248,8 @@ ctc_text_mapped_writer_append_bytes(
     memcpy64(*writer->text + *writer->text_len, bytes, bytes_len);
     map_bytes = *writer->maps;
     for (int32 i = 0; i < bytes_len; i += 1) {
-        void *map;
+        void *map = map_bytes + ((int64)*writer->map_count)*writer->map_size;
 
-        map = map_bytes + ((int64)*writer->map_count)*writer->map_size;
         *writer->map_count += 1;
         writer->fill(map, line_index, source_start, source_end);
     }
@@ -484,9 +481,8 @@ lrc_lyrics_ascii_space(char c) {
 
 static int32
 lrc_lyrics_line_trim_start(LrcLyricsLine *line) {
-    int32 start;
+    int32 start = line->text_start;
 
-    start = line->text_start;
     while ((start < line->text_end)
            && lrc_lyrics_ascii_space(line->text[start - line->text_start])) {
         start += 1;
@@ -497,9 +493,8 @@ lrc_lyrics_line_trim_start(LrcLyricsLine *line) {
 
 static int32
 lrc_lyrics_line_trim_end(LrcLyricsLine *line, int32 start) {
-    int32 end;
+    int32 end = line->text_end;
 
-    end = line->text_end;
     while ((end > start)
            && lrc_lyrics_ascii_space(line->text[end - line->text_start - 1])) {
         end -= 1;
@@ -994,9 +989,8 @@ ctc_text_reference_has_space_before(
 ) {
     uint32 rune;
     int32 step;
-    int32 previous;
+    int32 previous = -1;
 
-    previous = -1;
     for (int32 i = 0; i < byte_index;) {
         previous = i;
         step = utf8_decode_raw(text + i, &rune, byte_index - i);
@@ -1098,11 +1092,9 @@ ctc_text_reference_remove_parentheses_rune(
     uint32 *next_previous_rune
 ) {
     if (rune->rune == '(') {
-        int32 close;
-        bool found_digit;
+        int32 close = -1;
+        bool found_digit = false;
 
-        close = -1;
-        found_digit = false;
         for (int32 i = rune->byte_end; i < rune->text_len;) {
             uint32 inner_rune;
             int32 step;
@@ -1273,9 +1265,8 @@ ctc_text_reference_remove_numbers_flush(
     CtcTextUtf8Transform *transform,
     int32 run_end
 ) {
-    CtcTextDigitRunTransform *context;
+    CtcTextDigitRunTransform *context = transform->context;
 
-    context = transform->context;
     if (!context->in_digit_run) {
         return true;
     }
@@ -1332,9 +1323,8 @@ ctc_text_reference_remove_numbers_rune(
 
 static bool
 ctc_text_reference_remove_numbers_finish(CtcTextUtf8Transform *transform) {
-    CtcTextDigitRunTransform *context;
+    CtcTextDigitRunTransform *context = transform->context;
 
-    context = transform->context;
     return ctc_text_reference_remove_numbers_flush(transform,
                                                    context->text_len);
 }
@@ -1645,11 +1635,10 @@ lrc_lyrics_normalize_line(
     int32 start,
     int32 end
 ) {
-    LrcLyricsNormalizedLine *line_range;
+    LrcLyricsNormalizedLine *line_range = &normalized->lines[line_index];
     CtcTextSegmentBuild segment;
     bool wrote_line;
 
-    line_range = &normalized->lines[line_index];
     ctc_text_segment_build_init(&segment);
     wrote_line = false;
     for (int32 i = start; i < end;) {
@@ -1662,9 +1651,8 @@ lrc_lyrics_normalize_line(
         }
 
         if (rune < 0x80) {
-            char c;
+            char c = lyrics->text[i];
 
-            c = lyrics->text[i];
             if (!lrc_lyrics_ascii_space(c)) {
                 ctc_text_segment_build_source(&segment,
                                               line_index,
@@ -1891,9 +1879,8 @@ lrc_lyrics_next_word_end(
             return -1;
         }
         if (rune < 0x80) {
-            char c;
+            char c = lyrics->text[i];
 
-            c = lyrics->text[i];
             if (lrc_lyrics_ascii_space(c)) {
                 return i;
             }
@@ -1947,11 +1934,9 @@ lrc_lyrics_normalize_line_word(
     int32 start,
     int32 end
 ) {
-    LrcLyricsNormalizedLine *line_range;
-    bool wrote_line;
+    LrcLyricsNormalizedLine *line_range = &normalized->lines[line_index];
+    bool wrote_line = false;
 
-    line_range = &normalized->lines[line_index];
-    wrote_line = false;
 
     for (int32 i = start; i < end;) {
         uint32 rune;
@@ -2022,11 +2007,9 @@ lrc_lyrics_normalize_line_char(
     int32 start,
     int32 end
 ) {
-    LrcLyricsNormalizedLine *line_range;
-    bool wrote_line;
+    LrcLyricsNormalizedLine *line_range = &normalized->lines[line_index];
+    bool wrote_line = false;
 
-    line_range = &normalized->lines[line_index];
-    wrote_line = false;
 
     for (int32 i = start; i < end;) {
         uint32 rune;
@@ -2080,12 +2063,11 @@ lrc_lyrics_normalize_with_options(
     }
 
     for (int32 i = 0; i < lyrics->line_count; i += 1) {
-        LrcLyricsLine *line;
+        LrcLyricsLine *line = &lyrics->lines[i];
         bool ok;
         int32 start;
         int32 end;
 
-        line = &lyrics->lines[i];
         start = lrc_lyrics_line_trim_start(line);
         end = lrc_lyrics_line_trim_end(line, start);
         if (start >= end) {
@@ -2314,9 +2296,8 @@ ctc_text_test_assert_segment(
                      expected_source,
                      strlen32(expected_source)));
     for (int32 i = segment->target_start; i < segment->target_end; i += 1) {
-        LrcLyricsTargetByte *target_byte;
+        LrcLyricsTargetByte *target_byte = &normalized->target_bytes[i];
 
-        target_byte = &normalized->target_bytes[i];
         ASSERT(target_byte->line_index == expected_line_index);
         ASSERT(target_byte->normalized_start >= segment->normalized_start);
         ASSERT(target_byte->normalized_end <= segment->normalized_end);
@@ -2599,12 +2580,10 @@ ctc_text_test_reference_fixtures_load(void) {
     line_start = 0;
     for (int32 i = 0; i <= text_len; i += 1) {
         if ((i == text_len) || (text[i] == '\n')) {
-            char *line;
-            int32 line_len;
+            char *line = text + line_start;
+            int32 line_len = i - line_start;
             int32 tab;
 
-            line = text + line_start;
-            line_len = i - line_start;
             if ((line_len > 0) && (line[line_len - 1] == '\r')) {
                 line_len -= 1;
             }
@@ -2758,12 +2737,10 @@ ctc_text_reference_load_word_fixture(
     found_fixture = false;
     for (int32 i = 0; i <= text_len; i += 1) {
         if ((i == text_len) || (text[i] == '\n')) {
-            char *line;
-            int32 line_len;
+            char *line = text + line_start;
+            int32 line_len = i - line_start;
             int32 tab;
 
-            line = text + line_start;
-            line_len = i - line_start;
             if ((line_len > 0) && (line[line_len - 1] == '\r')) {
                 line_len -= 1;
             }
@@ -2785,11 +2762,9 @@ ctc_text_reference_load_word_fixture(
             tab = ctc_text_reference_line_tab(line, line_len);
             ASSERT(tab > 0);
             if (ctc_text_reference_field_equal(line, tab, "fixture")) {
-                char *value;
-                int32 value_len;
+                char *value = line + tab + 1;
+                int32 value_len = line_len - tab - 1;
 
-                value = line + tab + 1;
-                value_len = line_len - tab - 1;
                 in_fixture = true;
                 matched_fixture = ctc_text_reference_field_equal(
                     value,
@@ -2813,9 +2788,8 @@ ctc_text_reference_load_word_fixture(
             } else if (ctc_text_reference_field_equal(line,
                                                       tab,
                                                       "text_split")) {
-                int32 index;
+                int32 index = fixture->text_split_count;
 
-                index = fixture->text_split_count;
                 ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX);
                 fixture->text_split_lens[index] = ctc_text_decode_hex(
                     fixture->text_split[index],
@@ -2828,9 +2802,8 @@ ctc_text_reference_load_word_fixture(
             } else if (ctc_text_reference_field_equal(line,
                                                       tab,
                                                       "normalized")) {
-                int32 index;
+                int32 index = fixture->normalized_count;
 
-                index = fixture->normalized_count;
                 ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX);
                 fixture->normalized_lens[index] = ctc_text_decode_hex(
                     fixture->normalized[index],
@@ -2841,9 +2814,8 @@ ctc_text_reference_load_word_fixture(
                 ASSERT(fixture->normalized_lens[index] >= 0);
                 fixture->normalized_count += 1;
             } else if (ctc_text_reference_field_equal(line, tab, "tokens")) {
-                int32 index;
+                int32 index = fixture->tokens_count;
 
-                index = fixture->tokens_count;
                 ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX);
                 fixture->tokens_lens[index] = ctc_text_decode_hex(
                     fixture->tokens[index],
@@ -2856,9 +2828,8 @@ ctc_text_reference_load_word_fixture(
             } else if (ctc_text_reference_field_equal(line,
                                                       tab,
                                                       "edges_tokens")) {
-                int32 index;
+                int32 index = fixture->edges_tokens_count;
 
-                index = fixture->edges_tokens_count;
                 ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX*2);
                 fixture->edges_tokens_lens[index] = ctc_text_decode_hex(
                     fixture->edges_tokens[index],
@@ -2871,9 +2842,8 @@ ctc_text_reference_load_word_fixture(
             } else if (ctc_text_reference_field_equal(line,
                                                       tab,
                                                       "segment_tokens")) {
-                int32 index;
+                int32 index = fixture->segment_tokens_count;
 
-                index = fixture->segment_tokens_count;
                 ASSERT(index < CTC_TEXT_REFERENCE_WORD_MAX*2);
                 fixture->segment_tokens_lens[index] = ctc_text_decode_hex(
                     fixture->segment_tokens[index],
@@ -2947,9 +2917,8 @@ ctc_text_test_word_split_fixture_case(char *fixture_name) {
 
 static int32
 ctc_text_test_word_split_matches_reference_fixtures(void) {
-    int32 status;
+    int32 status = 0;
 
-    status = 0;
 
     status += ctc_text_test_word_split_fixture_case("plain_english");
     status += ctc_text_test_word_split_fixture_case("apostrophes");
@@ -3008,9 +2977,8 @@ ctc_text_test_word_normalized_fixture_case(char *fixture_name) {
 
 static int32
 ctc_text_test_word_normalization_matches_reference_fixtures(void) {
-    int32 status;
+    int32 status = 0;
 
-    status = 0;
 
     status += ctc_text_test_word_normalized_fixture_case("plain_english");
     status += ctc_text_test_word_normalized_fixture_case("apostrophes");
@@ -3073,9 +3041,8 @@ ctc_text_test_word_target_fixture_case(char *fixture_name) {
 
 static int32
 ctc_text_test_word_targets_match_reference_fixtures(void) {
-    int32 status;
+    int32 status = 0;
 
-    status = 0;
 
     status += ctc_text_test_word_target_fixture_case("plain_english");
     status += ctc_text_test_word_target_fixture_case("apostrophes");
@@ -3094,9 +3061,8 @@ ctc_text_test_assert_target_item(
     char *expected,
     int32 expected_len
 ) {
-    int32 target_len;
+    int32 target_len = segment->target_end - segment->target_start;
 
-    target_len = segment->target_end - segment->target_start;
     ASSERT(target_len >= 0);
     ASSERT(strequal2(normalized->target_text + segment->target_start,
                      target_len,
@@ -3182,9 +3148,8 @@ ctc_text_test_star_target_sequence_fixture_case(char *fixture_name) {
 
 static int32
 ctc_text_test_star_target_sequences_match_reference(void) {
-    int32 status;
+    int32 status = 0;
 
-    status = 0;
 
     status += ctc_text_test_star_target_sequence_fixture_case("plain_english");
     status += ctc_text_test_star_target_sequence_fixture_case("apostrophes");
@@ -3327,9 +3292,8 @@ ctc_text_test_char_fixture_case(
 
 static int32
 ctc_text_test_char_split_matches_reference_fixtures(void) {
-    int32 status;
+    int32 status = 0;
 
-    status = 0;
 
     status += ctc_text_test_char_fixture_case(
         "english_char",
@@ -3586,9 +3550,8 @@ ctc_text_test_current_normalization_mapping(void) {
 
 int32
 main(void) {
-    int32 status;
+    int32 status = 0;
 
-    status = 0;
 
     status += ctc_text_test_default_options();
     status += ctc_text_test_word_segments_preserve_line_mapping();

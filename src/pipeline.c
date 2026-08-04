@@ -585,9 +585,8 @@ lrc_ctc_debug_dump_write_escaped_text(
     }
 
     for (int32 i = 0; i < text_len; i += 1) {
-        uint8 byte;
+        uint8 byte = (uint8)text[i];
 
-        byte = (uint8)text[i];
         switch (byte) {
         case '\\':
             lrc_ctc_debug_dump_printf(writer, "\\\\");
@@ -862,9 +861,9 @@ lrc_pipeline_parse_preprocess_split_size(
     }
 
     for (uint32 i = 0; i < LRC_LYRICS_PREPROCESS_SPLIT_SIZE_LAST; i += 1) {
-        enum LrcLyricsPreprocessSplitSize split_size;
+        enum LrcLyricsPreprocessSplitSize split_size =
+            (enum LrcLyricsPreprocessSplitSize)i;
 
-        split_size = (enum LrcLyricsPreprocessSplitSize)i;
         if (lrc_pipeline_enum_value_matches(
             LRC_LYRICS_PREPROCESS_SPLIT_SIZE_str(split_size),
             QUOTE(LRC_LYRICS_PREPROCESS_SPLIT_SIZE_),
@@ -891,9 +890,9 @@ lrc_pipeline_parse_preprocess_star_frequency(
 
     for (uint32 i = 0; i < LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_LAST;
          i += 1) {
-        enum LrcLyricsPreprocessStarFrequency star_frequency;
+        enum LrcLyricsPreprocessStarFrequency star_frequency =
+            (enum LrcLyricsPreprocessStarFrequency)i;
 
-        star_frequency = (enum LrcLyricsPreprocessStarFrequency)i;
         if (lrc_pipeline_enum_value_matches(
             LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_str(star_frequency),
             QUOTE(LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_),
@@ -920,9 +919,9 @@ lrc_pipeline_parse_preprocess_romanization(
 
     for (uint32 i = 0; i < LRC_LYRICS_PREPROCESS_ROMANIZATION_LAST;
          i += 1) {
-        enum LrcLyricsPreprocessRomanization romanization;
+        enum LrcLyricsPreprocessRomanization romanization =
+            (enum LrcLyricsPreprocessRomanization)i;
 
-        romanization = (enum LrcLyricsPreprocessRomanization)i;
         if (lrc_pipeline_enum_value_matches(
             LRC_LYRICS_PREPROCESS_ROMANIZATION_str(romanization),
             QUOTE(LRC_LYRICS_PREPROCESS_ROMANIZATION_),
@@ -1093,11 +1092,10 @@ lrc_ctc_debug_dump_write_target_tokens(
     }
 
     for (int32 i = 0; i < tokens->token_count; i += 1) {
-        LrcCtcTextToken *text_token;
+        LrcCtcTextToken *text_token = tokens->tokens + i;
         LrcCtcToken *token;
         int32 starts_segment;
 
-        text_token = tokens->tokens + i;
         token = lrc_pipeline_debug_dump_token(tokenizer,
                                               text_token->token_id);
         lrc_ctc_debug_dump_printf(writer,
@@ -1278,13 +1276,10 @@ lrc_ctc_debug_dump_write_path_segments(
     }
 
     for (int32 i = 0; i < segments->segment_count; i += 1) {
-        LrcCtcPathSegment *segment;
-        int32 is_blank;
-        int32 is_star;
+        LrcCtcPathSegment *segment = segments->segments + i;
+        int32 is_blank = 0;
+        int32 is_star = 0;
 
-        segment = segments->segments + i;
-        is_blank = 0;
-        is_star = 0;
         if (segment->is_blank) {
             is_blank = 1;
         }
@@ -1362,9 +1357,8 @@ lrc_ctc_debug_dump_write_word_spans(
     }
 
     for (int32 i = 0; i < word_spans->span_count; i += 1) {
-        LrcCtcWordSpan *word;
+        LrcCtcWordSpan *word = word_spans->spans + i;
 
-        word = word_spans->spans + i;
         lrc_ctc_debug_dump_printf(writer,
                                   "%d\t%d\t%d\t",
                                   i,
@@ -1453,9 +1447,8 @@ lrc_pipeline_debug_dump_write_active_word_spans(
     lrc_ctc_token_spans_destroy(&active_token_spans);
 
     if (!ok) {
-        char *message;
+        char *message = "could not build active CTC word spans";
 
-        message = "could not build active CTC word spans";
         if (align_result) {
             message = align_result->message;
         }
@@ -1513,9 +1506,8 @@ lrc_pipeline_debug_dump_write_path_segments(
                                   frame_duration_seconds,
                                   &segments,
                                   align_result)) {
-        char *message;
+        char *message = "could not build merged CTC path segments";
 
-        message = "could not build merged CTC path segments";
         if (align_result) {
             message = align_result->message;
         }
@@ -1808,9 +1800,8 @@ lrc_pipeline_audio_window_rms(
 
     sum = 0.0;
     for (int64 i = 0; i < sample_count; i += 1) {
-        double sample;
+        double sample = (double)samples[start_index + i];
 
-        sample = (double)samples[start_index + i];
         if (!isfinite(sample)) {
             sample = 0.0;
         }
@@ -2085,9 +2076,8 @@ lrc_pipeline_next_timestamped_line(
     }
 
     for (int32 i = start_index; i < timestamps->line_count; i += 1) {
-        LrcCtcLineTimestamp *timestamp;
+        LrcCtcLineTimestamp *timestamp = timestamps->lines + i;
 
-        timestamp = timestamps->lines + i;
         if (timestamp->kind == LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED) {
             return timestamp;
         }
@@ -2116,12 +2106,11 @@ lrc_pipeline_line_timestamps_correct_ends_from_audio(
     }
 
     for (int32 i = 0; i < timestamps->line_count; i += 1) {
-        LrcCtcLineTimestamp *current;
+        LrcCtcLineTimestamp *current = timestamps->lines + i;
         LrcCtcLineTimestamp *next;
         float gap_seconds;
         float silence_start_seconds;
 
-        current = timestamps->lines + i;
         if (current->kind != LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED) {
             continue;
         }
@@ -2171,11 +2160,10 @@ lrc_pipeline_timestamp_needs_clear_line(
     LrcCtcLineTimestamps *timestamps,
     int32 timestamp_index
 ) {
-    LrcCtcLineTimestamp *current;
+    LrcCtcLineTimestamp *current = timestamps->lines + timestamp_index;
     LrcCtcLineTimestamp *next;
     float gap_seconds;
 
-    current = timestamps->lines + timestamp_index;
     if (current->kind != LRC_CTC_LINE_TIMESTAMP_KIND_TIMESTAMPED) {
         return false;
     }
@@ -2231,10 +2219,9 @@ lrc_pipeline_output_lines_from_timestamps(
 
     out_index = 0;
     for (int32 i = 0; i < timestamps->line_count; i += 1) {
-        LrcCtcLineTimestamp *timestamp;
+        LrcCtcLineTimestamp *timestamp = timestamps->lines + i;
         LrcLyricsLine *lyrics_line;
 
-        timestamp = timestamps->lines + i;
         if ((timestamp->line_index < 0)
             || (timestamp->line_index >= lyrics->line_count)) {
             lrc_pipeline_generate_result_set(
@@ -2907,11 +2894,9 @@ lrc_pipeline_generate_lrc(
     }
 
     if (!ok) {
-        char *message;
-        char *path_arg;
+        char *message = "LRC generation failed";
+        char *path_arg = NULL;
 
-        message = "LRC generation failed";
-        path_arg = NULL;
         if (result) {
             message = result->message;
             path_arg = result->path;
@@ -3618,9 +3603,8 @@ pipeline_test_hundredths_near(
     int32 b,
     int32 epsilon
 ) {
-    int32 diff;
+    int32 diff = a - b;
 
-    diff = a - b;
     if (diff < 0) {
         diff = -diff;
     }
@@ -4475,20 +4459,16 @@ pipeline_test_sample_has_blank_line_between(
     char *second,
     int32 second_len
 ) {
-    bool found_first;
-    bool saw_blank;
-    int32 pos;
+    bool found_first = false;
+    bool saw_blank = false;
+    int32 pos = 0;
 
-    found_first = false;
-    saw_blank = false;
-    pos = 0;
 
     while (pos < text_len) {
-        int32 start;
+        int32 start = pos;
         int32 end;
         int32 len;
 
-        start = pos;
         while ((pos < text_len) && (text[pos] != '\n')) {
             pos += 1;
         }

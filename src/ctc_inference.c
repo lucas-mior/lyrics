@@ -518,12 +518,11 @@ lrc_ctc_emissions_copy_rank3_trimmed(
     lrc_progress_begin(&progress);
     kept_frame = 0;
     for (int64 i = 0; i < input->chunk_count; i += 1) {
-        LrcCtcModelChunk *chunk;
+        LrcCtcModelChunk *chunk = &input->chunks[i];
         int64 kept_offset;
         int64 chunk_kept_count;
         int64 raw_value_offset;
 
-        chunk = &input->chunks[i];
         if (!lrc_ctc_emissions_chunk_trim_range(input,
                                                 chunk,
                                                 i,
@@ -1002,9 +1001,8 @@ lrc_ctc_fake_inference_run(
     bool print_progress,
     LrcCtcInferenceResult *result
 ) {
-    LrcCtcFakeInference *fake;
+    LrcCtcFakeInference *fake = backend;
 
-    fake = backend;
     if (fake == NULL) {
         lrc_ctc_inference_result_set(
             result,
@@ -1445,20 +1443,15 @@ lrc_ctc_onnx_inference_run_chunked(
 ) {
     LrcProgress progress;
     OrtTensor output;
-    float *values;
+    float *values = NULL;
     int64 input_shape[2];
     int64 output_shape[3];
-    int64 chunk_emission_count;
-    int64 vocabulary_size;
-    int64 chunk_value_count;
-    int64 value_count;
+    int64 chunk_emission_count = 0;
+    int64 vocabulary_size = 0;
+    int64 chunk_value_count = 0;
+    int64 value_count = 0;
     bool ok;
 
-    values = NULL;
-    value_count = 0;
-    chunk_emission_count = 0;
-    vocabulary_size = 0;
-    chunk_value_count = 0;
     input_shape[0] = 1;
     input_shape[1] = input->row_sample_count;
     ok = true;
@@ -1532,7 +1525,7 @@ lrc_ctc_onnx_inference_run(
     LrcCtcInferenceResult *result
 ) {
 #if LRC_CTC_INFERENCE_ENABLE_ORT
-    LrcCtcOnnxInference *onnx;
+    LrcCtcOnnxInference *onnx = backend;
     LrcCtcModelInputResult input_result;
     LrcCtcModelIoInfo input_info;
     OrtTensor input_tensor;
@@ -1540,7 +1533,6 @@ lrc_ctc_onnx_inference_run(
     LrcProgress progress;
     bool ok;
 
-    onnx = backend;
     if ((onnx == NULL) || !onnx->loaded) {
         lrc_ctc_inference_result_set(
             result,
@@ -1722,9 +1714,8 @@ ctc_inference_make_rank3_trim_input(
     input->original_emission_count = original_emission_count;
 
     for (int64 i = 0; i < input->chunk_count; i += 1) {
-        LrcCtcModelChunk *chunk;
+        LrcCtcModelChunk *chunk = &chunks[i];
 
-        chunk = &chunks[i];
         chunk->raw_emission_start = i*input->raw_chunk_emission_count;
         chunk->raw_emission_count = input->raw_chunk_emission_count;
         chunk->trim_left_emissions = 1;
@@ -1770,9 +1761,8 @@ ctc_inference_make_custom_rank3_trim_input(
     input->original_emission_count = original_emission_count;
 
     for (int64 i = 0; i < chunk_count; i += 1) {
-        LrcCtcModelChunk *chunk;
+        LrcCtcModelChunk *chunk = &chunks[i];
 
-        chunk = &chunks[i];
         chunk->raw_emission_start = i*raw_chunk_emission_count;
         chunk->raw_emission_count = raw_chunk_emission_count;
         chunk->trim_left_emissions = trim_left;

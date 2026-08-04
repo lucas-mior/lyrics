@@ -135,15 +135,12 @@ lrc_ctc_tokenizer_best_match(
     int32 *token_id,
     int32 *token_len
 ) {
-    int32 best_id;
-    int32 best_len;
+    int32 best_id = -1;
+    int32 best_len = -1;
 
-    best_id = -1;
-    best_len = -1;
     for (int32 i = 0; i < tokenizer->token_count; i += 1) {
-        LrcCtcToken *token;
+        LrcCtcToken *token = tokenizer->tokens + i;
 
-        token = tokenizer->tokens + i;
         if (token->is_blank || token->is_unknown) {
             continue;
         }
@@ -287,9 +284,8 @@ lrc_ctc_tokenizer_segment_index_for_range(
     }
 
     for (int32 i = 0; i < normalized->segment_count; i += 1) {
-        CtcTextSegment *segment;
+        CtcTextSegment *segment = normalized->segments + i;
 
-        segment = normalized->segments + i;
         if (segment->normalized_end <= segment->normalized_start) {
             continue;
         }
@@ -643,9 +639,8 @@ lrc_ctc_tokenizer_reserve_text(
 static void
 lrc_ctc_tokenizer_refresh_text_pointers(LrcCtcTokenizer *tokenizer) {
     for (int32 i = 0; i < tokenizer->token_count; i += 1) {
-        LrcCtcToken *token;
+        LrcCtcToken *token = tokenizer->tokens + i;
 
-        token = tokenizer->tokens + i;
         token->text = tokenizer->text_storage.data + token->text_offset;
     }
 
@@ -707,9 +702,8 @@ lrc_ctc_tokenizer_token_id(
     }
 
     for (int32 i = 0; i < tokenizer->token_count; i += 1) {
-        LrcCtcToken *item;
+        LrcCtcToken *item = tokenizer->tokens + i;
 
-        item = tokenizer->tokens + i;
         if ((item->text_len == token_len)
             && (memcmp64(item->text, token, token_len) == 0)) {
             *id = item->id;
@@ -846,22 +840,18 @@ lrc_ctc_tokenizer_parse_text(
     char *path,
     LrcCtcTokenizerResult *result
 ) {
-    int32 line_start;
-    int32 line_index;
+    int32 line_start = 0;
+    int32 line_index = 0;
 
-    line_start = 0;
-    line_index = 0;
     for (int32 i = 0; i <= text_len; i += 1) {
         if ((i == text_len) || (text[i] == '\n')) {
-            char *line;
+            char *line = text + line_start;
             char *token_text;
             bool is_blank;
             bool is_unknown;
-            int32 line_len;
+            int32 line_len = i - line_start;
             int32 token_len;
 
-            line = text + line_start;
-            line_len = i - line_start;
             if ((line_len > 0) && (line[line_len - 1] == '\r')) {
                 line_len -= 1;
             }

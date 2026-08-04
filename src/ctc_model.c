@@ -413,23 +413,17 @@ lrc_ctc_model_input_copy_chunked(
     LrcCtcModelInput *input,
     LrcCtcAudio *audio
 ) {
-    int64 window_samples;
-    int64 context_samples;
+    int64 window_samples = input->window_sample_count;
+    int64 context_samples = input->context_sample_count;
 
-    window_samples = input->window_sample_count;
-    context_samples = input->context_sample_count;
     for (int64 row = 0; row < input->row_count; row += 1) {
-        int64 source_start;
-        int64 output_start;
+        int64 source_start = row*window_samples - context_samples;
+        int64 output_start = row*input->row_sample_count;
 
-        source_start = row*window_samples - context_samples;
-        output_start = row*input->row_sample_count;
         for (int64 i = 0; i < input->row_sample_count; i += 1) {
-            int64 source_index;
-            float sample;
+            int64 source_index = source_start + i;
+            float sample = 0.0f;
 
-            source_index = source_start + i;
-            sample = 0.0f;
             if ((source_index >= 0) && (source_index < audio->sample_count)) {
                 sample = audio->samples[source_index];
             }
@@ -495,9 +489,8 @@ static void
 lrc_ctc_model_input_prepare_short_chunk(
     LrcCtcModelInput *input
 ) {
-    LrcCtcModelChunk *chunk;
+    LrcCtcModelChunk *chunk = &input->chunks[0];
 
-    chunk = &input->chunks[0];
     chunk->source_start_frame = 0;
     chunk->source_frame_count = input->original_sample_count;
     chunk->padded_start_frame = 0;
@@ -542,10 +535,9 @@ lrc_ctc_model_input_prepare_chunk_metadata(
     expected_valid_start = 0;
     total_kept_emissions = 0;
     for (int64 i = 0; i < input->chunk_count; i += 1) {
-        LrcCtcModelChunk *chunk;
+        LrcCtcModelChunk *chunk = &input->chunks[i];
         int64 output_end;
 
-        chunk = &input->chunks[i];
         center_start = i*input->window_sample_count;
         center_end = center_start + input->window_sample_count;
         source_start = MAX(0, center_start - input->context_sample_count);
