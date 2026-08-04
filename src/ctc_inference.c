@@ -18,8 +18,7 @@ lrc_ctc_inference_result_init(LrcCtcInferenceResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_result_header_init(&result->header);
 
     result->output_index = -1;
 
@@ -37,8 +36,7 @@ lrc_ctc_inference_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
+    lrc_result_header_set(&result->header, error, message);
 
     result->output_index = (int32)CLAMP(output_index, INT32_MIN, INT32_MAX);
 

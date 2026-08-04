@@ -26,25 +26,40 @@ typedef struct LrcParsedLine {
 } LrcParsedLine;
 
 typedef struct LrcParseResult {
-    enum LsError error;
-    char *message;
+    union {
+        LrcResultHeader header;
+        struct {
+            enum LsError error;
+            char *message;
+        };
+    };
 
     int32 line_index;
     int32 byte_offset;
 } LrcParseResult;
 
 typedef struct LrcFormatResult {
-    enum LsError error;
-    char *message;
+    union {
+        LrcResultHeader header;
+        struct {
+            enum LsError error;
+            char *message;
+        };
+    };
 
     float seconds;
     int32 timestamp_hundredths;
 } LrcFormatResult;
 
 typedef struct LrcWriteResult {
-    enum LsError error;
+    union {
+        LrcResultHeader header;
+        struct {
+            enum LsError error;
+            char *message;
+        };
+    };
     enum LsError format_error;
-    char *message;
     char *path;
 
     int32 line_index;

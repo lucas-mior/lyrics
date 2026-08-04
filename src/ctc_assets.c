@@ -13,9 +13,7 @@ lrc_ctc_assets_result_init(LrcCtcAssetsResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
-    result->path = NULL;
+    lrc_path_result_header_init(&result->path_header);
 
     return;
 }
@@ -32,9 +30,7 @@ lrc_ctc_assets_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
-    result->path = path;
+    lrc_path_result_header_set(&result->path_header, error, message, path);
 
     return;
 }

@@ -28,9 +28,7 @@ lrc_lyrics_load_result_init(LrcLyricsLoadResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
-    result->path = NULL;
+    lrc_path_result_header_init(&result->path_header);
 
     result->byte_offset = -1;
 
@@ -49,9 +47,7 @@ lrc_lyrics_load_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
-    result->path = path;
+    lrc_path_result_header_set(&result->path_header, error, message, path);
 
     result->byte_offset = byte_offset;
 

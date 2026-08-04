@@ -13,8 +13,7 @@ lrc_ctc_align_result_init(LrcCtcAlignResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_result_header_init(&result->header);
 
     result->frame_index = -1;
     result->token_index = -1;
@@ -34,8 +33,7 @@ lrc_ctc_align_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
+    lrc_result_header_set(&result->header, error, message);
 
     result->frame_index = (int32)CLAMP(frame_index, INT32_MIN, INT32_MAX);
     result->token_index = (int32)CLAMP(token_index, INT32_MIN, INT32_MAX);

@@ -26,9 +26,14 @@ typedef struct LrcVocalsExtractRequest {
 } LrcVocalsExtractRequest;
 
 typedef struct LrcVocalsExtractResult {
-    enum LsError error;
-    char *message;
-    char *path;
+    union {
+        LrcPathResultHeader path_header;
+        struct {
+            enum LsError error;
+            char *message;
+            char *path;
+        };
+    };
 } LrcVocalsExtractResult;
 
 static void lrc_vocals_extract_request_init(LrcVocalsExtractRequest *request);

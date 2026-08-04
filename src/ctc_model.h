@@ -17,8 +17,13 @@ typedef struct LrcCtcModelConfig {
 } LrcCtcModelConfig;
 
 typedef struct LrcCtcModelInputResult {
-    enum LsError error;
-    char *message;
+    union {
+        LrcResultHeader header;
+        struct {
+            enum LsError error;
+            char *message;
+        };
+    };
 
     int64 sample_index;
 } LrcCtcModelInputResult;

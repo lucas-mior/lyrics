@@ -10,9 +10,14 @@ typedef struct LrcCtcAssetsConfig {
 } LrcCtcAssetsConfig;
 
 typedef struct LrcCtcAssetsResult {
-    enum LsError error;
-    char *message;
-    char *path;
+    union {
+        LrcPathResultHeader path_header;
+        struct {
+            enum LsError error;
+            char *message;
+            char *path;
+        };
+    };
 } LrcCtcAssetsResult;
 
 typedef struct LrcCtcAssets {

@@ -14,9 +14,14 @@ typedef struct LrcCtcAudioConfig {
 } LrcCtcAudioConfig;
 
 typedef struct LrcCtcAudioResult {
-    enum LsError error;
-    char *message;
-    char *path;
+    union {
+        LrcPathResultHeader path_header;
+        struct {
+            enum LsError error;
+            char *message;
+            char *path;
+        };
+    };
 
     int64 sample_index;
 } LrcCtcAudioResult;

@@ -13,8 +13,7 @@ lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_result_header_init(&result->header);
 
     result->byte_offset = -1;
     result->line_index = -1;
@@ -36,8 +35,7 @@ lrc_ctc_tokenize_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
+    lrc_result_header_set(&result->header, error, message);
 
     result->byte_offset = byte_offset;
     result->line_index = line_index;
@@ -563,9 +561,7 @@ lrc_ctc_tokenizer_result_init(LrcCtcTokenizerResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
-    result->path = NULL;
+    lrc_path_result_header_init(&result->path_header);
 
     result->line_index = -1;
     result->token_id = -1;
@@ -586,9 +582,7 @@ lrc_ctc_tokenizer_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
-    result->path = path;
+    lrc_path_result_header_set(&result->path_header, error, message, path);
 
     result->line_index = line_index;
     result->token_id = token_id;

@@ -28,8 +28,7 @@ lrc_ctc_model_input_result_init(LrcCtcModelInputResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_result_header_init(&result->header);
 
     result->sample_index = -1;
 
@@ -47,8 +46,7 @@ lrc_ctc_model_input_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
+    lrc_result_header_set(&result->header, error, message);
 
     result->sample_index = sample_index;
 

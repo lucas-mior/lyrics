@@ -25,9 +25,7 @@ lrc_vocals_extract_result_init(LrcVocalsExtractResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
-    result->path = NULL;
+    lrc_path_result_header_init(&result->path_header);
 
     return;
 }
@@ -43,9 +41,7 @@ vocals_extract_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
-    result->path = path;
+    lrc_path_result_header_set(&result->path_header, error, message, path);
 
     return;
 }

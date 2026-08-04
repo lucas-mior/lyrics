@@ -13,8 +13,7 @@ lrc_parse_result_init(LrcParseResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_result_header_init(&result->header);
 
     result->line_index = -1;
     result->byte_offset = -1;
@@ -34,8 +33,7 @@ lrc_parse_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
+    lrc_result_header_set(&result->header, error, message);
 
     result->line_index = line_index;
     result->byte_offset = byte_offset;
@@ -49,8 +47,7 @@ lrc_format_result_init(LrcFormatResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_result_header_init(&result->header);
 
     result->seconds = 0.0f;
     result->timestamp_hundredths = 0;
@@ -70,8 +67,7 @@ lrc_format_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
+    lrc_result_header_set(&result->header, error, message);
 
     result->seconds = seconds;
     result->timestamp_hundredths = timestamp_hundredths;
@@ -85,9 +81,8 @@ lrc_write_result_init(LrcWriteResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
+    lrc_result_header_init(&result->header);
     result->format_error = LS_ERROR_NONE;
-    result->message = "ok";
     result->path = NULL;
 
     result->line_index = -1;
@@ -107,8 +102,7 @@ lrc_write_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
+    lrc_result_header_set(&result->header, error, message);
     result->path = path;
 
     result->line_index = line_index;

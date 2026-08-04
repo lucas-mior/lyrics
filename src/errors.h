@@ -143,4 +143,77 @@
 #include "cbase/xenums.c"
 #undef XENUMS_NO_TESTS
 
+typedef struct LrcResultHeader {
+    enum LsError error;
+    char *message;
+} LrcResultHeader;
+
+typedef struct LrcPathResultHeader {
+    union {
+        LrcResultHeader header;
+        struct {
+            enum LsError error;
+            char *message;
+        };
+    };
+    char *path;
+} LrcPathResultHeader;
+
+static void
+lrc_result_header_init(LrcResultHeader *header) {
+    if (header == NULL) {
+        return;
+    }
+
+    header->error = LS_ERROR_NONE;
+    header->message = "ok";
+
+    return;
+}
+
+static void
+lrc_result_header_set(
+    LrcResultHeader *header,
+    enum LsError error,
+    char *message
+) {
+    if (header == NULL) {
+        return;
+    }
+
+    header->error = error;
+    header->message = message;
+
+    return;
+}
+
+static void
+lrc_path_result_header_init(LrcPathResultHeader *header) {
+    if (header == NULL) {
+        return;
+    }
+
+    lrc_result_header_init(&header->header);
+    header->path = NULL;
+
+    return;
+}
+
+static void
+lrc_path_result_header_set(
+    LrcPathResultHeader *header,
+    enum LsError error,
+    char *message,
+    char *path
+) {
+    if (header == NULL) {
+        return;
+    }
+
+    lrc_result_header_set(&header->header, error, message);
+    header->path = path;
+
+    return;
+}
+
 #endif /* LS_ERRORS_H */

@@ -63,9 +63,7 @@ lrc_pipeline_vocals_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
-    result->path = path;
+    lrc_path_result_header_set(&result->path_header, error, message, path);
 
     return;
 }
@@ -362,9 +360,12 @@ lrc_pipeline_validate_ctc_assets(
     if (pipeline == NULL) {
         lrc_ctc_assets_result_init(result);
         if (result) {
-            result->error = LS_ERROR_CTC_ASSETS_INVALID_ARGUMENT;
-            result->message = "pipeline is missing";
-            result->path = NULL;
+            lrc_path_result_header_set(
+                &result->path_header,
+                LS_ERROR_CTC_ASSETS_INVALID_ARGUMENT,
+                "pipeline is missing",
+                NULL
+            );
         }
         return false;
     }
@@ -439,9 +440,7 @@ lrc_pipeline_generate_result_init(LrcPipelineGenerateResult *result) {
         return;
     }
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
-    result->path = NULL;
+    lrc_path_result_header_init(&result->path_header);
 
     result->frame_index = -1;
     result->token_index = -1;
@@ -461,9 +460,7 @@ lrc_pipeline_generate_result_set(
         return;
     }
 
-    result->error = error;
-    result->message = message;
-    result->path = path;
+    lrc_path_result_header_set(&result->path_header, error, message, path);
 
     return;
 }
@@ -2994,9 +2991,12 @@ lrc_lyrics_load_file(
     (void)lyrics;
 
     if (result) {
-        result->error = LS_ERROR_LYRICS_LOAD_OPEN_FAILED;
-        result->message = "lyrics load stub failed";
-        result->path = path;
+        lrc_path_result_header_set(
+            &result->path_header,
+            LS_ERROR_LYRICS_LOAD_OPEN_FAILED,
+            "lyrics load stub failed",
+            path
+        );
         result->byte_offset = -1;
     }
 
@@ -3039,8 +3039,7 @@ static void
 lrc_ctc_tokenize_result_init(LrcCtcTokenizeResult *result) {
     memset64(result, 0, SIZEOF(*result));
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_result_header_init(&result->header);
     result->byte_offset = -1;
     result->line_index = -1;
     result->token_id = -1;
@@ -3074,8 +3073,7 @@ static void
 lrc_ctc_tokenizer_result_init(LrcCtcTokenizerResult *result) {
     memset64(result, 0, SIZEOF(*result));
 
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
+    lrc_path_result_header_init(&result->path_header);
     result->line_index = -1;
     result->token_id = -1;
 
@@ -3480,9 +3478,7 @@ lrc_vocals_extract_request_init(LrcVocalsExtractRequest *request) {
 
 static void
 lrc_vocals_extract_result_init(LrcVocalsExtractResult *result) {
-    result->error = LS_ERROR_NONE;
-    result->message = "ok";
-    result->path = NULL;
+    lrc_path_result_header_init(&result->path_header);
 
     return;
 }

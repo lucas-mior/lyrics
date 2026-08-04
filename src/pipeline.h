@@ -21,9 +21,14 @@
 #endif
 
 typedef struct LrcPipelineGenerateResult {
-    enum LsError error;
-    char *message;
-    char *path;
+    union {
+        LrcPathResultHeader path_header;
+        struct {
+            enum LsError error;
+            char *message;
+            char *path;
+        };
+    };
 
     int64 frame_index;
     int32 token_index;
