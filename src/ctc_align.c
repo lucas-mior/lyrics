@@ -37,8 +37,8 @@ lrc_ctc_align_result_set(
     result->error = error;
     result->message = message;
 
-    result->frame_index = CLAMP(frame_index, INT32_MIN, INT32_MAX);
-    result->token_index = CLAMP(token_index, INT32_MIN, INT32_MAX);
+    result->frame_index = (int32)CLAMP(frame_index, INT32_MIN, INT32_MAX);
+    result->token_index = (int32)CLAMP(token_index, INT32_MIN, INT32_MAX);
 
     return;
 }
