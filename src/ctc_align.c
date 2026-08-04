@@ -4955,7 +4955,6 @@ lrc_ctc_word_spans_to_line_timestamps(
 
 
 #if TESTING_ctc_align
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 

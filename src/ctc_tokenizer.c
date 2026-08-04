@@ -976,9 +976,9 @@ lrc_ctc_tokenizer_load_file(
 }
 
 #if TESTING_ctc_tokenizer
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
 #include "lyrics.c"
 #include "unicode_norm.c"
 #include "ctc_text.c"

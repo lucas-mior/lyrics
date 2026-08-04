@@ -217,9 +217,9 @@ lrc_ctc_audio_decode_file(
 }
 
 #if TESTING_ctc_audio
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
 #include "audio.c"
 
 static int32

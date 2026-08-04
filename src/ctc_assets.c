@@ -103,7 +103,6 @@ lrc_ctc_assets_validate(
 }
 
 #if TESTING_ctc_assets
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 

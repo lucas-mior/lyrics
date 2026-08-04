@@ -990,7 +990,6 @@ lrc_write_output_file(
 }
 
 #if TESTING_lrc
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 

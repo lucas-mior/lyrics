@@ -154,7 +154,6 @@ fftw_real_plan_destroy(FftwRealPlan *plan) {
 }
 
 #if TESTING_fftw
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 

@@ -489,7 +489,6 @@ cleanup:
 }
 
 #if TESTING_vocals
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 

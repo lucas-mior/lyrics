@@ -2225,9 +2225,9 @@ lrc_lyrics_normalized_segment(
 
 
 #if TESTING_ctc_text
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
 #include "lyrics.c"
 #include "unicode_norm.c"
 

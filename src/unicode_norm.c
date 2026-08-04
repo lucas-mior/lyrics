@@ -578,7 +578,6 @@ ctc_unicode_norm_transliterate_latin(
 }
 
 #if TESTING_unicode_norm
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 

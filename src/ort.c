@@ -958,7 +958,6 @@ ort_tensor_destroy(OrtContext *context, OrtTensor *tensor) {
 }
 
 #if TESTING_ort
-
 #define CBASE_IMPLEMENT
 #include "cbase.h"
 
