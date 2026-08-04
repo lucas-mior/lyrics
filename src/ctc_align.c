@@ -22,18 +22,6 @@ lrc_ctc_align_result_init(LrcCtcAlignResult *result) {
     return;
 }
 
-static int32
-lrc_ctc_align_result_context_int32(int64 value) {
-    if (value < INT32_MIN) {
-        return INT32_MIN;
-    }
-    if (value > INT32_MAX) {
-        return INT32_MAX;
-    }
-
-    return (int32)value;
-}
-
 static void
 lrc_ctc_align_result_set(
     LrcCtcAlignResult *result,
@@ -49,8 +37,8 @@ lrc_ctc_align_result_set(
     result->error = error;
     result->message = message;
 
-    result->frame_index = lrc_ctc_align_result_context_int32(frame_index);
-    result->token_index = lrc_ctc_align_result_context_int32(token_index);
+    result->frame_index = CLAMP(frame_index, INT32_MIN, INT32_MAX);
+    result->token_index = CLAMP(token_index, INT32_MIN, INT32_MAX);
 
     return;
 }
