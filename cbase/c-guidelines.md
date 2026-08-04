@@ -96,7 +96,7 @@ typeof(var)  // good
 ## Memory allocation
 
 - Avoid `malloc`, `calloc`, `realloc`, and `free`.
-  * Use wrappers that track allocations in debug builds:
+  * Use wrappers that track allocations in debug builds instead:
     + `malloc2(size)`
     + `free2(pointer, size)`
     + `realloc2(pointer, old_array_capacity, new_array_capacity, obj_size)`
