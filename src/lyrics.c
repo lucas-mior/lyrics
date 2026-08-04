@@ -15,7 +15,7 @@ lrc_lyrics_destroy(LrcLyrics *lyrics) {
         return;
     }
 
-    ARRAY_FREE(lyrics->text);
+    free2(lyrics->text, ((int64)lyrics->text_len + 1)*SIZEOF(*lyrics->text));
     ARRAY_FREE(lyrics->lines);
 
     memset64(lyrics, 0, SIZEOF(*lyrics));
@@ -69,8 +69,7 @@ lrc_lyrics_normalize_text(
 ) {
     int32 bad_offset;
     int32 start;
-    int32 normalized_len;
-    char *normalized;
+    StrBuilder normalized;
 
     if (!utf8_valid(file_text, file_len, &bad_offset)) {
         lrc_lyrics_load_result_set(
@@ -89,25 +88,21 @@ lrc_lyrics_normalize_text(
         start = 3;
     }
 
-    ARRAY_INIT(normalized, file_len + 1);
-    normalized_len = 0;
+    sb_init(&normalized);
+    sb_reserve(&normalized, file_len - start);
     for (int32 i = start; i < file_len; i += 1) {
         if (file_text[i] == '\r') {
-            normalized[normalized_len] = '\n';
-            normalized_len += 1;
+            sb_append_byte(&normalized, '\n');
             if (((i + 1) < file_len) && (file_text[i + 1] == '\n')) {
                 i += 1;
             }
         } else {
-            normalized[normalized_len] = file_text[i];
-            normalized_len += 1;
+            sb_append(&normalized, file_text + i, 1);
         }
     }
-    normalized[normalized_len] = '\0';
+    sb_append(&normalized, "", 0);
 
-    lyrics->text = normalized;
-    lyrics->text_len = normalized_len;
-    lrc_array_set_count(lyrics->text, normalized_len + 1);
+    lyrics->text = sb_steal_exact(&normalized, &lyrics->text_len);
 
     return true;
 }

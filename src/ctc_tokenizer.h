@@ -43,6 +43,7 @@ typedef struct LrcCtcToken {
     char *text;
 
     int32 text_len;
+    int32 text_offset;
     int32 id;
 
     bool is_blank;
@@ -51,10 +52,9 @@ typedef struct LrcCtcToken {
 
 typedef struct LrcCtcTokenizer {
     LrcCtcToken *tokens;
-    char *text_storage;
+    StrBuilder text_storage;
 
     int32 token_count;
-    int32 text_storage_len;
     int32 blank_id;
     int32 unknown_id;
 } LrcCtcTokenizer;

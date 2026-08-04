@@ -541,6 +541,7 @@ lrc_ctc_tokenizer_init(LrcCtcTokenizer *tokenizer) {
     }
 
     memset64(tokenizer, 0, SIZEOF(*tokenizer));
+    sb_init(&tokenizer->text_storage);
     tokenizer->blank_id = -1;
     tokenizer->unknown_id = -1;
 
@@ -554,7 +555,7 @@ lrc_ctc_tokenizer_destroy(LrcCtcTokenizer *tokenizer) {
     }
 
     ARRAY_FREE(tokenizer->tokens);
-    ARRAY_FREE(tokenizer->text_storage);
+    sb_free(&tokenizer->text_storage);
 
     lrc_ctc_tokenizer_init(tokenizer);
 
@@ -630,12 +631,26 @@ lrc_ctc_tokenizer_reserve_text(
         return true;
     }
 
-    needed = (int64)tokenizer->text_storage_len + extra;
-    if (needed > INT32_MAX) {
+    needed = (int64)tokenizer->text_storage.len + extra;
+    if (needed >= INT32_MAX) {
         return false;
     }
 
-    return LRC_ARRAY_RESERVE(tokenizer->text_storage, (int32)needed);
+    sb_reserve(&tokenizer->text_storage, extra);
+
+    return true;
+}
+
+static void
+lrc_ctc_tokenizer_refresh_text_pointers(LrcCtcTokenizer *tokenizer) {
+    for (int32 i = 0; i < tokenizer->token_count; i += 1) {
+        LrcCtcToken *token;
+
+        token = tokenizer->tokens + i;
+        token->text = tokenizer->text_storage.data + token->text_offset;
+    }
+
+    return;
 }
 
 static bool
@@ -731,8 +746,10 @@ lrc_ctc_tokenizer_add_token(
 ) {
     LrcCtcToken *token;
     char *stored_text;
+    char zero;
     int32 existing_id;
     int32 id;
+    int32 text_offset;
 
     if ((!is_blank && (token_len <= 0)) || (token_len < 0)) {
         lrc_ctc_tokenizer_result_set(
@@ -792,18 +809,19 @@ lrc_ctc_tokenizer_add_token(
     }
 
     id = tokenizer->token_count;
-    stored_text = tokenizer->text_storage + tokenizer->text_storage_len;
+    text_offset = tokenizer->text_storage.len;
     if (token_len > 0) {
-        memcpy64(stored_text, token_text, token_len);
+        sb_append(&tokenizer->text_storage, token_text, token_len);
     }
-    stored_text[token_len] = '\0';
-    tokenizer->text_storage_len += token_len + 1;
-    lrc_array_set_count(tokenizer->text_storage,
-                        tokenizer->text_storage_len);
+    zero = '\0';
+    sb_append(&tokenizer->text_storage, &zero, 1);
+    lrc_ctc_tokenizer_refresh_text_pointers(tokenizer);
 
+    stored_text = tokenizer->text_storage.data + text_offset;
     token = tokenizer->tokens + tokenizer->token_count;
     token->text = stored_text;
     token->text_len = token_len;
+    token->text_offset = text_offset;
     token->id = id;
     token->is_blank = is_blank;
     token->is_unknown = is_unknown;

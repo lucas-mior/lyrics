@@ -8,9 +8,7 @@
 #endif
 
 typedef struct CtcUnicodeNormResult {
-    char *text;
-
-    int32 text_len;
+    StrBuilder text;
 
     bool used_icu;
 } CtcUnicodeNormResult;

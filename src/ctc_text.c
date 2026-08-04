@@ -714,13 +714,18 @@ ctc_text_reference_output_reserve(
     if (extra_bytes <= 0) {
         return true;
     }
+    if (result == NULL) {
+        return false;
+    }
 
-    needed = (int64)result->text_len + extra_bytes;
+    needed = (int64)result->text.len + extra_bytes;
     if (needed >= INT32_MAX) {
         return false;
     }
 
-    return LRC_ARRAY_RESERVE(result->text, (int32)needed + 1);
+    sb_reserve(&result->text, extra_bytes);
+
+    return true;
 }
 
 static bool
@@ -729,17 +734,20 @@ ctc_text_reference_output_append_bytes(
     char *text,
     int32 text_len
 ) {
-    if (text_len <= 0) {
+    if (text_len < 0) {
+        return false;
+    }
+    if (text_len == 0) {
         return true;
+    }
+    if (text == NULL) {
+        return false;
     }
     if (!ctc_text_reference_output_reserve(result, text_len)) {
         return false;
     }
 
-    memcpy64(result->text + result->text_len, text, text_len);
-    result->text_len += text_len;
-    result->text[result->text_len] = '\0';
-    lrc_array_set_count(result->text, result->text_len + 1);
+    sb_append(&result->text, text, text_len);
 
     return true;
 }
@@ -766,15 +774,33 @@ static bool
 ctc_text_reference_output_append_space(CtcUnicodeNormResult *result) {
     char space;
 
-    if (result->text_len <= 0) {
+    if (result->text.len <= 0) {
         return true;
     }
-    if (result->text[result->text_len - 1] == ' ') {
+    if (result->text.data[result->text.len - 1] == ' ') {
         return true;
     }
 
     space = ' ';
     return ctc_text_reference_output_append_bytes(result, &space, 1);
+}
+
+static void
+ctc_text_reference_output_trim_spaces(CtcUnicodeNormResult *result) {
+    while ((result->text.len > 0) && (result->text.data[0] == ' ')) {
+        memmove64(result->text.data,
+                  result->text.data + 1,
+                  result->text.len);
+        result->text.len -= 1;
+        result->text.data[result->text.len] = '\0';
+    }
+    while ((result->text.len > 0)
+           && (result->text.data[result->text.len - 1] == ' ')) {
+        result->text.len -= 1;
+        result->text.data[result->text.len] = '\0';
+    }
+
+    return;
 }
 
 static bool
@@ -1138,18 +1164,7 @@ ctc_text_reference_collapse_spaces(
         i += step;
     }
 
-    while ((result->text_len > 0) && (result->text[0] == ' ')) {
-        memmove(result->text, result->text + 1, (size_t)result->text_len);
-        result->text_len -= 1;
-        result->text[result->text_len] = '\0';
-        lrc_array_set_count(result->text, result->text_len + 1);
-    }
-    while ((result->text_len > 0)
-           && (result->text[result->text_len - 1] == ' ')) {
-        result->text_len -= 1;
-        result->text[result->text_len] = '\0';
-        lrc_array_set_count(result->text, result->text_len + 1);
-    }
+    ctc_text_reference_output_trim_spaces(result);
 
     return true;
 }
@@ -1189,18 +1204,7 @@ ctc_text_reference_normalize_uroman(
         i += step;
     }
 
-    while ((result->text_len > 0) && (result->text[0] == ' ')) {
-        memmove(result->text, result->text + 1, (size_t)result->text_len);
-        result->text_len -= 1;
-        result->text[result->text_len] = '\0';
-        lrc_array_set_count(result->text, result->text_len + 1);
-    }
-    while ((result->text_len > 0)
-           && (result->text[result->text_len - 1] == ' ')) {
-        result->text_len -= 1;
-        result->text[result->text_len] = '\0';
-        lrc_array_set_count(result->text, result->text_len + 1);
-    }
+    ctc_text_reference_output_trim_spaces(result);
 
     return true;
 }
@@ -1246,40 +1250,40 @@ ctc_text_reference_normalize_word(
     if (!ctc_unicode_norm_nfkc_lower(text, text_len, &stage1)) {
         goto done;
     }
-    if (!ctc_text_reference_remove_number_parentheses(stage1.text,
-                                                      stage1.text_len,
+    if (!ctc_text_reference_remove_number_parentheses(stage1.text.data,
+                                                      stage1.text.len,
                                                       &stage2)) {
         goto done;
     }
-    if (!ctc_text_reference_apply_mappings(stage2.text,
-                                           stage2.text_len,
+    if (!ctc_text_reference_apply_mappings(stage2.text.data,
+                                           stage2.text.len,
                                            &stage3)) {
         goto done;
     }
-    if (!ctc_text_reference_replace_punctuation_delete(stage3.text,
-                                                       stage3.text_len,
+    if (!ctc_text_reference_replace_punctuation_delete(stage3.text.data,
+                                                       stage3.text.len,
                                                        &stage4)) {
         goto done;
     }
-    if (!ctc_text_reference_remove_numbers(stage4.text,
-                                           stage4.text_len,
+    if (!ctc_text_reference_remove_numbers(stage4.text.data,
+                                           stage4.text.len,
                                            &stage5)) {
         goto done;
     }
-    if (!ctc_text_reference_collapse_spaces(stage5.text,
-                                            stage5.text_len,
+    if (!ctc_text_reference_collapse_spaces(stage5.text.data,
+                                            stage5.text.len,
                                             result)) {
         goto done;
     }
     if (ctc_text_reference_should_romanize(options)) {
-        if (result->text_len > 0) {
-            if (!ctc_unicode_norm_transliterate_latin(result->text,
-                                                      result->text_len,
+        if (result->text.len > 0) {
+            if (!ctc_unicode_norm_transliterate_latin(result->text.data,
+                                                      result->text.len,
                                                       &stage6)) {
                 goto done;
             }
-            if (!ctc_text_reference_normalize_uroman(stage6.text,
-                                                     stage6.text_len,
+            if (!ctc_text_reference_normalize_uroman(stage6.text.data,
+                                                     stage6.text.len,
                                                      result)) {
                 goto done;
             }
@@ -1560,7 +1564,7 @@ lrc_lyrics_normalize_word_segment(
         goto done;
     }
 
-    if (word.text_len > 0) {
+    if (word.text.len > 0) {
         if ((normalized->text_len > 0)
             && !lrc_lyrics_normalized_append_space(normalized,
                                                    line_index,
@@ -1574,8 +1578,8 @@ lrc_lyrics_normalize_word_segment(
 
         normalized_start = normalized->text_len;
         if (!lrc_lyrics_normalized_append_bytes(normalized,
-                                                word.text,
-                                                word.text_len,
+                                                word.text.data,
+                                                word.text.len,
                                                 line_index,
                                                 word_start,
                                                 word_end)) {
@@ -1768,15 +1772,15 @@ lrc_lyrics_normalize_char_segment(
         goto done;
     }
 
-    if (chunk.text_len > 0) {
+    if (chunk.text.len > 0) {
         if (line_range->normalized_start < 0) {
             line_range->normalized_start = normalized->text_len;
         }
 
         normalized_start = normalized->text_len;
         if (!lrc_lyrics_normalized_append_bytes(normalized,
-                                                chunk.text,
-                                                chunk.text_len,
+                                                chunk.text.data,
+                                                chunk.text.len,
                                                 line_index,
                                                 char_start,
                                                 char_end)) {
