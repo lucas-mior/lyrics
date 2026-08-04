@@ -3015,13 +3015,9 @@ lrc_pipeline_generate_lrc(
                                path_arg);
     }
 
-    if (output_lines) {
-        free2(output_lines, output_line_cap*SIZEOF(*output_lines));
-    }
-    if (target_token_ids) {
-        free2(target_token_ids,
-              target_token_count*SIZEOF(*target_token_ids));
-    }
+    free2(output_lines, output_line_cap*SIZEOF(*output_lines));
+    free2(target_token_ids,
+          target_token_count*SIZEOF(*target_token_ids));
     lrc_ctc_line_timestamps_destroy(&line_timestamps);
     lrc_ctc_word_spans_destroy(&word_spans);
     lrc_ctc_token_spans_destroy(&token_spans);

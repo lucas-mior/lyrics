@@ -34,9 +34,7 @@ ctc_unicode_norm_result_destroy(CtcUnicodeNormResult *result) {
         return;
     }
 
-    if (result->text) {
-        free2(result->text, result->text_cap*SIZEOF(*result->text));
-    }
+    free2(result->text, result->text_cap*SIZEOF(*result->text));
 
     ctc_unicode_norm_result_init(result);
 
@@ -387,12 +385,8 @@ ctc_unicode_norm_nfkc_lower_icu(
     ok = ctc_unicode_norm_utf8_from_utf16(lower, lower_len, result);
 
 done:
-    if (lower) {
-        free2(lower, (int64)lower_cap*SIZEOF(*lower));
-    }
-    if (nfkc) {
-        free2(nfkc, (int64)nfkc_cap*SIZEOF(*nfkc));
-    }
+    free2(lower, (int64)lower_cap*SIZEOF(*lower));
+    free2(nfkc, (int64)nfkc_cap*SIZEOF(*nfkc));
     free2(utf16, (int64)utf16_cap*SIZEOF(*utf16));
 
     return ok;

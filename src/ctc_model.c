@@ -62,12 +62,8 @@ lrc_ctc_model_input_destroy(LrcCtcModelInput *input) {
         return;
     }
 
-    if (input->samples) {
-        free2(input->samples, input->sample_count*SIZEOF(*input->samples));
-    }
-    if (input->chunks) {
-        free2(input->chunks, input->chunk_count*SIZEOF(*input->chunks));
-    }
+    free2(input->samples, input->sample_count*SIZEOF(*input->samples));
+    free2(input->chunks, input->chunk_count*SIZEOF(*input->chunks));
 
     memset64(input, 0, SIZEOF(*input));
 

@@ -16,30 +16,18 @@ lrc_lyrics_normalized_destroy(LrcLyricsNormalized *normalized) {
         return;
     }
 
-    if (normalized->text) {
-        free2(normalized->text,
-              normalized->text_cap*SIZEOF(*normalized->text));
-    }
-    if (normalized->target_text) {
-        free2(normalized->target_text,
-              normalized->target_text_cap*SIZEOF(*normalized->target_text));
-    }
-    if (normalized->bytes) {
-        free2(normalized->bytes,
-              normalized->byte_cap*SIZEOF(*normalized->bytes));
-    }
-    if (normalized->target_bytes) {
-        free2(normalized->target_bytes,
-              normalized->target_byte_cap*SIZEOF(*normalized->target_bytes));
-    }
-    if (normalized->lines) {
-        free2(normalized->lines,
-              normalized->line_cap*SIZEOF(*normalized->lines));
-    }
-    if (normalized->segments) {
-        free2(normalized->segments,
-              normalized->segment_cap*SIZEOF(*normalized->segments));
-    }
+    free2(normalized->text,
+          normalized->text_cap*SIZEOF(*normalized->text));
+    free2(normalized->target_text,
+          normalized->target_text_cap*SIZEOF(*normalized->target_text));
+    free2(normalized->bytes,
+          normalized->byte_cap*SIZEOF(*normalized->bytes));
+    free2(normalized->target_bytes,
+          normalized->target_byte_cap*SIZEOF(*normalized->target_bytes));
+    free2(normalized->lines,
+          normalized->line_cap*SIZEOF(*normalized->lines));
+    free2(normalized->segments,
+          normalized->segment_cap*SIZEOF(*normalized->segments));
 
     memset64(normalized, 0, SIZEOF(*normalized));
 

@@ -213,21 +213,11 @@ stft_inverse_channel(
 static void
 stft_plan_destroy(StftPlan *plan) {
     fftw_real_plan_destroy(&plan->fftw_plan);
-    if (plan->window) {
-        free2(plan->window, plan->n_fft*SIZEOF(*plan->window));
-    }
-    if (plan->frame) {
-        free2(plan->frame, plan->n_fft*SIZEOF(*plan->frame));
-    }
-    if (plan->real) {
-        free2(plan->real, plan->complex_count*SIZEOF(*plan->real));
-    }
-    if (plan->imag) {
-        free2(plan->imag, plan->complex_count*SIZEOF(*plan->imag));
-    }
-    if (plan->inverse) {
-        free2(plan->inverse, plan->n_fft*SIZEOF(*plan->inverse));
-    }
+    free2(plan->window, plan->n_fft*SIZEOF(*plan->window));
+    free2(plan->frame, plan->n_fft*SIZEOF(*plan->frame));
+    free2(plan->real, plan->complex_count*SIZEOF(*plan->real));
+    free2(plan->imag, plan->complex_count*SIZEOF(*plan->imag));
+    free2(plan->inverse, plan->n_fft*SIZEOF(*plan->inverse));
     stft_plan_init_empty(plan);
 
     return;

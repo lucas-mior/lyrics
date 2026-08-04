@@ -242,12 +242,8 @@ audio_buffer_destroy(AudioBuffer *audio) {
     int64 allocation_size;
 
     allocation_size = audio->frame_count*SIZEOF(*audio->left);
-    if (audio->left) {
-        free2(audio->left, allocation_size);
-    }
-    if (audio->right) {
-        free2(audio->right, allocation_size);
-    }
+    free2(audio->left, allocation_size);
+    free2(audio->right, allocation_size);
     audio_buffer_init(audio);
 
     return;

@@ -14,12 +14,8 @@ lrc_lyrics_destroy(LrcLyrics *lyrics) {
         return;
     }
 
-    if (lyrics->text) {
-        free2(lyrics->text, lyrics->text_cap*SIZEOF(*lyrics->text));
-    }
-    if (lyrics->lines) {
-        free2(lyrics->lines, lyrics->line_cap*SIZEOF(*lyrics->lines));
-    }
+    free2(lyrics->text, lyrics->text_cap*SIZEOF(*lyrics->text));
+    free2(lyrics->lines, lyrics->line_cap*SIZEOF(*lyrics->lines));
 
     memset64(lyrics, 0, SIZEOF(*lyrics));
 

@@ -53,9 +53,7 @@ lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text) {
         return;
     }
 
-    if (text->tokens) {
-        free2(text->tokens, text->token_cap*SIZEOF(*text->tokens));
-    }
+    free2(text->tokens, text->token_cap*SIZEOF(*text->tokens));
 
     memset64(text, 0, SIZEOF(*text));
 
@@ -575,14 +573,10 @@ lrc_ctc_tokenizer_destroy(LrcCtcTokenizer *tokenizer) {
         return;
     }
 
-    if (tokenizer->tokens) {
-        free2(tokenizer->tokens,
-              tokenizer->token_cap*SIZEOF(*tokenizer->tokens));
-    }
-    if (tokenizer->text_storage) {
-        free2(tokenizer->text_storage,
-              tokenizer->text_storage_cap*SIZEOF(*tokenizer->text_storage));
-    }
+    free2(tokenizer->tokens,
+          tokenizer->token_cap*SIZEOF(*tokenizer->tokens));
+    free2(tokenizer->text_storage,
+          tokenizer->text_storage_cap*SIZEOF(*tokenizer->text_storage));
 
     lrc_ctc_tokenizer_init(tokenizer);
 

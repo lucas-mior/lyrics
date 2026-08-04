@@ -361,12 +361,8 @@ lrc_parsed_file_destroy(LrcParsedFile *parsed) {
         return;
     }
 
-    if (parsed->text) {
-        free2(parsed->text, parsed->text_cap*SIZEOF(*parsed->text));
-    }
-    if (parsed->lines) {
-        free2(parsed->lines, parsed->line_cap*SIZEOF(*parsed->lines));
-    }
+    free2(parsed->text, parsed->text_cap*SIZEOF(*parsed->text));
+    free2(parsed->lines, parsed->line_cap*SIZEOF(*parsed->lines));
 
     memset64(parsed, 0, SIZEOF(*parsed));
 

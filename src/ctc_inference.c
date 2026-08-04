@@ -65,10 +65,8 @@ lrc_ctc_emissions_destroy(LrcCtcEmissions *emissions) {
         return;
     }
 
-    if (emissions->values) {
-        free2(emissions->values,
-              emissions->value_count*SIZEOF(*emissions->values));
-    }
+    free2(emissions->values,
+          emissions->value_count*SIZEOF(*emissions->values));
 
     memset64(emissions, 0, SIZEOF(*emissions));
 

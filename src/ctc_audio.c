@@ -62,9 +62,7 @@ lrc_ctc_audio_destroy(LrcCtcAudio *audio) {
         return;
     }
 
-    if (audio->samples) {
-        free2(audio->samples, audio->sample_count*SIZEOF(*audio->samples));
-    }
+    free2(audio->samples, audio->sample_count*SIZEOF(*audio->samples));
 
     memset64(audio, 0, SIZEOF(*audio));
 
