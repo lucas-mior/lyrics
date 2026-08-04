@@ -3543,7 +3543,7 @@ pipeline_test_file_contains(
 
 static bool
 pipeline_test_output_text_equal(LrcOutputLine *line, char *text, int32 len) {
-    return strequal2(line->text, line->text_len, text, len);
+    return STREQUAL(line->text, line->text_len, text, len);
 }
 
 static void
@@ -4487,17 +4487,17 @@ pipeline_test_sample_has_blank_line_between(
         len = end - start;
 
         if (!found_first) {
-            if (strequal2(text + start, len, first, first_len)) {
+            if (STREQUAL(text + start, len, first, first_len)) {
                 found_first = true;
                 saw_blank = false;
             }
         } else if (len == 0) {
             saw_blank = true;
         } else if (saw_blank
-                   && strequal2(text + start, len, second, second_len)) {
+                   && STREQUAL(text + start, len, second, second_len)) {
             return true;
         } else {
-            found_first = strequal2(text + start, len, first, first_len);
+            found_first = STREQUAL(text + start, len, first, first_len);
             saw_blank = false;
         }
 
@@ -5221,9 +5221,9 @@ pipeline_test_preprocess_option_parsers(void) {
            == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
 
     ASSERT(lrc_pipeline_parse_preprocess_language(&config, "rus"));
-    ASSERT(strequal2(config.lyrics_preprocess_options.language,
+    ASSERT(STREQUAL(config.lyrics_preprocess_options.language,
                      config.lyrics_preprocess_options.language_len,
-                     STRLIT("rus")));
+                     "rus"));
 
     return;
 }
@@ -5264,9 +5264,9 @@ pipeline_test_config_defaults(void) {
            == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
     ASSERT(config.lyrics_preprocess_options.romanization
            == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
-    ASSERT(strequal2(config.lyrics_preprocess_options.language,
+    ASSERT(STREQUAL(config.lyrics_preprocess_options.language,
                      config.lyrics_preprocess_options.language_len,
-                     STRLIT("eng")));
+                     "eng"));
     ASSERT(config.ctc_emission_values_kind
            == LRC_CTC_EMISSION_VALUES_LOGITS);
     ASSERT(pipeline.error == LS_ERROR_NONE);

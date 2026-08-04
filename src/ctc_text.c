@@ -1901,7 +1901,7 @@ lrc_lyrics_preprocess_language_is(
         return false;
     }
 
-    return strequal2(options->language,
+    return STREQUAL(options->language,
                      options->language_len,
                      language,
                      strlen32(language));
@@ -2291,7 +2291,7 @@ ctc_text_test_assert_segment(
     ASSERT(segment->target_end == expected_target_end);
     ASSERT(segment->target_start >= 0);
     ASSERT(segment->target_end <= normalized->target_byte_count);
-    ASSERT(strequal2(lyrics->text + segment->source_start,
+    ASSERT(STREQUAL(lyrics->text + segment->source_start,
                      source_len,
                      expected_source,
                      strlen32(expected_source)));
@@ -2363,7 +2363,7 @@ ctc_text_reference_field_equal(
     int32 field_len,
     char *expected
 ) {
-    return strequal2(field, field_len, expected, strlen32(expected));
+    return STREQUAL(field, field_len, expected, strlen32(expected));
 }
 
 static int32
@@ -2903,7 +2903,7 @@ ctc_text_test_word_split_fixture_case(char *fixture_name) {
         segment = lrc_lyrics_normalized_segment(&normalized, i);
         ASSERT(segment);
         source_len = segment->source_end - segment->source_start;
-        ASSERT(strequal2(lyrics.text + segment->source_start,
+        ASSERT(STREQUAL(lyrics.text + segment->source_start,
                          source_len,
                          fixture.text_split[i],
                          fixture.text_split_lens[i]));
@@ -2961,7 +2961,7 @@ ctc_text_test_word_normalized_fixture_case(char *fixture_name) {
         segment = lrc_lyrics_normalized_segment(&normalized, i);
         ASSERT(segment);
         normalized_len = segment->normalized_end - segment->normalized_start;
-        ASSERT(strequal2(
+        ASSERT(STREQUAL(
             normalized.text + segment->normalized_start,
             normalized_len,
             fixture.normalized[i],
@@ -3027,7 +3027,7 @@ ctc_text_test_word_target_fixture_case(char *fixture_name) {
         segment = lrc_lyrics_normalized_segment(&normalized, i);
         ASSERT(segment);
         target_len = segment->target_end - segment->target_start;
-        ASSERT(strequal2(normalized.target_text + segment->target_start,
+        ASSERT(STREQUAL(normalized.target_text + segment->target_start,
                          target_len,
                          fixture.tokens[i],
                          fixture.tokens_lens[i]));
@@ -3064,7 +3064,7 @@ ctc_text_test_assert_target_item(
     int32 target_len = segment->target_end - segment->target_start;
 
     ASSERT(target_len >= 0);
-    ASSERT(strequal2(normalized->target_text + segment->target_start,
+    ASSERT(STREQUAL(normalized->target_text + segment->target_start,
                      target_len,
                      expected,
                      expected_len));
@@ -3098,9 +3098,9 @@ ctc_text_test_star_target_sequence_fixture_case(char *fixture_name) {
 
     ASSERT(normalized.segment_count == fixture.tokens_count);
 
-    ASSERT(strequal2(fixture.edges_tokens[0],
+    ASSERT(STREQUAL(fixture.edges_tokens[0],
                      fixture.edges_tokens_lens[0],
-                     STRLIT("<star>")));
+                     "<star>"));
     expected_index = 1;
     for (int32 i = 0; i < normalized.segment_count; i += 1) {
         CtcTextSegment *segment;
@@ -3115,9 +3115,9 @@ ctc_text_test_star_target_sequence_fixture_case(char *fixture_name) {
         );
         expected_index += 1;
     }
-    ASSERT(strequal2(fixture.edges_tokens[expected_index],
+    ASSERT(STREQUAL(fixture.edges_tokens[expected_index],
                      fixture.edges_tokens_lens[expected_index],
-                     STRLIT("<star>")));
+                     "<star>"));
     ASSERT(expected_index + 1 == fixture.edges_tokens_count);
 
     expected_index = 0;
@@ -3126,9 +3126,9 @@ ctc_text_test_star_target_sequence_fixture_case(char *fixture_name) {
 
         segment = lrc_lyrics_normalized_segment(&normalized, i);
         ASSERT(segment);
-        ASSERT(strequal2(fixture.segment_tokens[expected_index],
+        ASSERT(STREQUAL(fixture.segment_tokens[expected_index],
                          fixture.segment_tokens_lens[expected_index],
-                         STRLIT("<star>")));
+                         "<star>"));
         expected_index += 1;
         ctc_text_test_assert_target_item(
             &normalized,
@@ -3181,12 +3181,12 @@ ctc_text_test_word_target_text_is_character_spaced(void) {
         return ctc_text_test_fail("normalize word target lyrics");
     }
 
-    ASSERT(strequal2(normalized.text,
+    ASSERT(STREQUAL(normalized.text,
                      normalized.text_len,
-                     STRLIT("hello world")));
-    ASSERT(strequal2(normalized.target_text,
+                     "hello world"));
+    ASSERT(STREQUAL(normalized.target_text,
                      normalized.target_text_len,
-                     STRLIT("h e l l o w o r l d")));
+                     "h e l l o w o r l d"));
     ASSERT(normalized.segment_count == 2);
 
     segment = lrc_lyrics_normalized_segment(&normalized, 0);
@@ -3270,15 +3270,15 @@ ctc_text_test_char_fixture_case(
         normalized_len = segment->normalized_end - segment->normalized_start;
         target_len = segment->target_end - segment->target_start;
 
-        ASSERT(strequal2(lyrics.text + segment->source_start,
+        ASSERT(STREQUAL(lyrics.text + segment->source_start,
                          source_len,
                          fixture.text_split[i],
                          fixture.text_split_lens[i]));
-        ASSERT(strequal2(normalized.text + segment->normalized_start,
+        ASSERT(STREQUAL(normalized.text + segment->normalized_start,
                          normalized_len,
                          fixture.normalized[i],
                          fixture.normalized_lens[i]));
-        ASSERT(strequal2(normalized.target_text + segment->target_start,
+        ASSERT(STREQUAL(normalized.target_text + segment->target_start,
                          target_len,
                          fixture.tokens[i],
                          fixture.tokens_lens[i]));
@@ -3337,12 +3337,12 @@ ctc_text_test_icu_word_romanization(void) {
         return ctc_text_test_fail("normalize ICU romanization lyrics");
     }
 
-    ASSERT(strequal2(normalized.text,
+    ASSERT(STREQUAL(normalized.text,
                      normalized.text_len,
-                     STRLIT("mao privet")));
-    ASSERT(strequal2(normalized.target_text,
+                     "mao privet"));
+    ASSERT(STREQUAL(normalized.target_text,
                      normalized.target_text_len,
-                     STRLIT("m a o p r i v e t")));
+                     "m a o p r i v e t"));
     ASSERT(normalized.segment_count == 2);
 
     segment = lrc_lyrics_normalized_segment(&normalized, 0);
@@ -3387,12 +3387,12 @@ ctc_text_test_icu_char_romanization(void) {
         return ctc_text_test_fail("normalize ICU char romanization lyrics");
     }
 
-    ASSERT(strequal2(normalized.text,
+    ASSERT(STREQUAL(normalized.text,
                      normalized.text_len,
-                     STRLIT("nihao")));
-    ASSERT(strequal2(normalized.target_text,
+                     "nihao"));
+    ASSERT(STREQUAL(normalized.target_text,
                      normalized.target_text_len,
-                     STRLIT("n i h a o")));
+                     "n i h a o"));
     ASSERT(normalized.segment_count == 2);
 
     segment = lrc_lyrics_normalized_segment(&normalized, 0);
@@ -3442,7 +3442,7 @@ ctc_text_test_word_split_option_preserves_current_text(void) {
         return ctc_text_test_fail("normalize word option text");
     }
 
-    ASSERT(strequal2(current.text,
+    ASSERT(STREQUAL(current.text,
                      current.text_len,
                      word.text,
                      word.text_len));
@@ -3467,7 +3467,7 @@ ctc_text_test_default_options(void) {
         options.star_frequency == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES
     );
     ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
-    ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
+    ASSERT(STREQUAL(options.language, options.language_len, "eng"));
 
     return 0;
 }
@@ -3488,9 +3488,9 @@ ctc_text_test_word_segments_preserve_line_mapping(void) {
         return ctc_text_test_fail("normalize segment lyrics");
     }
 
-    ASSERT(strequal2(normalized.text,
+    ASSERT(STREQUAL(normalized.text,
                      normalized.text_len,
-                     STRLIT("hello world again voce")));
+                     "hello world again voce"));
     ASSERT(lrc_lyrics_normalized_segment_count(&normalized) == 4);
     ASSERT(lrc_lyrics_normalized_segment(&normalized, -1) == NULL);
     ASSERT(lrc_lyrics_normalized_segment(&normalized, 4) == NULL);
@@ -3530,9 +3530,9 @@ ctc_text_test_current_normalization_mapping(void) {
         return ctc_text_test_fail("normalize lyrics");
     }
 
-    ASSERT(strequal2(normalized.text,
+    ASSERT(STREQUAL(normalized.text,
                      normalized.text_len,
-                     STRLIT("hello world again")));
+                     "hello world again"));
     ASSERT(normalized.alignable_line_count == 2);
     ASSERT(lrc_lyrics_normalized_line_kind(
         &normalized,

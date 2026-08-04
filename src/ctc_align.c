@@ -5213,7 +5213,7 @@ ctc_align_assert_word_text(
     ASSERT(word->normalized_start >= 0);
     ASSERT(word->normalized_end > word->normalized_start);
     ASSERT(word->normalized_end <= normalized->text_len);
-    ASSERT(strequal2(normalized->text + word->normalized_start,
+    ASSERT(STREQUAL(normalized->text + word->normalized_start,
                      word->normalized_end - word->normalized_start,
                      text,
                      text_len));

@@ -354,16 +354,16 @@ lyrics_test_crlf_and_trailing_newline(void) {
     if (!lyrics_test_load_text(&lyrics, text, strlen32(text))) {
         fatal(lyrics_test_fail("load crlf text"));
     }
-    ASSERT(strequal2(lyrics.text, lyrics.text_len,
-                     "First\nSecond\nThird\n", 19));
+    ASSERT(STREQUAL(lyrics.text, lyrics.text_len,
+                     "First\nSecond\nThird\n"));
     ASSERT(lyrics.line_count == 3);
     ASSERT(lyrics.nonempty_line_count == 3);
-    ASSERT(strequal2(lyrics.lines[0].text, lyrics.lines[0].text_len,
-                     "First", 5));
-    ASSERT(strequal2(lyrics.lines[1].text, lyrics.lines[1].text_len,
-                     "Second", 6));
-    ASSERT(strequal2(lyrics.lines[2].text, lyrics.lines[2].text_len,
-                     "Third", 5));
+    ASSERT(STREQUAL(lyrics.lines[0].text, lyrics.lines[0].text_len,
+                     "First"));
+    ASSERT(STREQUAL(lyrics.lines[1].text, lyrics.lines[1].text_len,
+                     "Second"));
+    ASSERT(STREQUAL(lyrics.lines[2].text, lyrics.lines[2].text_len,
+                     "Third"));
 
     lrc_lyrics_destroy(&lyrics);
 
@@ -379,14 +379,14 @@ lyrics_test_bom_unicode_and_blank_lines(void) {
         fatal(lyrics_test_fail("load bom unicode text"));
     }
     ASSERT(lyrics.had_utf8_bom);
-    ASSERT(strequal2(lyrics.text, lyrics.text_len, "Olá\n\n世界", 12));
+    ASSERT(STREQUAL(lyrics.text, lyrics.text_len, "Olá\n\n世界"));
     ASSERT(lyrics.line_count == 3);
     ASSERT(lyrics.nonempty_line_count == 2);
-    ASSERT(strequal2(lyrics.lines[0].text, lyrics.lines[0].text_len,
-                     "Olá", 4));
+    ASSERT(STREQUAL(lyrics.lines[0].text, lyrics.lines[0].text_len,
+                     "Olá"));
     ASSERT(lyrics.lines[1].text_len == 0);
-    ASSERT(strequal2(lyrics.lines[2].text, lyrics.lines[2].text_len,
-                     "世界", 6));
+    ASSERT(STREQUAL(lyrics.lines[2].text, lyrics.lines[2].text_len,
+                     "世界"));
 
     lrc_lyrics_destroy(&lyrics);
 
@@ -478,8 +478,8 @@ lyrics_test_normalize_punctuation_sections_and_mapping(void) {
         fatal(lyrics_test_fail("normalize punctuation text"));
     }
 
-    ASSERT(strequal2(normalized.text, normalized.text_len,
-                     "hello world bang bang maxwell's", 31));
+    ASSERT(STREQUAL(normalized.text, normalized.text_len,
+                     "hello world bang bang maxwell's"));
     ASSERT(normalized.byte_count == normalized.text_len);
     ASSERT(normalized.alignable_line_count == 2);
     ASSERT(normalized.line_count == lyrics.line_count);
@@ -525,8 +525,8 @@ lyrics_test_normalize_unicode_and_blank_lines(void) {
         fatal(lyrics_test_fail("normalize unicode text"));
     }
 
-    ASSERT(strequal2(normalized.text, normalized.text_len,
-                     "ola shi jie again", 17));
+    ASSERT(STREQUAL(normalized.text, normalized.text_len,
+                     "ola shi jie again"));
     ASSERT(normalized.alignable_line_count == 2);
     ASSERT(normalized.line_count == lyrics.line_count);
     lyrics_test_assert_line_range(&normalized, 0, 0, 11);
@@ -572,8 +572,8 @@ lyrics_test_normalized_ranges_blank_punctuation_repeated(void) {
         fatal(lyrics_test_fail("normalize repeated range text"));
     }
 
-    ASSERT(strequal2(normalized.text, normalized.text_len,
-                     "repeat repeat", 13));
+    ASSERT(STREQUAL(normalized.text, normalized.text_len,
+                     "repeat repeat"));
     ASSERT(normalized.line_count == 4);
     ASSERT(normalized.alignable_line_count == 2);
     lyrics_test_assert_line_range(&normalized, 0, 0, 6);
@@ -614,7 +614,7 @@ lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
     ASSERT(options.star_frequency
            == LRC_LYRICS_PREPROCESS_STAR_FREQUENCY_EDGES);
     ASSERT(options.romanization == LRC_LYRICS_PREPROCESS_ROMANIZATION_ICU);
-    ASSERT(strequal2(options.language, options.language_len, STRLIT("eng")));
+    ASSERT(STREQUAL(options.language, options.language_len, "eng"));
 
     if (!lrc_lyrics_normalize(&lyrics, &default_normalized)) {
         lrc_lyrics_destroy(&lyrics);
@@ -628,7 +628,7 @@ lyrics_test_preprocess_option_defaults_preserve_normalization(void) {
         fatal(lyrics_test_fail("normalize through explicit options"));
     }
 
-    ASSERT(strequal2(default_normalized.text,
+    ASSERT(STREQUAL(default_normalized.text,
                      default_normalized.text_len,
                      option_normalized.text,
                      option_normalized.text_len));
@@ -664,13 +664,13 @@ lyrics_test_optional_maxwell_txt(void) {
 
     ASSERT(lyrics.line_count == 6);
     ASSERT(lyrics.nonempty_line_count == 5);
-    ASSERT(strequal2(lyrics.lines[0].text, lyrics.lines[0].text_len,
-                     "Can I take you out to the pictures, Joan?", 41));
+    ASSERT(STREQUAL(lyrics.lines[0].text, lyrics.lines[0].text_len,
+                     "Can I take you out to the pictures, Joan?"));
     ASSERT(lyrics.lines[3].text_len == 0);
-    ASSERT(strequal2(lyrics.lines[4].text, lyrics.lines[4].text_len,
-                     "Bang, bang, Maxwell's silver hammer", 35));
-    ASSERT(strequal2(lyrics.lines[5].text, lyrics.lines[5].text_len,
-                     "Came down upon her head", 23));
+    ASSERT(STREQUAL(lyrics.lines[4].text, lyrics.lines[4].text_len,
+                     "Bang, bang, Maxwell's silver hammer"));
+    ASSERT(STREQUAL(lyrics.lines[5].text, lyrics.lines[5].text_len,
+                     "Came down upon her head"));
 
     {
         LrcLyricsNormalized normalized = {0};
@@ -682,16 +682,14 @@ lyrics_test_optional_maxwell_txt(void) {
             fatal(lyrics_test_fail("normalize maxwell lyrics"));
         }
 
-        ASSERT(strequal2(
+        ASSERT(STREQUAL(
             normalized.text,
             normalized.text_len,
             "can i take you out to the pictures joan "
             "but as shes getting ready to go "
             "a knock comes on the door "
             "bang bang maxwells silver hammer "
-            "came down upon her head",
-            154
-        ));
+            "came down upon her head"));
         ASSERT(normalized.alignable_line_count == 5);
         ASSERT(normalized.line_count == lyrics.line_count);
         lyrics_test_assert_line_range(&normalized, 0, 0, 39);

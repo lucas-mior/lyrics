@@ -1018,7 +1018,7 @@ lrc_test_assert_line(
     line = &parsed->lines[line_index];
     ASSERT(line->kind == expected_kind);
     ASSERT(line->timestamp_hundredths == expected_hundredths);
-    ASSERT(strequal2(line->text,
+    ASSERT(STREQUAL(line->text,
                      line->text_len,
                      expected_text,
                      expected_text_len));
@@ -1189,7 +1189,7 @@ lrc_test_assert_timestamp(
     }
 
     ASSERT(len == expected_len);
-    ASSERT(strequal2(buffer, len, expected, expected_len));
+    ASSERT(STREQUAL(buffer, len, expected, expected_len));
 
     return;
 }
@@ -1406,7 +1406,7 @@ lrc_test_write_generated_file(void) {
         fatal(lrc_test_fail("read generated lrc file"));
     }
     ASSERT(text_len == strlen32(expected));
-    ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
+    ASSERT(STREQUAL(text, text_len, expected, strlen32(expected)));
 
     free2(text, ((int64)text_len + 1)*SIZEOF(*text));
     test_remove_tree(temp_dir);
@@ -1458,7 +1458,7 @@ lrc_test_write_timestamped_empty_line(void) {
         fatal(lrc_test_fail("read timestamped empty lrc line"));
     }
     ASSERT(text_len == strlen32(expected));
-    ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
+    ASSERT(STREQUAL(text, text_len, expected, strlen32(expected)));
 
     free2(text, ((int64)text_len + 1)*SIZEOF(*text));
     test_remove_tree(temp_dir);
@@ -1513,7 +1513,7 @@ lrc_test_write_overwrites_existing_file(void) {
         fatal(lrc_test_fail("read overwritten lrc file"));
     }
     ASSERT(text_len == strlen32(expected));
-    ASSERT(strequal2(text, text_len, expected, strlen32(expected)));
+    ASSERT(STREQUAL(text, text_len, expected, strlen32(expected)));
 
     free2(text, ((int64)text_len + 1)*SIZEOF(*text));
     test_remove_tree(temp_dir);
@@ -1620,7 +1620,7 @@ lrc_test_optional_maxwell_formatting(void) {
     }
 
     ASSERT(builder.len == text_len);
-    ASSERT(strequal2(builder.data, builder.len, text, text_len));
+    ASSERT(STREQUAL(builder.data, builder.len, text, text_len));
 
     lrc_parsed_file_destroy(&parsed);
     sb_free(&builder);
@@ -1642,7 +1642,7 @@ lrc_test_assert_same_parsed_structure(
         ASSERT(a->lines[i].kind == b->lines[i].kind);
         ASSERT(a->lines[i].timestamp_hundredths
                == b->lines[i].timestamp_hundredths);
-        ASSERT(strequal2(a->lines[i].text,
+        ASSERT(STREQUAL(a->lines[i].text,
                          a->lines[i].text_len,
                          b->lines[i].text,
                          b->lines[i].text_len));
