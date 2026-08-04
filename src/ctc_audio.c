@@ -246,9 +246,9 @@ ctc_audio_test_defaults_and_invalid_inputs(void) {
 
     ASSERT(strequal(config.ffmpeg_path, "ffmpeg"));
     ASSERT(config.sample_rate == LRC_CTC_AUDIO_DEFAULT_SAMPLE_RATE);
-    ASSERT(result.error == LS_ERROR_NONE);
-    ASSERT(strequal(result.message, "ok"));
-    ASSERT(result.path == NULL);
+    ASSERT(result.path_header.header.error == LS_ERROR_NONE);
+    ASSERT(strequal(result.path_header.header.message, "ok"));
+    ASSERT(result.path_header.path == NULL);
     ASSERT(result.sample_index == -1);
     ASSERT(audio.samples == NULL);
     ASSERT(audio.sample_count == 0);
@@ -258,25 +258,25 @@ ctc_audio_test_defaults_and_invalid_inputs(void) {
     if (lrc_ctc_audio_decode_file(NULL, "song.wav", &config, &result)) {
         fatal(ctc_audio_test_fail("invalid null audio accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_AUDIO_INVALID_ARGUMENT);
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_AUDIO_INVALID_ARGUMENT);
 
     if (lrc_ctc_audio_decode_file(&audio, NULL, &config, &result)) {
         fatal(ctc_audio_test_fail("missing path accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_AUDIO_MISSING_PATH);
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_AUDIO_MISSING_PATH);
 
     config.ffmpeg_path = "";
     if (lrc_ctc_audio_decode_file(&audio, "song.wav", &config, &result)) {
         fatal(ctc_audio_test_fail("missing ffmpeg accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_AUDIO_MISSING_FFMPEG);
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_AUDIO_MISSING_FFMPEG);
 
     lrc_ctc_audio_config_init(&config);
     config.sample_rate = 0;
     if (lrc_ctc_audio_decode_file(&audio, "song.wav", &config, &result)) {
         fatal(ctc_audio_test_fail("invalid sample rate accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_AUDIO_INVALID_SAMPLE_RATE);
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_AUDIO_INVALID_SAMPLE_RATE);
 
     lrc_ctc_audio_destroy(&audio);
 

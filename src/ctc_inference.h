@@ -33,13 +33,7 @@
 #undef LRC_CTC_EMISSION_VALUES_KIND_ENUM_FIELD
 
 typedef struct LrcCtcInferenceResult {
-    union {
-        LrcResultHeader header;
-        struct {
-            enum LsError error;
-            char *message;
-        };
-    };
+    LrcResultHeader header;
 
     int32 output_index;
 } LrcCtcInferenceResult;

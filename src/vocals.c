@@ -524,9 +524,9 @@ vocals_test_request_defaults(void) {
     ASSERT(request.output_format.channel_count == 2);
     ASSERT(request.mdx_config.sample_rate == 44100);
     ASSERT(request.mdx_config.channel_count == 2);
-    ASSERT(result.error == LS_ERROR_NONE);
-    ASSERT(strequal(result.message, "ok"));
-    ASSERT(result.path == NULL);
+    ASSERT(result.path_header.header.error == LS_ERROR_NONE);
+    ASSERT(strequal(result.path_header.header.message, "ok"));
+    ASSERT(result.path_header.path == NULL);
 
     return;
 }
@@ -540,7 +540,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         fatal(vocals_test_fail("missing input accepted"));
     }
-    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_INPUT) {
+    if (result.path_header.header.error != LS_ERROR_VOCALS_EXTRACT_MISSING_INPUT) {
         fatal(vocals_test_fail("missing input error"));
     }
 
@@ -548,7 +548,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         fatal(vocals_test_fail("missing output accepted"));
     }
-    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_OUTPUT) {
+    if (result.path_header.header.error != LS_ERROR_VOCALS_EXTRACT_MISSING_OUTPUT) {
         fatal(vocals_test_fail("missing output error"));
     }
 
@@ -556,7 +556,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         fatal(vocals_test_fail("missing model accepted"));
     }
-    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_MODEL) {
+    if (result.path_header.header.error != LS_ERROR_VOCALS_EXTRACT_MISSING_MODEL) {
         fatal(vocals_test_fail("missing model error"));
     }
 
@@ -565,7 +565,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         fatal(vocals_test_fail("missing temp dir accepted"));
     }
-    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_TEMP_DIR) {
+    if (result.path_header.header.error != LS_ERROR_VOCALS_EXTRACT_MISSING_TEMP_DIR) {
         fatal(vocals_test_fail("missing temp dir error"));
     }
 
@@ -574,7 +574,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         fatal(vocals_test_fail("missing ffmpeg accepted"));
     }
-    if (result.error != LS_ERROR_VOCALS_EXTRACT_MISSING_FFMPEG) {
+    if (result.path_header.header.error != LS_ERROR_VOCALS_EXTRACT_MISSING_FFMPEG) {
         fatal(vocals_test_fail("missing ffmpeg error"));
     }
 
@@ -583,7 +583,7 @@ vocals_test_request_validation(void) {
     if (lrc_extract_vocals(&request, &result)) {
         fatal(vocals_test_fail("invalid output format accepted"));
     }
-    if (result.error != LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT) {
+    if (result.path_header.header.error != LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT) {
         fatal(vocals_test_fail("invalid output format error"));
     }
 
@@ -605,7 +605,7 @@ vocals_test_missing_external_resources(void) {
     if (lrc_extract_vocals(&request, &result)) {
         fatal(vocals_test_fail("missing ffmpeg extraction accepted"));
     }
-    if (result.error != LS_ERROR_VOCALS_EXTRACT_FFMPEG_UNAVAILABLE) {
+    if (result.path_header.header.error != LS_ERROR_VOCALS_EXTRACT_FFMPEG_UNAVAILABLE) {
         fatal(vocals_test_fail("missing ffmpeg extraction error"));
     }
 
@@ -654,7 +654,7 @@ vocals_test_optional_real_extraction(void) {
     request.mdx_config.margin_seconds = 0;
 
     if (!lrc_extract_vocals(&request, &result)) {
-        error2("optional extraction failed: %s\n", result.message);
+        error2("optional extraction failed: %s\n", result.path_header.header.message);
         test_remove_tree(temp_dir);
         fatal(vocals_test_fail("optional real extraction"));
     }

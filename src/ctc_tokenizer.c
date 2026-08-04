@@ -1074,7 +1074,7 @@ ctc_tokenizer_test_load_minimal_vocabulary(void) {
         fatal(ctc_tokenizer_test_fail("load minimal vocabulary"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.path_header.header.error == LS_ERROR_NONE);
     ASSERT(tokenizer.token_count == 6);
     ASSERT(tokenizer.blank_id == 0);
     ASSERT(tokenizer.unknown_id == 5);
@@ -1131,7 +1131,8 @@ ctc_tokenizer_test_rejects_duplicate_tokens(void) {
         fatal(ctc_tokenizer_test_fail("duplicate vocabulary accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_DUPLICATE_TOKEN);
+    ASSERT(result.path_header.header.error
+           == LS_ERROR_CTC_TOKENIZER_DUPLICATE_TOKEN);
     ASSERT(result.line_index == 3);
     ASSERT(result.token_id == 1);
     ASSERT(tokenizer.token_count == 0);
@@ -1163,7 +1164,8 @@ ctc_tokenizer_test_requires_blank_token(void) {
         fatal(ctc_tokenizer_test_fail("no-blank vocabulary accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_MISSING_BLANK);
+    ASSERT(result.path_header.header.error
+           == LS_ERROR_CTC_TOKENIZER_MISSING_BLANK);
     ASSERT(tokenizer.token_count == 0);
 
     lrc_ctc_tokenizer_destroy(&tokenizer);
@@ -1193,7 +1195,7 @@ ctc_tokenizer_test_rejects_empty_token_line(void) {
         fatal(ctc_tokenizer_test_fail("empty-token vocabulary accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_EMPTY_TOKEN);
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_TOKENIZER_EMPTY_TOKEN);
     ASSERT(result.line_index == 2);
     ASSERT(tokenizer.token_count == 0);
 
@@ -1230,7 +1232,7 @@ ctc_tokenizer_test_rejects_invalid_utf8(void) {
         fatal(ctc_tokenizer_test_fail("invalid UTF-8 vocabulary accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_INVALID_UTF8);
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_TOKENIZER_INVALID_UTF8);
     ASSERT(result.line_index == 8);
     ASSERT(tokenizer.token_count == 0);
 
@@ -1274,7 +1276,7 @@ ctc_tokenizer_test_tokenizes_normalized_text(void) {
         fatal(ctc_tokenizer_test_fail("tokenize normalized lyrics"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(tokens.token_count == 4);
     ASSERT(tokens.tokens[0].token_id == 2);
     ASSERT(tokens.tokens[0].normalized_start == 0);
@@ -1335,7 +1337,7 @@ ctc_tokenizer_test_rejects_unsupported_normalized_token(void) {
         fatal(ctc_tokenizer_test_fail("unsupported token accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_TOKENIZE_UNSUPPORTED_TOKEN);
+    ASSERT(result.header.error == LS_ERROR_CTC_TOKENIZE_UNSUPPORTED_TOKEN);
     ASSERT(result.byte_offset == 2);
     ASSERT(result.line_index == 0);
     ASSERT(result.token_id == -1);
@@ -1453,7 +1455,7 @@ ctc_tokenizer_test_word_target_prevents_multi_character_match(void) {
         fatal(ctc_tokenizer_test_fail("tokenize word target lyrics"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(tokens.token_count == 3);
     ASSERT(tokens.tokens[0].token_id == 2);
     ASSERT(tokens.tokens[0].normalized_start == 0);
@@ -1571,7 +1573,7 @@ ctc_tokenizer_test_skips_unmatched_spaces(void) {
         fatal(ctc_tokenizer_test_fail("tokenize no-space lyrics"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(tokens.token_count == 3);
     ASSERT(tokens.tokens[0].token_id == 2);
     ASSERT(tokens.tokens[0].normalized_start == 0);
@@ -1601,8 +1603,9 @@ ctc_tokenizer_test_missing_path(void) {
         fatal(ctc_tokenizer_test_fail("missing path accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_TOKENIZER_MISSING_PATH);
-    ASSERT(result.path == NULL);
+    ASSERT(result.path_header.header.error
+           == LS_ERROR_CTC_TOKENIZER_MISSING_PATH);
+    ASSERT(result.path_header.path == NULL);
     ASSERT(tokenizer.token_count == 0);
 
     lrc_ctc_tokenizer_destroy(&tokenizer);

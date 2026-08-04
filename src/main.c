@@ -1112,9 +1112,9 @@ main_generate_lrc(LrcPipelineConfig *config) {
     if (lrc_pipeline_generate_lrc(&pipeline, &result)) {
         exit_status = EXIT_SUCCESS;
     } else {
-        error2("LRC generation failed: %s", result.message);
-        if (result.path) {
-            error2(": %s", result.path);
+        error2("LRC generation failed: %s", result.path_header.header.message);
+        if (result.path_header.path) {
+            error2(": %s", result.path_header.path);
         }
         error2("\n");
     }
@@ -1147,8 +1147,8 @@ lyrics_extract_vocals(
     if (config == NULL) {
         lrc_vocals_extract_result_init(result);
         if (result) {
-            result->error = LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT;
-            result->message = "missing pipeline config";
+            result->path_header.header.error = LS_ERROR_VOCALS_EXTRACT_INVALID_ARGUMENT;
+            result->path_header.header.message = "missing pipeline config";
         }
         return false;
     }
@@ -1172,8 +1172,8 @@ lyrics_generate_lrc(
     if (config == NULL) {
         lrc_pipeline_generate_result_init(result);
         if (result) {
-            result->error = LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT;
-            result->message = "missing pipeline config";
+            result->path_header.header.error = LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT;
+            result->path_header.header.message = "missing pipeline config";
         }
         return false;
     }

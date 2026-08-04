@@ -7,13 +7,7 @@
 #include "ctc_tokenizer.h"
 
 typedef struct LrcCtcAlignResult {
-    union {
-        LrcResultHeader header;
-        struct {
-            enum LsError error;
-            char *message;
-        };
-    };
+    LrcResultHeader header;
 
     int32 frame_index;
     int32 token_index;

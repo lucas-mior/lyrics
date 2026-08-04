@@ -25,14 +25,7 @@ struct LrcLyrics {
 };
 
 typedef struct LrcLyricsLoadResult {
-    union {
-        LrcPathResultHeader path_header;
-        struct {
-            enum LsError error;
-            char *message;
-            char *path;
-        };
-    };
+    LrcPathResultHeader path_header;
 
     int32 byte_offset;
 } LrcLyricsLoadResult;

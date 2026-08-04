@@ -378,8 +378,8 @@ lrc_pipeline_validate_ctc_assets(
             "CTC assets are invalid",
             NULL
         );
-        if (result && result->path) {
-            pipeline->path = result->path;
+        if (result && result->path_header.path) {
+            pipeline->path = result->path_header.path;
         }
         return false;
     }
@@ -1447,7 +1447,7 @@ lrc_pipeline_debug_dump_write_active_word_spans(
         char *message = "could not build active CTC word spans";
 
         if (align_result) {
-            message = align_result->message;
+            message = align_result->header.message;
         }
         lrc_pipeline_generate_result_set(
             result,
@@ -1506,7 +1506,7 @@ lrc_pipeline_debug_dump_write_path_segments(
         char *message = "could not build merged CTC path segments";
 
         if (align_result) {
-            message = align_result->message;
+            message = align_result->header.message;
         }
         lrc_pipeline_generate_result_set(
             result,
@@ -1639,7 +1639,7 @@ lrc_pipeline_ctc_align_ok(
     frame_index = -1;
     token_index = -1;
     if (align_result != NULL) {
-        message = align_result->message;
+        message = align_result->header.message;
         frame_index = align_result->frame_index;
         token_index = align_result->token_index;
     }
@@ -2362,8 +2362,8 @@ lrc_pipeline_prepare_vocals_stage_for_generation(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_VOCALS_EXTRACT_FAILED,
-            vocals_result.message,
-            vocals_result.path
+            vocals_result.path_header.header.message,
+            vocals_result.path_header.path
         );
         return false;
     }
@@ -2557,8 +2557,8 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_CTC_ASSETS_INVALID,
-            assets_result.message,
-            assets_result.path
+            assets_result.path_header.header.message,
+            assets_result.path_header.path
         );
         ok = false;
     }
@@ -2568,8 +2568,8 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_LYRICS_LOAD_FAILED,
-            lyrics_result.message,
-            lyrics_result.path
+            lyrics_result.path_header.header.message,
+            lyrics_result.path_header.path
         );
         ok = false;
     }
@@ -2592,8 +2592,8 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_TOKENIZER_LOAD_FAILED,
-            tokenizer_result.message,
-            tokenizer_result.path
+            tokenizer_result.path_header.header.message,
+            tokenizer_result.path_header.path
         );
         ok = false;
     }
@@ -2604,7 +2604,7 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_TOKENIZE_FAILED,
-            tokenize_result.message,
+            tokenize_result.header.message,
             NULL
         );
         if (result) {
@@ -2632,8 +2632,8 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_AUDIO_DECODE_FAILED,
-            audio_result.message,
-            audio_result.path
+            audio_result.path_header.header.message,
+            audio_result.path_header.path
         );
         if (result) {
             result->frame_index = audio_result.sample_index;
@@ -2647,7 +2647,7 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_MODEL_INPUT_FAILED,
-            model_result.message,
+            model_result.header.message,
             pipeline->vocals_stage_path
         );
         if (result) {
@@ -2666,7 +2666,7 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_CTC_MODEL_LOAD_FAILED,
-            inference_result.message,
+            inference_result.header.message,
             pipeline->ctc_assets.model_path
         );
         ok = false;
@@ -2682,7 +2682,7 @@ lrc_pipeline_generate_lrc(
             lrc_pipeline_generate_result_set(
                 result,
                 LS_ERROR_PIPELINE_GENERATE_CTC_INFERENCE_FAILED,
-                inference_result.message,
+                inference_result.header.message,
                 pipeline->ctc_assets.model_path
             );
             if (result) {
@@ -2800,7 +2800,7 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
-            align_result.message,
+            align_result.header.message,
             NULL
         );
         ok = false;
@@ -2821,7 +2821,7 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_ALIGNMENT_FAILED,
-            align_result.message,
+            align_result.header.message,
             NULL
         );
         ok = false;
@@ -2869,8 +2869,8 @@ lrc_pipeline_generate_lrc(
         lrc_pipeline_generate_result_set(
             result,
             LS_ERROR_PIPELINE_GENERATE_LRC_WRITE_FAILED,
-            write_result.message,
-            write_result.path
+            write_result.path_header.header.message,
+            write_result.path_header.path
         );
         if (result) {
             result->line_index = write_result.line_index;
@@ -2895,8 +2895,8 @@ lrc_pipeline_generate_lrc(
         char *path_arg = NULL;
 
         if (result) {
-            message = result->message;
-            path_arg = result->path;
+            message = result->path_header.header.message;
+            path_arg = result->path_header.path;
         }
         lrc_pipeline_error_set(pipeline,
                                LS_ERROR_PIPELINE_GENERATE_FAILED,
@@ -4211,7 +4211,7 @@ pipeline_test_line_timing_audio_available(void) {
                                                        &result)) {
         fatal(pipeline_test_fail("line timing audio context"));
     }
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.path_header.header.error == LS_ERROR_NONE);
     ASSERT(line_audio.samples == samples);
     ASSERT(line_audio.sample_count == LENGTH(samples));
     ASSERT(line_audio.sample_rate == 16000);
@@ -5522,7 +5522,7 @@ pipeline_test_ctc_assets_validate(void) {
         test_remove_tree(temp_dir);
         fatal(pipeline_test_fail("validate ctc assets"));
     }
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.path_header.header.error == LS_ERROR_NONE);
     ASSERT(strequal(pipeline.ctc_assets.model_path, model_path));
     ASSERT(strequal(pipeline.ctc_assets.tokenizer_path, tokenizer_path));
     ASSERT(pipeline.ctc_assets.validated);
@@ -5546,7 +5546,7 @@ pipeline_test_ctc_assets_missing_path(void) {
     if (lrc_pipeline_validate_ctc_assets(&pipeline, &result)) {
         fatal(pipeline_test_fail("accepted missing ctc model path"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ASSETS_MISSING_MODEL_PATH);
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_ASSETS_MISSING_MODEL_PATH);
     ASSERT(pipeline.error == LS_ERROR_PIPELINE_CTC_ASSETS_INVALID);
     ASSERT(!pipeline.ctc_assets.validated);
 
@@ -5582,8 +5582,8 @@ pipeline_test_ctc_assets_missing_file(void) {
         test_remove_tree(temp_dir);
         fatal(pipeline_test_fail("accepted missing ctc model file"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ASSETS_MODEL_NOT_FOUND);
-    ASSERT(strequal(result.path, model_path));
+    ASSERT(result.path_header.header.error == LS_ERROR_CTC_ASSETS_MODEL_NOT_FOUND);
+    ASSERT(strequal(result.path_header.path, model_path));
     ASSERT(pipeline.error == LS_ERROR_PIPELINE_CTC_ASSETS_INVALID);
     ASSERT(strequal(pipeline.path, model_path));
     ASSERT(!pipeline.ctc_assets.validated);
@@ -5609,14 +5609,14 @@ pipeline_test_generate_requires_lyrics_and_output(void) {
     if (lrc_pipeline_generate_lrc(&pipeline, &result)) {
         fatal(pipeline_test_fail("accepted missing lyrics path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS);
 
     config.lyrics_text_path = "lyrics.txt";
     lrc_pipeline_init(&pipeline, &config);
     if (lrc_pipeline_generate_lrc(&pipeline, &result)) {
         fatal(pipeline_test_fail("accepted missing output path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT);
 
     return;
 }
@@ -5630,37 +5630,37 @@ pipeline_test_generate_from_song_requires_full_config(void) {
     if (lrc_generate_from_song(&config, &result)) {
         fatal(pipeline_test_fail("accepted missing song path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_SONG);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_SONG);
 
     config.song_path = "song.flac";
     if (lrc_generate_from_song(&config, &result)) {
         fatal(pipeline_test_fail("accepted missing lyrics path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS);
 
     config.lyrics_text_path = "lyrics.txt";
     if (lrc_generate_from_song(&config, &result)) {
         fatal(pipeline_test_fail("accepted missing output path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT);
 
     config.output_lrc_path = "out.lrc";
     if (lrc_generate_from_song(&config, &result)) {
         fatal(pipeline_test_fail("accepted missing vocals model path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_VOCALS_MODEL);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_VOCALS_MODEL);
 
     config.vocals_model_path = "vocals.onnx";
     if (lrc_generate_from_song(&config, &result)) {
         fatal(pipeline_test_fail("accepted missing CTC model path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_CTC_MODEL);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_CTC_MODEL);
 
     config.ctc_model_path = "ctc.onnx";
     if (lrc_generate_from_song(&config, &result)) {
         fatal(pipeline_test_fail("accepted missing tokenizer path"));
     }
-    ASSERT(result.error == LS_ERROR_PIPELINE_GENERATE_MISSING_TOKENIZER);
+    ASSERT(result.path_header.header.error == LS_ERROR_PIPELINE_GENERATE_MISSING_TOKENIZER);
 
     return;
 }

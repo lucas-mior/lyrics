@@ -413,7 +413,7 @@ lyrics_test_reject_empty(void) {
         test_remove_tree(temp_dir);
         fatal(lyrics_test_fail("empty text accepted"));
     }
-    ASSERT(result.error == LS_ERROR_LYRICS_LOAD_EMPTY);
+    ASSERT(result.path_header.header.error == LS_ERROR_LYRICS_LOAD_EMPTY);
     ASSERT(lyrics.text == NULL);
     ASSERT(lyrics.line_count == 0);
 
@@ -447,7 +447,7 @@ lyrics_test_reject_invalid_utf8(void) {
         test_remove_tree(temp_dir);
         fatal(lyrics_test_fail("invalid utf8 accepted"));
     }
-    ASSERT(result.error == LS_ERROR_LYRICS_LOAD_INVALID_UTF8);
+    ASSERT(result.path_header.header.error == LS_ERROR_LYRICS_LOAD_INVALID_UTF8);
     ASSERT(result.byte_offset == 3);
 
     test_remove_tree(temp_dir);

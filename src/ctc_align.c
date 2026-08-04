@@ -5537,8 +5537,8 @@ ctc_align_test_empty_initializers(void) {
 
     lrc_ctc_align_result_init(&result);
 
-    ASSERT(result.error == LS_ERROR_NONE);
-    ASSERT(strequal(result.message, "ok"));
+    ASSERT(result.header.error == LS_ERROR_NONE);
+    ASSERT(strequal(result.header.message, "ok"));
     ASSERT(result.frame_index == -1);
     ASSERT(result.token_index == -1);
 
@@ -5583,7 +5583,7 @@ ctc_align_test_graph_build_layout(void) {
     if (!lrc_ctc_align_graph_build(&graph, one_token, 1, &result)) {
         fatal(ctc_align_test_fail("build one-token CTC graph"));
     }
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 1);
     ASSERT(graph.state_count == 3);
     ASSERT(graph.states[0].kind == LRC_CTC_ALIGN_STATE_BLANK);
@@ -5640,7 +5640,7 @@ ctc_align_test_graph_build_edge_stars(void) {
                                             &result)) {
         fatal(ctc_align_test_fail("build edge-star graph"));
     }
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 2);
     ASSERT(graph.state_count == 9);
     ASSERT(graph.states[0].kind == LRC_CTC_ALIGN_STATE_BLANK);
@@ -5699,7 +5699,7 @@ ctc_align_test_graph_build_segment_stars(void) {
         fatal(ctc_align_test_fail("build segment-star graph"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(graph.target_token_count == 3);
     ASSERT(graph.state_count == 11);
     ASSERT(graph.states[1].kind == LRC_CTC_ALIGN_STATE_STAR);
@@ -5737,29 +5737,29 @@ ctc_align_test_graph_rejects_bad_inputs(void) {
     if (lrc_ctc_align_graph_build(NULL, tokens, 1, &result)) {
         fatal(ctc_align_test_fail("missing graph accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_build(&graph, NULL, 1, &result)) {
         fatal(ctc_align_test_fail("missing graph tokens accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_build(&graph, tokens, 0, &result)) {
         fatal(ctc_align_test_fail("zero graph tokens accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
 
     if (lrc_ctc_align_graph_state_count(1, NULL, &result)) {
         fatal(ctc_align_test_fail("missing state-count destination accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_align_graph_state_count(INT32_MAX/2 + 1,
                                         &state_count,
                                         &result)) {
         fatal(ctc_align_test_fail("huge graph state count accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
     ASSERT(state_count == 0);
     ASSERT(graph.states == NULL);
 
@@ -5840,7 +5840,7 @@ ctc_align_test_score_rejects_too_few_repeated_frames(void) {
                                        &result)) {
         fatal(ctc_align_test_fail("too-few repeated frames accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
     ASSERT(result.frame_index == 2);
     ASSERT(result.token_index == 2);
     ASSERT(trellis.scores == NULL);
@@ -5857,7 +5857,7 @@ ctc_align_test_allocate_initializes_to_negative_infinity(void) {
         fatal(ctc_align_test_fail("allocate 3x3 trellis"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(trellis.frame_count == 3);
     ASSERT(trellis.target_token_count == 2);
     ASSERT(trellis.state_count == 5);
@@ -5886,26 +5886,26 @@ ctc_align_test_rejects_invalid_dimensions(void) {
     if (lrc_ctc_trellis_allocate(NULL, 1, 1, &result)) {
         fatal(ctc_align_test_fail("missing trellis accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_trellis_allocate(&trellis, 0, 1, &result)) {
         fatal(ctc_align_test_fail("zero frames accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
     ASSERT(result.frame_index == 0);
     ASSERT(result.token_index == 1);
 
     if (lrc_ctc_trellis_allocate(&trellis, 1, 0, &result)) {
         fatal(ctc_align_test_fail("zero target tokens accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_DIMENSIONS);
     ASSERT(result.frame_index == -1);
     ASSERT(result.token_index == 0);
 
     if (lrc_ctc_trellis_allocate(&trellis, 1, INT32_MAX/2 + 1, &result)) {
         fatal(ctc_align_test_fail("huge trellis accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_TOO_LARGE);
 
     ASSERT(trellis.scores == NULL);
 
@@ -5932,7 +5932,7 @@ ctc_align_test_prepare_initializes_start_state(void) {
         fatal(ctc_align_test_fail("prepare state trellis"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(trellis.frame_count == 3);
     ASSERT(trellis.target_token_count == 2);
     ASSERT(trellis.state_count == 5);
@@ -5983,7 +5983,7 @@ ctc_align_test_forward_scores_simple_path(void) {
         fatal(ctc_align_test_fail("score simple forward path"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(trellis.state_count == 5);
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
                                  -0.20f,
@@ -6027,7 +6027,7 @@ ctc_align_test_forward_prefers_blank_stay(void) {
         fatal(ctc_align_test_fail("score blank stay path"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(trellis.state_count == 3);
     ASSERT(ctc_align_float_close(*lrc_ctc_trellis_cell(&trellis, 1, 1),
                                  -0.30f,
@@ -6170,7 +6170,7 @@ ctc_align_test_forward_rejects_bad_targets(void) {
                                       &result)) {
         fatal(ctc_align_test_fail("missing target ids accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_trellis_score_forward(&trellis,
                                       &emissions,
@@ -6180,7 +6180,7 @@ ctc_align_test_forward_rejects_bad_targets(void) {
                                       &result)) {
         fatal(ctc_align_test_fail("bad target id accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
     ASSERT(result.token_index == 1);
     ASSERT(trellis.scores == NULL);
 
@@ -6221,7 +6221,7 @@ ctc_align_test_backtracks_simple_path(void) {
         fatal(ctc_align_test_fail("backtrack simple path"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(path.step_count == 4);
     ASSERT(path.steps[0].frame_index == 0);
     ASSERT(path.steps[0].state_index == 0);
@@ -6281,7 +6281,7 @@ ctc_align_test_backtracks_repeated_tokens(void) {
         fatal(ctc_align_test_fail("backtrack repeated-token path"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(path.step_count == 4);
     ASSERT(path.steps[1].frame_index == 1);
     ASSERT(path.steps[1].state_index == 1);
@@ -6488,7 +6488,7 @@ ctc_align_test_edge_stars_reject_bad_star_token(void) {
                                                        &result)) {
         fatal(ctc_align_test_fail("target token accepted as star"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
 
     if (lrc_ctc_trellis_score_forward_with_edge_stars(&trellis,
                                                        &emissions,
@@ -6499,7 +6499,7 @@ ctc_align_test_edge_stars_reject_bad_star_token(void) {
                                                        &result)) {
         fatal(ctc_align_test_fail("out-of-range star token accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_TARGET_TOKEN);
 
     lrc_ctc_trellis_destroy(&trellis);
 
@@ -6539,7 +6539,7 @@ ctc_align_test_backtrack_rejects_impossible_alignment(void) {
         fatal(ctc_align_test_fail("impossible path accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
     ASSERT(path.steps == NULL);
     ASSERT(path.step_count == 0);
 
@@ -6571,7 +6571,7 @@ ctc_align_test_backtrack_rejects_invalid_trellis(void) {
         fatal(ctc_align_test_fail("unscored trellis accepted"));
     }
 
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TRELLIS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_TRELLIS);
     ASSERT(path.steps == NULL);
 
     return;
@@ -6613,7 +6613,7 @@ ctc_align_test_path_segments_merge_blanks_and_tokens(void) {
         fatal(ctc_align_test_fail("merge blank/token path segments"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(segments.segment_count == 5);
     ASSERT(segments.segments[0].is_blank);
     ASSERT(!segments.segments[0].is_star);
@@ -7060,7 +7060,7 @@ ctc_align_test_token_spans_from_backtracked_path(void) {
         fatal(ctc_align_test_fail("path to token spans"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(spans.span_count == 2);
     ASSERT(spans.spans[0].token_index == 0);
     ASSERT(spans.spans[0].token_id == 1);
@@ -7232,7 +7232,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         fatal(ctc_align_test_fail("missing path accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (lrc_ctc_path_to_token_spans(&path,
                                     &emissions,
@@ -7241,7 +7241,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         fatal(ctc_align_test_fail("empty path accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
 
     if (!lrc_ctc_path_allocate(&path, 2, &result)) {
         fatal(ctc_align_test_fail("allocate invalid span path"));
@@ -7255,7 +7255,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         fatal(ctc_align_test_fail("zero frame duration accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_FRAME_DURATION);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_FRAME_DURATION);
 
     path.steps[1].token_id = 2;
     if (lrc_ctc_path_to_token_spans(&path,
@@ -7265,7 +7265,7 @@ ctc_align_test_token_spans_reject_bad_inputs(void) {
                                     &result)) {
         fatal(ctc_align_test_fail("bad path token id accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
     ASSERT(spans.spans == NULL);
 
     lrc_ctc_path_destroy(&path);
@@ -7297,7 +7297,7 @@ ctc_align_test_token_spans_reject_out_of_order_targets(void) {
                                     &result)) {
         fatal(ctc_align_test_fail("out-of-order path target accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_PATH);
     ASSERT(spans.spans == NULL);
 
     lrc_ctc_path_destroy(&path);
@@ -7797,7 +7797,7 @@ ctc_align_test_word_spans_group_generated_words(void) {
         fatal(ctc_align_test_fail("convert generated word spans"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(word_spans.span_count == 4);
     ctc_align_assert_word_text(&normalized,
                                word_spans.spans + 0,
@@ -8113,7 +8113,7 @@ ctc_align_test_word_spans_keep_repeated_token_positions(void) {
         fatal(ctc_align_test_fail("convert repeated word spans"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(word_spans.span_count == 1);
     ctc_align_assert_word_text(&normalized,
                                word_spans.spans + 0,
@@ -8309,7 +8309,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         fatal(ctc_align_test_fail("missing token spans accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (!ctc_align_load_tokenized_lyrics(text,
                                          strlen32(text),
@@ -8334,7 +8334,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         fatal(ctc_align_test_fail("short token spans accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
     token_spans.span_count += 1;
 
     token_spans.spans[0].token_id = 999;
@@ -8345,7 +8345,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         fatal(ctc_align_test_fail("mismatched token span accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_TOKEN_SPANS);
     token_spans.spans[0].token_id = tokens.tokens[0].token_id;
 
     tokens.tokens[0].normalized_end = normalized.text_len;
@@ -8356,7 +8356,7 @@ ctc_align_test_word_spans_reject_bad_inputs(void) {
                                           &result)) {
         fatal(ctc_align_test_fail("mixed word/space token accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_TOKENIZED_TEXT);
 
     lrc_ctc_word_spans_destroy(&word_spans);
     lrc_ctc_token_spans_destroy(&token_spans);
@@ -8499,7 +8499,7 @@ ctc_align_test_line_timestamps_from_generated_words(void) {
         fatal(ctc_align_test_fail("convert generated line timestamps"));
     }
 
-    ASSERT(result.error == LS_ERROR_NONE);
+    ASSERT(result.header.error == LS_ERROR_NONE);
     ASSERT(line_timestamps.line_count == 4);
     ASSERT(line_timestamps.timestamped_line_count == 3);
     ASSERT(line_timestamps.blank_line_count == 1);
@@ -8569,7 +8569,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &result)) {
         fatal(ctc_align_test_fail("missing word spans accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     if (!ctc_align_load_tokenized_lyrics(text,
                                          strlen32(text),
@@ -8600,7 +8600,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &result)) {
         fatal(ctc_align_test_fail("bad word line accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
     word_spans.spans[0].line_index = 0;
 
     word_spans.spans[1].line_index = 0;
@@ -8611,7 +8611,7 @@ ctc_align_test_line_timestamps_reject_bad_inputs(void) {
                                               &result)) {
         fatal(ctc_align_test_fail("bad word timing accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_WORD_SPANS);
 
     lrc_ctc_line_timestamps_destroy(&line_timestamps);
     lrc_ctc_word_spans_destroy(&word_spans);
@@ -8831,7 +8831,7 @@ ctc_align_test_full_synthetic_alignment_pipeline(void) {
         fatal(ctc_align_test_fail("span synthetic full path"));
     }
 
-    ASSERT(align_result.error == LS_ERROR_NONE);
+    ASSERT(align_result.header.error == LS_ERROR_NONE);
     ASSERT(spans.span_count == token_count);
     for (int32 i = 0; i < spans.span_count; i += 1) {
         float expected_start = (float)(i + 1)*frame_duration_seconds;
@@ -9780,20 +9780,20 @@ ctc_align_test_prepare_rejects_invalid_emissions(void) {
     if (lrc_ctc_trellis_prepare(&trellis, NULL, 1, 0, &result)) {
         fatal(ctc_align_test_fail("missing emissions accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_ARGUMENT);
 
     ctc_align_make_emissions(&emissions, values, 1, 2);
     emissions.value_count = 1;
     if (lrc_ctc_trellis_prepare(&trellis, &emissions, 1, 0, &result)) {
         fatal(ctc_align_test_fail("bad emissions value count accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_EMISSIONS);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_EMISSIONS);
 
     ctc_align_make_emissions(&emissions, values, 1, 2);
     if (lrc_ctc_trellis_prepare(&trellis, &emissions, 1, 2, &result)) {
         fatal(ctc_align_test_fail("bad blank token accepted"));
     }
-    ASSERT(result.error == LS_ERROR_CTC_ALIGN_INVALID_BLANK_TOKEN);
+    ASSERT(result.header.error == LS_ERROR_CTC_ALIGN_INVALID_BLANK_TOKEN);
     ASSERT(result.token_index == 2);
 
     ASSERT(trellis.scores == NULL);

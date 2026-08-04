@@ -149,13 +149,7 @@ typedef struct LrcResultHeader {
 } LrcResultHeader;
 
 typedef struct LrcPathResultHeader {
-    union {
-        LrcResultHeader header;
-        struct {
-            enum LsError error;
-            char *message;
-        };
-    };
+    LrcResultHeader header;
     char *path;
 } LrcPathResultHeader;
 

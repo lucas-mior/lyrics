@@ -6,13 +6,7 @@
 #include "lyrics.h"
 
 typedef struct LrcCtcTokenizeResult {
-    union {
-        LrcResultHeader header;
-        struct {
-            enum LsError error;
-            char *message;
-        };
-    };
+    LrcResultHeader header;
 
     int32 byte_offset;
     int32 line_index;
@@ -36,14 +30,7 @@ typedef struct LrcCtcTokenizedText {
 } LrcCtcTokenizedText;
 
 typedef struct LrcCtcTokenizerResult {
-    union {
-        LrcPathResultHeader path_header;
-        struct {
-            enum LsError error;
-            char *message;
-            char *path;
-        };
-    };
+    LrcPathResultHeader path_header;
 
     int32 line_index;
     int32 token_id;
