@@ -42,7 +42,6 @@ typedef struct LrcCtcPath {
     LrcCtcPathStep *steps;
 
     int32 step_count;
-    int32 step_cap;
 } LrcCtcPath;
 
 typedef struct LrcCtcPathSegment {
@@ -64,7 +63,6 @@ typedef struct LrcCtcPathSegments {
     LrcCtcPathSegment *segments;
 
     int32 segment_count;
-    int32 segment_cap;
 } LrcCtcPathSegments;
 
 typedef struct LrcCtcAlignedTokenInterval {
@@ -86,7 +84,6 @@ typedef struct LrcCtcAlignedTokenIntervals {
     LrcCtcAlignedTokenInterval *intervals;
 
     int32 interval_count;
-    int32 interval_cap;
 } LrcCtcAlignedTokenIntervals;
 
 typedef struct LrcCtcTokenSpan {
@@ -109,7 +106,6 @@ typedef struct LrcCtcTokenSpans {
     LrcCtcTokenSpan *spans;
 
     int32 span_count;
-    int32 span_cap;
 } LrcCtcTokenSpans;
 
 typedef struct LrcCtcWordSpan {
@@ -132,7 +128,6 @@ typedef struct LrcCtcWordSpans {
     LrcCtcWordSpan *spans;
 
     int32 span_count;
-    int32 span_cap;
 } LrcCtcWordSpans;
 
 enum LrcCtcLineTimestampKind {
@@ -157,7 +152,6 @@ typedef struct LrcCtcLineTimestamps {
     LrcCtcLineTimestamp *lines;
 
     int32 line_count;
-    int32 line_cap;
     int32 timestamped_line_count;
     int32 blank_line_count;
 } LrcCtcLineTimestamps;

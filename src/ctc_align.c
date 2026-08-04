@@ -2,6 +2,7 @@
 #include "ctc_align.h"
 
 #include "cbase.h"
+#include "array_util.h"
 
 #if !defined(TESTING_ctc_align)
 #define TESTING_ctc_align 0
@@ -636,7 +637,7 @@ lrc_ctc_path_destroy(LrcCtcPath *path) {
         return;
     }
 
-    free2(path->steps, path->step_cap*SIZEOF(*path->steps));
+    ARRAY_FREE(path->steps);
 
     memset64(path, 0, SIZEOF(*path));
 
@@ -650,8 +651,7 @@ lrc_ctc_path_segments_destroy(LrcCtcPathSegments *segments) {
         return;
     }
 
-    free2(segments->segments,
-          segments->segment_cap*SIZEOF(*segments->segments));
+    ARRAY_FREE(segments->segments);
 
     memset64(segments, 0, SIZEOF(*segments));
 
@@ -667,8 +667,7 @@ lrc_ctc_aligned_token_intervals_destroy(
         return;
     }
 
-    free2(intervals->intervals,
-          intervals->interval_cap*SIZEOF(*intervals->intervals));
+    ARRAY_FREE(intervals->intervals);
 
     memset64(intervals, 0, SIZEOF(*intervals));
 
@@ -682,7 +681,7 @@ lrc_ctc_token_spans_destroy(LrcCtcTokenSpans *spans) {
         return;
     }
 
-    free2(spans->spans, spans->span_cap*SIZEOF(*spans->spans));
+    ARRAY_FREE(spans->spans);
 
     memset64(spans, 0, SIZEOF(*spans));
 
@@ -696,7 +695,7 @@ lrc_ctc_word_spans_destroy(LrcCtcWordSpans *spans) {
         return;
     }
 
-    free2(spans->spans, spans->span_cap*SIZEOF(*spans->spans));
+    ARRAY_FREE(spans->spans);
 
     memset64(spans, 0, SIZEOF(*spans));
 
@@ -710,8 +709,7 @@ lrc_ctc_line_timestamps_destroy(LrcCtcLineTimestamps *timestamps) {
         return;
     }
 
-    free2(timestamps->lines,
-          timestamps->line_cap*SIZEOF(*timestamps->lines));
+    ARRAY_FREE(timestamps->lines);
 
     memset64(timestamps, 0, SIZEOF(*timestamps));
 
@@ -757,9 +755,8 @@ lrc_ctc_token_spans_allocate(
     }
 
     lrc_ctc_token_spans_destroy(spans);
-    spans->spans = malloc2(alloc_size);
+    LRC_ARRAY_INIT_COUNT(spans->spans, span_count);
     spans->span_count = span_count;
-    spans->span_cap = span_count;
 
     for (int32 i = 0; i < spans->span_count; i += 1) {
         spans->spans[i].token_index = -1;
@@ -817,9 +814,8 @@ lrc_ctc_path_segments_allocate(
     }
 
     lrc_ctc_path_segments_destroy(segments);
-    segments->segments = malloc2(alloc_size);
+    LRC_ARRAY_INIT_COUNT(segments->segments, segment_count);
     segments->segment_count = segment_count;
-    segments->segment_cap = segment_count;
 
     for (int32 i = 0; i < segments->segment_count; i += 1) {
         segments->segments[i].token_index = -1;
@@ -875,9 +871,8 @@ lrc_ctc_aligned_token_intervals_allocate(
     }
 
     lrc_ctc_aligned_token_intervals_destroy(intervals);
-    intervals->intervals = malloc2(alloc_size);
+    LRC_ARRAY_INIT_COUNT(intervals->intervals, interval_count);
     intervals->interval_count = interval_count;
-    intervals->interval_cap = interval_count;
 
     for (int32 i = 0; i < intervals->interval_count; i += 1) {
         intervals->intervals[i].target_token_index = -1;
@@ -934,9 +929,8 @@ lrc_ctc_path_allocate(
     }
 
     lrc_ctc_path_destroy(path);
-    path->steps = malloc2(alloc_size);
+    LRC_ARRAY_INIT_COUNT(path->steps, step_count);
     path->step_count = step_count;
-    path->step_cap = step_count;
 
     for (int32 i = 0; i < path->step_count; i += 1) {
         path->steps[i].frame_index = -1;
@@ -3534,9 +3528,8 @@ lrc_ctc_word_spans_allocate(
     }
 
     lrc_ctc_word_spans_destroy(spans);
-    spans->spans = malloc2(alloc_size);
+    LRC_ARRAY_INIT_COUNT(spans->spans, span_count);
     spans->span_count = span_count;
-    spans->span_cap = span_count;
 
     for (int32 i = 0; i < spans->span_count; i += 1) {
         spans->spans[i].word_index = -1;
@@ -4423,9 +4416,8 @@ lrc_ctc_line_timestamps_allocate(
     }
 
     lrc_ctc_line_timestamps_destroy(timestamps);
-    timestamps->lines = malloc2(alloc_size);
+    LRC_ARRAY_INIT_COUNT(timestamps->lines, line_count);
     timestamps->line_count = line_count;
-    timestamps->line_cap = line_count;
     timestamps->timestamped_line_count = 0;
     timestamps->blank_line_count = 0;
 
@@ -5427,23 +5419,18 @@ ctc_align_test_empty_initializers(void) {
 
     ASSERT(path.steps == NULL);
     ASSERT(path.step_count == 0);
-    ASSERT(path.step_cap == 0);
 
     ASSERT(path_segments.segments == NULL);
     ASSERT(path_segments.segment_count == 0);
-    ASSERT(path_segments.segment_cap == 0);
 
     ASSERT(spans.spans == NULL);
     ASSERT(spans.span_count == 0);
-    ASSERT(spans.span_cap == 0);
 
     ASSERT(word_spans.spans == NULL);
     ASSERT(word_spans.span_count == 0);
-    ASSERT(word_spans.span_cap == 0);
 
     ASSERT(line_timestamps.lines == NULL);
     ASSERT(line_timestamps.line_count == 0);
-    ASSERT(line_timestamps.line_cap == 0);
     ASSERT(line_timestamps.timestamped_line_count == 0);
     ASSERT(line_timestamps.blank_line_count == 0);
 
@@ -6420,7 +6407,6 @@ ctc_align_test_backtrack_rejects_impossible_alignment(void) {
     ASSERT(result.error == LS_ERROR_CTC_ALIGN_IMPOSSIBLE_ALIGNMENT);
     ASSERT(path.steps == NULL);
     ASSERT(path.step_count == 0);
-    ASSERT(path.step_cap == 0);
 
     lrc_ctc_trellis_destroy(&trellis);
 

@@ -94,17 +94,11 @@ typedef struct LrcLyricsNormalized {
     CtcTextSegment *segments;
 
     int32 text_len;
-    int32 text_cap;
     int32 target_text_len;
-    int32 target_text_cap;
     int32 byte_count;
-    int32 byte_cap;
     int32 target_byte_count;
-    int32 target_byte_cap;
     int32 line_count;
-    int32 line_cap;
     int32 segment_count;
-    int32 segment_cap;
     int32 alignable_line_count;
 } LrcLyricsNormalized;
 

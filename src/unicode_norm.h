@@ -11,7 +11,6 @@ typedef struct CtcUnicodeNormResult {
     char *text;
 
     int32 text_len;
-    int32 text_cap;
 
     bool used_icu;
 } CtcUnicodeNormResult;

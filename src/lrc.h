@@ -64,9 +64,7 @@ typedef struct LrcParsedFile {
     LrcParsedLine *lines;
 
     int32 text_len;
-    int32 text_cap;
     int32 line_count;
-    int32 line_cap;
     int32 timestamped_line_count;
     int32 blank_line_count;
 } LrcParsedFile;

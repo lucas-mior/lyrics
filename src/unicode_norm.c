@@ -2,6 +2,7 @@
 #include "unicode_norm.h"
 
 #include "cbase.h"
+#include "array_util.h"
 
 #if LRC_UNICODE_ENABLE_ICU
 #include <unicode/ucasemap.h>
@@ -22,7 +23,6 @@ ctc_unicode_norm_result_init(CtcUnicodeNormResult *result) {
 
     result->text = NULL;
     result->text_len = 0;
-    result->text_cap = 0;
     result->used_icu = false;
 
     return;
@@ -34,7 +34,7 @@ ctc_unicode_norm_result_destroy(CtcUnicodeNormResult *result) {
         return;
     }
 
-    free2(result->text, result->text_cap*SIZEOF(*result->text));
+    ARRAY_FREE(result->text);
 
     ctc_unicode_norm_result_init(result);
 
@@ -46,36 +46,14 @@ ctc_unicode_norm_reserve(
     CtcUnicodeNormResult *result,
     int32 needed
 ) {
-    int32 new_cap;
-
     if (result == NULL) {
         return false;
     }
     if (needed < 0) {
         return false;
     }
-    if (result->text && ((needed + 1) <= result->text_cap)) {
-        return true;
-    }
 
-    if (result->text == NULL) {
-        result->text_cap = 0;
-    }
-    new_cap = result->text_cap;
-    if (new_cap <= 0) {
-        new_cap = 64;
-    }
-    while (new_cap < (needed + 1)) {
-        new_cap *= 2;
-    }
-
-    result->text = realloc2(result->text,
-                            result->text_cap,
-                            new_cap,
-                            SIZEOF(*result->text));
-    result->text_cap = new_cap;
-
-    return true;
+    return LRC_ARRAY_RESERVE(result->text, needed + 1);
 }
 
 static bool
@@ -96,6 +74,7 @@ ctc_unicode_norm_copy_fallback(
     }
     result->text[text_len] = '\0';
     result->text_len = text_len;
+    lrc_array_set_count(result->text, result->text_len + 1);
     result->used_icu = false;
 
     return true;
@@ -284,7 +263,7 @@ ctc_unicode_norm_utf8_from_utf16(
 
     status = U_ZERO_ERROR;
     u_strToUTF8(result->text,
-                (int32_t)result->text_cap,
+                (int32_t)lrc_array_capacity(result->text),
                 (int32_t *)&result->text_len,
                 utf16,
                 (int32_t)utf16_len,
@@ -294,6 +273,7 @@ ctc_unicode_norm_utf8_from_utf16(
     }
 
     result->text[result->text_len] = '\0';
+    lrc_array_set_count(result->text, result->text_len + 1);
     result->used_icu = true;
 
     return true;

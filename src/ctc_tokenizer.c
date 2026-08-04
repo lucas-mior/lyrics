@@ -2,6 +2,7 @@
 #include "ctc_tokenizer.h"
 
 #include "cbase.h"
+#include "array_util.h"
 
 #if !defined(TESTING_ctc_tokenizer)
 #define TESTING_ctc_tokenizer 0
@@ -53,7 +54,7 @@ lrc_ctc_tokenized_text_destroy(LrcCtcTokenizedText *text) {
         return;
     }
 
-    free2(text->tokens, text->token_cap*SIZEOF(*text->tokens));
+    ARRAY_FREE(text->tokens);
 
     memset64(text, 0, SIZEOF(*text));
 
@@ -66,39 +67,17 @@ lrc_ctc_tokenized_text_reserve(
     int32 extra
 ) {
     int64 needed;
-    int32 new_cap;
 
     if (extra <= 0) {
         return true;
     }
 
     needed = (int64)text->token_count + extra;
-    if (needed <= text->token_cap) {
-        return true;
-    }
-    if (needed >= MAXOF(text->token_cap)) {
+    if (needed > INT32_MAX) {
         return false;
     }
 
-    new_cap = text->token_cap;
-    if (new_cap <= 0) {
-        new_cap = 32;
-    }
-    while (new_cap < needed) {
-        if (new_cap >= (MAXOF(new_cap)/2)) {
-            new_cap = (int32)needed;
-            break;
-        }
-        new_cap *= 2;
-    }
-
-    text->tokens = realloc2(text->tokens,
-                            text->token_cap,
-                            new_cap,
-                            SIZEOF(*text->tokens));
-    text->token_cap = new_cap;
-
-    return true;
+    return LRC_ARRAY_RESERVE(text->tokens, (int32)needed);
 }
 
 static bool
@@ -119,6 +98,7 @@ lrc_ctc_tokenized_text_append(
 
     token = text->tokens + text->token_count;
     text->token_count += 1;
+    lrc_array_set_count(text->tokens, text->token_count);
 
     token->token_id = token_id;
     token->normalized_start = start;
@@ -573,10 +553,8 @@ lrc_ctc_tokenizer_destroy(LrcCtcTokenizer *tokenizer) {
         return;
     }
 
-    free2(tokenizer->tokens,
-          tokenizer->token_cap*SIZEOF(*tokenizer->tokens));
-    free2(tokenizer->text_storage,
-          tokenizer->text_storage_cap*SIZEOF(*tokenizer->text_storage));
+    ARRAY_FREE(tokenizer->tokens);
+    ARRAY_FREE(tokenizer->text_storage);
 
     lrc_ctc_tokenizer_init(tokenizer);
 
@@ -628,39 +606,17 @@ lrc_ctc_tokenizer_reserve_tokens(
     int32 extra
 ) {
     int64 needed;
-    int32 new_cap;
 
     if (extra <= 0) {
         return true;
     }
 
     needed = (int64)tokenizer->token_count + extra;
-    if (needed <= tokenizer->token_cap) {
-        return true;
-    }
-    if (needed >= MAXOF(tokenizer->token_cap)) {
+    if (needed > INT32_MAX) {
         return false;
     }
 
-    new_cap = tokenizer->token_cap;
-    if (new_cap <= 0) {
-        new_cap = 16;
-    }
-    while (new_cap < needed) {
-        if (new_cap >= (MAXOF(new_cap)/2)) {
-            new_cap = (int32)needed;
-            break;
-        }
-        new_cap *= 2;
-    }
-
-    tokenizer->tokens = realloc2(tokenizer->tokens,
-                                  tokenizer->token_cap,
-                                  new_cap,
-                                  SIZEOF(*tokenizer->tokens));
-    tokenizer->token_cap = new_cap;
-
-    return true;
+    return LRC_ARRAY_RESERVE(tokenizer->tokens, (int32)needed);
 }
 
 static bool
@@ -669,39 +625,17 @@ lrc_ctc_tokenizer_reserve_text(
     int32 extra
 ) {
     int64 needed;
-    int32 new_cap;
 
     if (extra <= 0) {
         return true;
     }
 
     needed = (int64)tokenizer->text_storage_len + extra;
-    if (needed <= tokenizer->text_storage_cap) {
-        return true;
-    }
-    if (needed >= MAXOF(tokenizer->text_storage_cap)) {
+    if (needed > INT32_MAX) {
         return false;
     }
 
-    new_cap = tokenizer->text_storage_cap;
-    if (new_cap <= 0) {
-        new_cap = 128;
-    }
-    while (new_cap < needed) {
-        if (new_cap >= (MAXOF(new_cap)/2)) {
-            new_cap = (int32)needed;
-            break;
-        }
-        new_cap *= 2;
-    }
-
-    tokenizer->text_storage = realloc2(tokenizer->text_storage,
-                                        tokenizer->text_storage_cap,
-                                        new_cap,
-                                        SIZEOF(*tokenizer->text_storage));
-    tokenizer->text_storage_cap = new_cap;
-
-    return true;
+    return LRC_ARRAY_RESERVE(tokenizer->text_storage, (int32)needed);
 }
 
 static bool
@@ -864,6 +798,8 @@ lrc_ctc_tokenizer_add_token(
     }
     stored_text[token_len] = '\0';
     tokenizer->text_storage_len += token_len + 1;
+    lrc_array_set_count(tokenizer->text_storage,
+                        tokenizer->text_storage_len);
 
     token = tokenizer->tokens + tokenizer->token_count;
     token->text = stored_text;
@@ -873,6 +809,7 @@ lrc_ctc_tokenizer_add_token(
     token->is_unknown = is_unknown;
 
     tokenizer->token_count += 1;
+    lrc_array_set_count(tokenizer->tokens, tokenizer->token_count);
 
     if (is_blank) {
         tokenizer->blank_id = id;

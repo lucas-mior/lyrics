@@ -4011,7 +4011,6 @@ pipeline_test_make_two_line_timestamps(
 
     timestamps->lines = lines;
     timestamps->line_count = 2;
-    timestamps->line_cap = 2;
     timestamps->timestamped_line_count = 2;
 
     lines[0].line_index = 0;
@@ -4352,7 +4351,6 @@ pipeline_test_cafe_vocals_audio_corrected_clear_lines(void) {
 
     timestamps.lines = timestamp_lines;
     timestamps.line_count = LENGTH(timestamp_lines);
-    timestamps.line_cap = LENGTH(timestamp_lines);
     timestamps.timestamped_line_count = LENGTH(timestamp_lines);
     for (int32 i = 0; i < LENGTH(timestamp_lines); i += 1) {
         timestamp_lines[i].line_index = (int32)i;
@@ -4502,7 +4500,6 @@ pipeline_test_line_timestamp_clear_case(
 
     timestamps.lines = timestamp_lines;
     timestamps.line_count = LENGTH(timestamp_lines);
-    timestamps.line_cap = LENGTH(timestamp_lines);
     timestamps.timestamped_line_count = LENGTH(timestamp_lines);
 
     timestamp_lines[0].line_index = 0;
@@ -4638,7 +4635,6 @@ pipeline_test_line_timestamp_clear_keeps_blank_line(void) {
 
     timestamps.lines = timestamp_lines;
     timestamps.line_count = LENGTH(timestamp_lines);
-    timestamps.line_cap = LENGTH(timestamp_lines);
     timestamps.timestamped_line_count = 2;
     timestamps.blank_line_count = 1;
 
@@ -4784,7 +4780,6 @@ pipeline_test_line_timestamp_end_writes_clear_line(void) {
 
     timestamps.lines = timestamp_lines;
     timestamps.line_count = LENGTH(timestamp_lines);
-    timestamps.line_cap = LENGTH(timestamp_lines);
     timestamps.timestamped_line_count = LENGTH(timestamp_lines);
 
     timestamp_lines[0].line_index = 0;
@@ -5239,7 +5234,6 @@ pipeline_test_ctc_debug_dump_path_segments(void) {
 
     segments.segments = path_segments;
     segments.segment_count = LENGTH(path_segments);
-    segments.segment_cap = LENGTH(path_segments);
 
     if (!lrc_ctc_debug_dump_writer_open(&writer, dump_path)) {
         test_remove_tree(temp_dir);
@@ -5366,10 +5360,8 @@ pipeline_test_ctc_debug_dump_word_spans(void) {
     normalized.text_len = strlen32(normalized.text);
     before_spans.spans = before;
     before_spans.span_count = LENGTH(before);
-    before_spans.span_cap = LENGTH(before);
     after_spans.spans = after;
     after_spans.span_count = LENGTH(after);
-    after_spans.span_cap = LENGTH(after);
 
     if (!lrc_ctc_debug_dump_writer_open(&writer, dump_path)) {
         test_remove_tree(temp_dir);

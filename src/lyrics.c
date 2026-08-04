@@ -2,6 +2,7 @@
 #include "lyrics.h"
 
 #include "cbase.h"
+#include "array_util.h"
 
 #if !defined(TESTING_lyrics)
 #define TESTING_lyrics 0
@@ -14,8 +15,8 @@ lrc_lyrics_destroy(LrcLyrics *lyrics) {
         return;
     }
 
-    free2(lyrics->text, lyrics->text_cap*SIZEOF(*lyrics->text));
-    free2(lyrics->lines, lyrics->line_cap*SIZEOF(*lyrics->lines));
+    ARRAY_FREE(lyrics->text);
+    ARRAY_FREE(lyrics->lines);
 
     memset64(lyrics, 0, SIZEOF(*lyrics));
 
@@ -88,7 +89,7 @@ lrc_lyrics_normalize_text(
         start = 3;
     }
 
-    normalized = malloc2(file_len + 1);
+    ARRAY_INIT(normalized, file_len + 1);
     normalized_len = 0;
     for (int32 i = start; i < file_len; i += 1) {
         if (file_text[i] == '\r') {
@@ -106,7 +107,7 @@ lrc_lyrics_normalize_text(
 
     lyrics->text = normalized;
     lyrics->text_len = normalized_len;
-    lyrics->text_cap = file_len + 1;
+    lrc_array_set_count(lyrics->text, normalized_len + 1);
 
     return true;
 }
@@ -125,35 +126,17 @@ lrc_lyrics_line_has_text(char *text, int32 text_len) {
 static bool
 lrc_lyrics_reserve_lines(LrcLyrics *lyrics, int32 extra) {
     int64 needed;
-    int32 new_cap;
 
     if (extra <= 0) {
         return true;
     }
 
     needed = (int64)lyrics->line_count + extra;
-    if (needed <= lyrics->line_cap) {
-        return true;
-    }
-    if (needed >= MAXOF(lyrics->line_cap)) {
+    if (needed > INT32_MAX) {
         return false;
     }
 
-    new_cap = lyrics->line_cap;
-    if (new_cap <= 0) {
-        new_cap = 8;
-    }
-    while (new_cap < needed) {
-        new_cap *= 2;
-    }
-
-    lyrics->lines = realloc2(lyrics->lines,
-                             lyrics->line_cap,
-                             new_cap,
-                             SIZEOF(*lyrics->lines));
-    lyrics->line_cap = new_cap;
-
-    return true;
+    return LRC_ARRAY_RESERVE(lyrics->lines, (int32)needed);
 }
 
 static bool
@@ -166,6 +149,7 @@ lrc_lyrics_append_line(LrcLyrics *lyrics, int32 start, int32 end) {
 
     line = &lyrics->lines[lyrics->line_count];
     lyrics->line_count += 1;
+    lrc_array_set_count(lyrics->lines, lyrics->line_count);
 
     line->text = lyrics->text + start;
     line->text_len = end - start;

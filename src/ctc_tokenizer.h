@@ -28,7 +28,6 @@ typedef struct LrcCtcTokenizedText {
     LrcCtcTextToken *tokens;
 
     int32 token_count;
-    int32 token_cap;
 } LrcCtcTokenizedText;
 
 typedef struct LrcCtcTokenizerResult {
@@ -55,9 +54,7 @@ typedef struct LrcCtcTokenizer {
     char *text_storage;
 
     int32 token_count;
-    int32 token_cap;
     int32 text_storage_len;
-    int32 text_storage_cap;
     int32 blank_id;
     int32 unknown_id;
 } LrcCtcTokenizer;

@@ -2,6 +2,7 @@
 #include "lrc.h"
 
 #include "cbase.h"
+#include "array_util.h"
 
 #if !defined(TESTING_lrc)
 #define TESTING_lrc 0
@@ -361,8 +362,8 @@ lrc_parsed_file_destroy(LrcParsedFile *parsed) {
         return;
     }
 
-    free2(parsed->text, parsed->text_cap*SIZEOF(*parsed->text));
-    free2(parsed->lines, parsed->line_cap*SIZEOF(*parsed->lines));
+    ARRAY_FREE(parsed->text);
+    ARRAY_FREE(parsed->lines);
 
     memset64(parsed, 0, SIZEOF(*parsed));
 
@@ -475,35 +476,17 @@ lrc_parse_timestamp(
 static bool
 lrc_parsed_file_reserve_lines(LrcParsedFile *parsed, int32 extra) {
     int64 needed;
-    int32 new_cap;
 
     if (extra <= 0) {
         return true;
     }
 
     needed = (int64)parsed->line_count + extra;
-    if (needed <= parsed->line_cap) {
-        return true;
-    }
-    if (needed >= MAXOF(parsed->line_cap)) {
+    if (needed > INT32_MAX) {
         return false;
     }
 
-    new_cap = parsed->line_cap;
-    if (new_cap <= 0) {
-        new_cap = 8;
-    }
-    while (new_cap < needed) {
-        new_cap *= 2;
-    }
-
-    parsed->lines = realloc2(parsed->lines,
-                             parsed->line_cap,
-                             new_cap,
-                             SIZEOF(*parsed->lines));
-    parsed->line_cap = new_cap;
-
-    return true;
+    return LRC_ARRAY_RESERVE(parsed->lines, (int32)needed);
 }
 
 static bool
@@ -523,6 +506,7 @@ lrc_parsed_file_append_line(
 
     line = &parsed->lines[parsed->line_count];
     parsed->line_count += 1;
+    lrc_array_set_count(parsed->lines, parsed->line_count);
 
     line->text = parsed->text + text_start;
     line->text_len = text_len;
@@ -628,13 +612,12 @@ lrc_parsed_file_copy_text(
         return false;
     }
 
-    parsed->text = malloc2((int64)text_len + 1);
+    LRC_ARRAY_INIT_COUNT(parsed->text, text_len + 1);
     if (text_len > 0) {
         memcpy64(parsed->text, text, text_len);
     }
     parsed->text[text_len] = '\0';
     parsed->text_len = text_len;
-    parsed->text_cap = text_len + 1;
 
     return true;
 }
