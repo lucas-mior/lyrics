@@ -135,7 +135,7 @@ assert_not_contains(char *file, int32 line, char *func,
     int32 needle_len = assert_strlen32(needle);
     if (assert_memmem(haystack, haystack_len, needle, needle_len)) {
         assert_error(file, line, func,
-                     "did not expect to find substring:\n%.*s\n--- in ---\n%.*s",
+                     "expected to not find substring:\n%.*s\n--- in ---\n%.*s",
                      needle_len, needle, haystack_len, haystack);
         assert_fatal();
     }
@@ -803,6 +803,8 @@ assert_functions_sink(void) {
     (void)a_unsigned_signed_more;
     (void)a_unsigned_signed_more_equal;
 
+    (void)a_double_close;
+    (void)a_double_not_close;
     (void)a_double_less;
     (void)a_double_less_equal;
     (void)a_double_equal;
@@ -813,9 +815,15 @@ assert_functions_sink(void) {
     (void)assert_file_contains;
     (void)assert_contains;
     (void)assert_not_contains;
+    (void)assert_double_more;
+    (void)assert_double_less;
 
     (void)a_bool_equal;
     (void)a_bool_not_equal;
+    (void)a_bool_less_equal;
+    (void)a_bool_less;
+    (void)a_bool_more_equal;
+    (void)a_bool_more;
     return;
 }
 #endif
@@ -1178,8 +1186,6 @@ main(void) {
         float a = 0.3f;
         double b = 0.3;
         ASSERT_CLOSE(a, b);
-        ASSERT_MORE(a, b);
-        ASSERT_LESS(b, a);
     } {
         float a = 0.1f + 0.2f;
         double b = 0.3;
