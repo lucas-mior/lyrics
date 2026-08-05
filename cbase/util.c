@@ -917,7 +917,11 @@ util_copy_file_sync(char *destination, char *source) {
 
     errno = 0;
     while ((r = read64(source_fd, buffer, BUFSIZ)) > 0) {
-        w = write64(destination_fd, buffer, r);
+        while (((w = write64(destination_fd, buffer, r)) < 0)
+                && (errno == EINTR)) {
+            errno = 0;
+            continue;
+        }
         if (w != r) {
             fprintf(stderr, "Error writing data to %s", destination);
             if (errno) {
