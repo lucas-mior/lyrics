@@ -453,10 +453,10 @@ write_all(int fd, char *buffer, int64 left) {
 #include "rw_function.h"
 
 CBASE_API_DEF void
-qsort64(void *base, int64 n, int64 size,
-        int (*compar)(void *, void *)) {
+qsort64(void *base, int64 n, int64 size, int (*compar)(void *, void *)) {
     int (*compar_consted)(const void *, const void *);
     compar_consted = (int (*)(const void *, const void *)) compar;
+
     if (DEBUGGING) {
         if ((size <= 0) || (n <= 0)) {
             error("Error: Invalid size(%lld) or n(%lld)\n", size, n);
@@ -475,6 +475,7 @@ qsort64(void *base, int64 n, int64 size,
             fatal(EXIT_FAILURE);
         }
     }
+
     qsort(base, (size_t)n, (size_t)size, compar_consted);
     return;
 }
