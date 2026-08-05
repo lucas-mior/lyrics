@@ -395,7 +395,7 @@ assert_fp_abs_tol(int common_kind) {
 }
 
 static bool
-assert_double_almost_equal(double var1, double var2,
+assert_double_close(double var1, double var2,
                            int kind1, int kind2,
                            double *diff_out,
                            double *abs_tol_out,
@@ -518,8 +518,8 @@ a_double_close(char *file, int32 line, char *func,
     double diff;
     double abs_tol;
     double rel_tol;
-    if (!assert_double_almost_equal(var1, var2, kind1, kind2,
-                                     &diff, &abs_tol, &rel_tol)) {
+    if (!assert_double_close(var1, var2, kind1, kind2,
+                             &diff, &abs_tol, &rel_tol)) {
         assert_double_failure(file, line, func, name1, name2,
                               type1, type2, bits1, bits2,
                               var1, var2, "~=", diff, abs_tol, rel_tol);
@@ -537,8 +537,8 @@ a_double_not_close(char *file, int32 line, char *func,
     double diff;
     double abs_tol;
     double rel_tol;
-    if (assert_double_almost_equal(var1, var2, kind1, kind2,
-                                    &diff, &abs_tol, &rel_tol)) {
+    if (assert_double_close(var1, var2, kind1, kind2,
+                            &diff, &abs_tol, &rel_tol)) {
         assert_double_failure(file, line, func, name1, name2,
                               type1, type2, bits1, bits2,
                               var1, var2, "!~=", diff, abs_tol, rel_tol);
