@@ -665,8 +665,8 @@ void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_SECOND(void);
         if (!DEBUGGING) {                                                      \
             UNREACHABLE();                                                     \
         } else {                                                               \
-            fprintf(stderr, "%s: Assertion '%s' failed at %s:%d\n",            \
-                   __func__, #C, __FILE__, __LINE__);                          \
+            fprintf(stderr, "%s: Assertion '%s' failed at %s:%d:%d\n",         \
+                   __func__, #C, __FILE__, __LINE__, FUNC__);                  \
             TRAP();                                                            \
         }                                                                      \
     }                                                                          \
