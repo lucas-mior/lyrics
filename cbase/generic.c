@@ -320,10 +320,16 @@ double_get(union Primitive var, enum Type type) {
     case TYPE_UINT:
         return (double)var.auint;
     case TYPE_ULONG:
-        check_integer_fits_in_double(var.aulong);
+        if (var.aulong >= (ullong)LLONG_MAX) {
+            TRAP();
+        }
+        check_integer_fits_in_double((llong)var.aulong);
         return (double)var.aulong;
     case TYPE_ULLONG:
-        check_integer_fits_in_double(var.aullong);
+        if (var.aullong >= (ullong)LLONG_MAX) {
+            TRAP();
+        }
+        check_integer_fits_in_double((llong)var.aullong);
         return (double)var.aullong;
     case TYPE_FLOAT:
         return (double)var.afloat;
