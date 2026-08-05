@@ -160,7 +160,6 @@ strequal(char *s1, char *s2) {
     return !strcmp(s1, s2);
 }
 
-#if DEBUGGING
 static void
 striqual_validate_ascii_utf8(char *string, int32 string_len) {
     int32 bad_offset = 0;
@@ -186,7 +185,6 @@ striqual_validate_ascii_utf8(char *string, int32 string_len) {
 
     return;
 }
-#endif
 
 static char
 striqual_ascii_lower(char c) {
@@ -917,15 +915,18 @@ util_copy_file_sync(char *destination, char *source) {
 
     errno = 0;
     while ((r = read64(source_fd, buffer, BUFSIZ)) > 0) {
+        int saved_errno;
+
         while (((w = write64(destination_fd, buffer, r)) < 0)
                 && (errno == EINTR)) {
-            errno = 0;
             continue;
         }
+        saved_errno = errno;
+
         if (w != r) {
             fprintf(stderr, "Error writing data to %s", destination);
-            if (errno) {
-                fprintf(stderr, ": %s", strerror(errno));
+            if (r < 0) {
+                fprintf(stderr, ": %s", strerror(saved_errno));
             }
             fprintf(stderr, ".\n");
 

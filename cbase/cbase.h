@@ -439,7 +439,7 @@ typedef struct CommandResult {
 
     bool exited;
     bool signaled;
-    int16 padding;
+    uint8 padding[6];
 } CommandResult;
 
 typedef struct Command {
@@ -456,7 +456,6 @@ typedef struct Command {
     int32 cap;
     int32 env_cap;
     int32 error_status;
-    bool stdin_buffer_enabled;
     int64 stdin_buffer_len;
 
     CommandResult result;
