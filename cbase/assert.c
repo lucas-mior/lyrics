@@ -311,6 +311,34 @@ GENERATE_ASSERT_UNSIGNED_SIGNED(more_equal, >=)
 
 #undef GENERATE_ASSERT_UNSIGNED_SIGNED
 
+#define GENERATE_ASSERT_FP_SAME_SIGN(SYMBOL, MODE)                             \
+static void                                                                    \
+a_double_##MODE(char *file, int32 line, char *func,                            \
+                char *name1, char *name2,                                      \
+                char *type1, char *type2,                                      \
+                llong bits1, llong bits2,                                      \
+                double var1, double var2) {                                    \
+    if (!(var1 SYMBOL var2)) {                                                 \
+        if (!DEBUGGING) {                                                      \
+            UNREACHABLE();                                                     \
+        }                                                                      \
+        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func); \
+        fprintf(stderr, "[%s%lld]%s = %f " #SYMBOL " %f = %s[%s%lld]\n",       \
+                        type1, bits1, name1, var1, var2, name2, type2, bits2); \
+        TRAP();                                                                \
+    }                                                                          \
+    return;                                                                    \
+}
+
+GENERATE_ASSERT_FP_SAME_SIGN(==, equal)
+GENERATE_ASSERT_FP_SAME_SIGN(!=, not_equal)
+GENERATE_ASSERT_FP_SAME_SIGN(<,  less)
+GENERATE_ASSERT_FP_SAME_SIGN(>,  more)
+GENERATE_ASSERT_FP_SAME_SIGN(<=, less_equal)
+GENERATE_ASSERT_FP_SAME_SIGN(>=, more_equal)
+
+#undef GENERATE_ASSERT_FP_SAME_SIGN
+
 static double
 assert_double_abs(double x) {
     if (x < (double)0) {
@@ -470,7 +498,7 @@ assert_double_failure(char *file, int32 line, char *func,
 }
 
 static void
-a_double_equal(char *file, int32 line, char *func,
+a_double_close(char *file, int32 line, char *func,
                char *name1, char *name2,
                char *type1, char *type2,
                llong bits1, llong bits2,
@@ -489,7 +517,7 @@ a_double_equal(char *file, int32 line, char *func,
 }
 
 static void
-a_double_not_equal(char *file, int32 line, char *func,
+a_double_not_close(char *file, int32 line, char *func,
                    char *name1, char *name2,
                    char *type1, char *type2,
                    llong bits1, llong bits2,
@@ -503,90 +531,6 @@ a_double_not_equal(char *file, int32 line, char *func,
         assert_double_failure(file, line, func, name1, name2,
                                type1, type2, bits1, bits2,
                                var1, var2, "!~=", diff, abs_tol, rel_tol);
-    }
-    return;
-}
-
-static void
-a_double_less(char *file, int32 line, char *func,
-              char *name1, char *name2,
-              char *type1, char *type2,
-              llong bits1, llong bits2,
-              int kind1, int kind2,
-              double var1, double var2) {
-    double diff;
-    double abs_tol;
-    double rel_tol;
-    (void)assert_double_almost_equal(var1, var2, kind1, kind2,
-                                      &diff, &abs_tol, &rel_tol);
-    if (!assert_double_less(var1, var2, kind1, kind2)) {
-        assert_double_failure(file, line, func, name1, name2,
-                               type1, type2, bits1, bits2,
-                               var1, var2, "<", diff, abs_tol, rel_tol);
-    }
-    return;
-}
-
-static void
-a_double_less_equal(char *file, int32 line, char *func,
-                    char *name1, char *name2,
-                    char *type1, char *type2,
-                    llong bits1, llong bits2,
-                    int kind1, int kind2,
-                    double var1, double var2) {
-    double diff;
-    double abs_tol;
-    double rel_tol;
-    if (!((var1 < var2) || assert_double_almost_equal(var1, var2, kind1, kind2,
-                                                       &diff, &abs_tol,
-                                                       &rel_tol))) {
-        (void)assert_double_almost_equal(var1, var2, kind1, kind2,
-                                          &diff, &abs_tol, &rel_tol);
-        assert_double_failure(file, line, func, name1, name2,
-                               type1, type2, bits1, bits2,
-                               var1, var2, "<=", diff, abs_tol, rel_tol);
-    }
-    return;
-}
-
-static void
-a_double_more(char *file, int32 line, char *func,
-              char *name1, char *name2,
-              char *type1, char *type2,
-              llong bits1, llong bits2,
-              int kind1, int kind2,
-              double var1, double var2) {
-    double diff;
-    double abs_tol;
-    double rel_tol;
-    (void)assert_double_almost_equal(var1, var2, kind1, kind2,
-                                      &diff, &abs_tol, &rel_tol);
-    if (!assert_double_more(var1, var2, kind1, kind2)) {
-        assert_double_failure(file, line, func, name1, name2,
-                               type1, type2, bits1, bits2,
-                               var1, var2, ">", diff, abs_tol, rel_tol);
-    }
-    return;
-}
-
-static void
-a_double_more_equal(char *file, int32 line, char *func,
-                    char *name1, char *name2,
-                    char *type1, char *type2,
-                    llong bits1, llong bits2,
-                    int kind1, int kind2,
-                    double var1, double var2) {
-    double diff;
-    double abs_tol;
-    double rel_tol;
-    if (!((var1 > var2) || assert_double_almost_equal(var1, var2, kind1, kind2,
-                                                       &diff, &abs_tol,
-                                                       &rel_tol))) {
-        (void)assert_double_almost_equal(var1, var2, kind1, kind2,
-                                          &diff, &abs_tol, &rel_tol);
-        assert_double_failure(file, line, func, name1, name2,
-                               type1, type2, bits1, bits2,
-                               var1, var2, ">=", diff, abs_tol, rel_tol);
     }
     return;
 }
@@ -621,10 +565,6 @@ a_bool_##MODE(char *file, int32 line, char *func,                           \
 
 GENERATE_ASSERT_BOOLS(equal, ==)
 GENERATE_ASSERT_BOOLS(not_equal, !=)
-GENERATE_ASSERT_BOOLS(less, <)
-GENERATE_ASSERT_BOOLS(less_equal, <=)
-GENERATE_ASSERT_BOOLS(more, >)
-GENERATE_ASSERT_BOOLS(more_equal, >=)
 
 #undef GENERATE_ASSERT_BOOLS
 
@@ -682,10 +622,6 @@ assert_functions_sink(void) {
     (void)assert_file_contains;
     (void)assert_contains;
     (void)assert_not_contains;
-    (void)a_bool_less;
-    (void)a_bool_less_equal;
-    (void)a_bool_more;
-    (void)a_bool_more_equal;
 
     (void)a_bool_equal;
     (void)a_bool_not_equal;
@@ -809,11 +745,11 @@ _Generic((VAR2),                                                         \
 )
 #define A_BOTH_DOUBLE(MODE, VAR1, VAR2, TYPE1, TYPE2)                      \
     a_double_##MODE(__FILE__, __LINE__, FUNC__,                  \
-                     #VAR1, #VAR2,                                         \
-                     typename(TYPE1), typename(TYPE2),                     \
-                     typebits(TYPE1), typebits(TYPE2),                     \
-                     ASSERT_FP_KIND_EXPR(VAR1), ASSERT_FP_KIND_EXPR(VAR2), \
-                     DOUBLE_GET2(VAR1, TYPE1), DOUBLE_GET2(VAR2, TYPE2))
+                    #VAR1, #VAR2,                                         \
+                    typename(TYPE1), typename(TYPE2),                     \
+                    typebits(TYPE1), typebits(TYPE2),                     \
+                    ASSERT_FP_KIND_EXPR(VAR1), ASSERT_FP_KIND_EXPR(VAR2), \
+                    DOUBLE_GET2(VAR1, TYPE1), DOUBLE_GET2(VAR2, TYPE2))
 
 #define A_FIRST_DOUBLE(MODE, VAR1, VAR2, TYPE1) \
 _Generic((VAR2), \
