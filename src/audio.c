@@ -7,8 +7,6 @@
 #define TESTING_audio 0
 #endif
 
-#define AUDIO_TEST_TWO_PI 6.283185307179586476925286766559
-
 static void
 audio_io_format_init(AudioIoFormat *format) {
     format->sample_rate = 44100;
@@ -661,7 +659,7 @@ audio_test_generate_sine_wav(
         double phase;
         float sample;
 
-        phase = AUDIO_TEST_TWO_PI*options->frequency_hz
+        phase = π2*options->frequency_hz
                 *(double)i/(double)options->format.sample_rate;
         sample = (float)(sin(phase)*(double)options->amplitude);
 
