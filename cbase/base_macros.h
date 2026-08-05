@@ -155,7 +155,7 @@ _Generic((SIZE), \
 #endif
 
 #if CC_GCC || CC_CLANG
-#define UNUSED __attribute__((unused))
+#define UNUSED __attribute((unused))
 #else
 #define UNUSED
 #endif
