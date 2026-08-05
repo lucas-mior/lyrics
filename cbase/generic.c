@@ -289,24 +289,46 @@ typename(enum Type type) {
 static double
 double_get(union Primitive var, enum Type type) {
     switch (type) {
-    case TYPE_VOIDP:   TRAP(); break;  // NOLINT
-    case TYPE_CHARP:   TRAP(); break;  // NOLINT
-    case TYPE_BOOL:    TRAP(); break;  // NOLINT
-    case TYPE_CHAR:    TRAP(); break;  // NOLINT
-    case TYPE_SCHAR:   return (double)var.aschar;
-    case TYPE_SHORT:   return (double)var.ashort;
-    case TYPE_INT:     return (double)var.aint;
-    case TYPE_LONG:    return (double)var.along;
-    case TYPE_LLONG:   return (double)var.allong;
-    case TYPE_UCHAR:   return (double)var.auchar;
-    case TYPE_USHORT:  return (double)var.aushort;
-    case TYPE_UINT:    return (double)var.auint;
-    case TYPE_ULONG:   return (double)var.aulong;
-    case TYPE_ULLONG:  return (double)var.aullong;
-    case TYPE_FLOAT:   return (double)var.afloat;
-    case TYPE_DOUBLE:  return (double)var.adouble;
+    case TYPE_VOIDP:
+        TRAP();
+        break;  // NOLINT
+    case TYPE_CHARP:
+        TRAP();
+        break;  // NOLINT
+    case TYPE_BOOL:
+        TRAP();
+        break;  // NOLINT
+    case TYPE_CHAR:
+        TRAP();
+        break;  // NOLINT
+    case TYPE_SCHAR:
+        return (double)var.aschar;
+    case TYPE_SHORT:
+        return (double)var.ashort;
+    case TYPE_INT:
+        return (double)var.aint;
+    case TYPE_LONG:
+        return (double)var.along;
+    case TYPE_LLONG:
+        return (double)var.allong;
+    case TYPE_UCHAR:
+        return (double)var.auchar;
+    case TYPE_USHORT:
+        return (double)var.aushort;
+    case TYPE_UINT:
+        return (double)var.auint;
+    case TYPE_ULONG:
+        return (double)var.aulong;
+    case TYPE_ULLONG:
+        return (double)var.aullong;
+    case TYPE_FLOAT:
+        return (double)var.afloat;
+    case TYPE_DOUBLE:
+        return (double)var.adouble;
     case TYPE_OTHER:
-    default:           TRAP(); break;  // NOLINT
+    default:
+        TRAP();
+        break;  // NOLINT
     }
     return (double)0.0;
 }
