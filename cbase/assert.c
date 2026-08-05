@@ -205,23 +205,25 @@ GENERATE_ASSERT_POINTERS(more_equal, >=)
 
 #undef GENERATE_ASSERT_POINTERS
 
-#define GENERATE_ASSERT_INTEGERS_SAME_SIGN(TYPE, FORMAT, SYMBOL, MODE)      \
-static void                                                                 \
-a_both_##TYPE##_##MODE(char *file, int32 line, char *func,                   \
-                       char *name1, char *name2,                            \
-                       char *type1, char *type2,                            \
-                       llong bits1, llong bits2,                            \
-                       TYPE long long var1, TYPE long long var2) {          \
-    if (!(var1 SYMBOL var2)) {                                              \
-        if (!DEBUGGING) {                              \
-            UNREACHABLE(); \
-        } \
-        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func);       \
-        fprintf(stderr, "[%s%lld]%s = "FORMAT" " #SYMBOL " "FORMAT" = %s[%s%lld]\n", \
-               type1, bits1, name1, var1, var2, name2, type2, bits2);       \
-        TRAP();                                                             \
-    }                                                                       \
-    return;                                                                 \
+#define GENERATE_ASSERT_INTEGERS_SAME_SIGN(TYPE, FORMAT, SYMBOL, MODE)         \
+static void                                                                    \
+a_both_##TYPE##_##MODE(char *file, int32 line, char *func,                     \
+                       char *name1, char *name2,                               \
+                       char *type1, char *type2,                               \
+                       llong bits1, llong bits2,                               \
+                       TYPE long long var1, TYPE long long var2) {             \
+    if (!(var1 SYMBOL var2)) {                                                 \
+        if (!DEBUGGING) {                                                      \
+            UNREACHABLE();                                                     \
+        }                                                                      \
+        fprintf(stderr,                                                        \
+                "\nAssertion failed at %s:%d:%s\n", file, line, func);         \
+        fprintf(stderr,                                                        \
+                "[%s%lld]%s = "FORMAT" " #SYMBOL " "FORMAT" = %s[%s%lld]\n",   \
+               type1, bits1, name1, var1, var2, name2, type2, bits2);          \
+        TRAP();                                                                \
+    }                                                                          \
+    return;                                                                    \
 }
 
 GENERATE_ASSERT_INTEGERS_SAME_SIGN(signed, "%lld", ==, equal)
