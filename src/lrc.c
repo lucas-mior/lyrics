@@ -243,32 +243,6 @@ lrc_format_timestamp_hundredths(
 }
 
 static bool
-lrc_format_timestamp_seconds(
-    float seconds,
-    char *buffer,
-    int32 buffer_len,
-    int32 *formatted_len,
-    LrcFormatResult *result
-) {
-    int32 timestamp_hundredths;
-
-    if (result) {
-        lrc_format_result_init(result);
-    }
-    if (!lrc_timestamp_hundredths_from_seconds(seconds,
-                                               &timestamp_hundredths,
-                                               result)) {
-        return false;
-    }
-
-    return lrc_format_timestamp_hundredths(timestamp_hundredths,
-                                           buffer,
-                                           buffer_len,
-                                           formatted_len,
-                                           result);
-}
-
-static bool
 lrc_format_timestamped_line_hundredths(
     StrBuilder *builder,
     int32 timestamp_hundredths,
@@ -319,33 +293,6 @@ lrc_format_timestamped_line_hundredths(
 
     return true;
 }
-
-static bool
-lrc_format_timestamped_line(
-    StrBuilder *builder,
-    float seconds,
-    char *text,
-    int32 text_len,
-    LrcFormatResult *result
-) {
-    int32 timestamp_hundredths;
-
-    if (result) {
-        lrc_format_result_init(result);
-    }
-    if (!lrc_timestamp_hundredths_from_seconds(seconds,
-                                               &timestamp_hundredths,
-                                               result)) {
-        return false;
-    }
-
-    return lrc_format_timestamped_line_hundredths(builder,
-                                                  timestamp_hundredths,
-                                                  text,
-                                                  text_len,
-                                                  result);
-}
-
 
 static void
 lrc_parsed_file_destroy(LrcParsedFile *parsed) {
@@ -984,6 +931,58 @@ lrc_write_output_file(
 #if TESTING_lrc
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
+static bool
+lrc_format_timestamp_seconds(
+    float seconds,
+    char *buffer,
+    int32 buffer_len,
+    int32 *formatted_len,
+    LrcFormatResult *result
+) {
+    int32 timestamp_hundredths;
+
+    if (result) {
+        lrc_format_result_init(result);
+    }
+    if (!lrc_timestamp_hundredths_from_seconds(seconds,
+                                               &timestamp_hundredths,
+                                               result)) {
+        return false;
+    }
+
+    return lrc_format_timestamp_hundredths(timestamp_hundredths,
+                                           buffer,
+                                           buffer_len,
+                                           formatted_len,
+                                           result);
+}
+
+static bool
+lrc_format_timestamped_line(
+    StrBuilder *builder,
+    float seconds,
+    char *text,
+    int32 text_len,
+    LrcFormatResult *result
+) {
+    int32 timestamp_hundredths;
+
+    if (result) {
+        lrc_format_result_init(result);
+    }
+    if (!lrc_timestamp_hundredths_from_seconds(seconds,
+                                               &timestamp_hundredths,
+                                               result)) {
+        return false;
+    }
+
+    return lrc_format_timestamped_line_hundredths(builder,
+                                                  timestamp_hundredths,
+                                                  text,
+                                                  text_len,
+                                                  result);
+}
 
 static int32
 lrc_test_fail(char *name) {

@@ -72,10 +72,12 @@ static bool lrc_ctc_tokenizer_load_file(
     char *path,
     LrcCtcTokenizerResult *result
 );
+#if TESTING_ctc_tokenizer
 static LrcCtcToken *lrc_ctc_tokenizer_id_to_token(
     LrcCtcTokenizer *tokenizer,
     int32 id
 );
+#endif
 static bool lrc_ctc_tokenizer_token_id(
     LrcCtcTokenizer *tokenizer,
     char *token,

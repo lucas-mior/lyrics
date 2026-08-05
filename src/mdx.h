@@ -95,6 +95,7 @@ static bool mdx_unpack_output(
     float *right,
     int64 frame_count
 );
+#if TESTING_mdx
 static bool mdx_process_song(
     MdxConfig *config,
     StftPlan *stft_plan,
@@ -103,6 +104,7 @@ static bool mdx_process_song(
     AudioBuffer *input,
     AudioBuffer *output
 );
+#endif
 static bool mdx_process_song_with_progress(
     MdxConfig *config,
     StftPlan *stft_plan,

@@ -144,8 +144,8 @@ typeof(var)  // good
 
 ## Function declarations
 Most functions don't need to have an extra declaration, only the definition will
-suffice. Order the functions in a file properly so that extra declarations
-aren't needed. Functions that do need an extra pre declaration, put the
+suffice. Properly order the functions in a file so that extra declarations
+aren't needed. For functions that do need an extra pre declaration, put the
 declaration in a project-wide header file or in the header file associated with
 the C file itself. Avoid declaring functions defined in a C file, in another C
 file. 

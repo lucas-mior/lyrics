@@ -470,6 +470,7 @@ audio_interleaved_buffer_create(
     return true;
 }
 
+#if TESTING_audio
 static bool
 audio_write_file(
     AudioBuffer *audio,
@@ -479,6 +480,7 @@ audio_write_file(
 ) {
     return audio_write_file_format(audio, path, format, NULL, ffmpeg_path);
 }
+#endif /* TESTING_audio */
 
 static bool
 audio_write_file_format(
@@ -656,12 +658,10 @@ audio_test_generate_sine_wav(
     }
 
     for (int64 i = 0; i < frame_count; i += 1) {
-        double phase;
-        float sample;
-
-        phase = π2*options->frequency_hz
-                *(double)i/(double)options->format.sample_rate;
-        sample = (float)(sin(phase)*(double)options->amplitude);
+        double fidx = (double)i;
+        double A = (double)options->amplitude;
+        double phase = π2*options->frequency_hz*fidx/A;
+        float sample = (float)(A*sin(phase));
 
         audio.left[i] = sample;
         if (audio.channel_count == 2) {
@@ -681,6 +681,7 @@ audio_test_generate_sine_wav(
 #endif
 
 
+#if TESTING_audio
 static void
 audio_compare_options_init(AudioCompareOptions *options) {
     options->mode = AUDIO_COMPARE_MODE_TOLERANT;
@@ -1137,6 +1138,7 @@ audio_compare_result_print(
 
     return;
 }
+#endif /* TESTING_audio */
 
 #if TESTING_audio
 

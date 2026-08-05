@@ -106,10 +106,12 @@ static bool lrc_pipeline_generate_lrc(
     LrcPipeline *pipeline,
     LrcPipelineGenerateResult *result
 );
+#if TESTING_pipeline
 static bool lrc_generate_from_song(
     LrcPipelineConfig *config,
     LrcPipelineGenerateResult *result
 );
+#endif
 #endif
 
 #endif /* PIPELINE_H */

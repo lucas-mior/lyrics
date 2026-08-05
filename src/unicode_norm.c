@@ -82,6 +82,7 @@ ctc_unicode_norm_copy_fallback(
     return true;
 }
 
+#if TESTING_unicode_norm
 static bool
 ctc_unicode_norm_icu_available(void) {
 #if LRC_UNICODE_ENABLE_ICU
@@ -90,6 +91,7 @@ ctc_unicode_norm_icu_available(void) {
     return false;
 #endif
 }
+#endif /* TESTING_unicode_norm */
 
 #if LRC_UNICODE_ENABLE_ICU
 static bool

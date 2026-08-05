@@ -15,7 +15,9 @@ typedef struct CtcUnicodeNormResult {
 
 static void ctc_unicode_norm_result_init(CtcUnicodeNormResult *result);
 static void ctc_unicode_norm_result_destroy(CtcUnicodeNormResult *result);
+#if TESTING_unicode_norm
 static bool ctc_unicode_norm_icu_available(void);
+#endif
 static bool ctc_unicode_norm_nfkc_lower(
     char *text,
     int32 text_len,

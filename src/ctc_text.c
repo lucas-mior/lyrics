@@ -2197,6 +2197,13 @@ lrc_lyrics_normalized_line_range(
     return true;
 }
 
+#if TESTING_ctc_text
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
+#include "lyrics.c"
+#include "unicode_norm.c"
+
 static int32
 lrc_lyrics_normalized_segment_count(
     LrcLyricsNormalized *normalized
@@ -2222,14 +2229,6 @@ lrc_lyrics_normalized_segment(
 
     return &normalized->segments[segment_index];
 }
-
-
-#if TESTING_ctc_text
-#define CBASE_IMPLEMENT
-#include "cbase.h"
-
-#include "lyrics.c"
-#include "unicode_norm.c"
 
 static int32
 ctc_text_test_fail(char *name) {

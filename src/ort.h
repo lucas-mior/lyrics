@@ -77,7 +77,9 @@ typedef struct OrtTensor {
     int32 shape_len;
 } OrtTensor;
 
+#if TESTING_ort
 static char *ort_execution_provider_str(enum OrtExecutionProvider provider);
+#endif
 static bool ort_execution_provider_parse(
     char *value,
     enum OrtExecutionProvider *provider

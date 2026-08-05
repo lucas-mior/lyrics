@@ -668,6 +668,7 @@ cleanup:
     return result;
 }
 
+#if TESTING_mdx
 static bool
 mdx_process_song(
     MdxConfig *config,
@@ -685,6 +686,7 @@ mdx_process_song(
                                           output,
                                           false);
 }
+#endif /* TESTING_mdx */
 
 static bool
 mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {

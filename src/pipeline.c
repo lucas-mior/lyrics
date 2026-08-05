@@ -2371,6 +2371,7 @@ lrc_pipeline_prepare_vocals_stage_for_generation(
     return true;
 }
 
+#if TESTING_pipeline
 static bool
 lrc_generate_config_path_ready(
     char *path,
@@ -2386,7 +2387,9 @@ lrc_generate_config_path_ready(
 
     return false;
 }
+#endif /* TESTING_pipeline */
 
+#if TESTING_pipeline
 static bool
 lrc_generate_from_song(
     LrcPipelineConfig *config,
@@ -2462,6 +2465,7 @@ lrc_generate_from_song(
 
     return ok;
 }
+#endif /* TESTING_pipeline */
 
 static bool
 lrc_pipeline_generate_lrc(

@@ -301,6 +301,7 @@ lrc_ctc_align_graph_state_count_for_mode(
     return true;
 }
 
+#if TESTING_ctc_align
 static bool
 lrc_ctc_align_graph_state_count(
     int32 target_token_count,
@@ -315,7 +316,9 @@ lrc_ctc_align_graph_state_count(
         result
     );
 }
+#endif /* TESTING_ctc_align */
 
+#if TESTING_ctc_align
 static int32
 lrc_ctc_required_frame_count_for_tokens(
     int32 *target_token_ids,
@@ -340,6 +343,7 @@ lrc_ctc_required_frame_count_for_tokens(
 
     return frame_count;
 }
+#endif /* TESTING_ctc_align */
 
 static bool
 lrc_ctc_align_checked_multiply(
@@ -537,6 +541,7 @@ lrc_ctc_align_graph_build_for_mode(
     return true;
 }
 
+#if TESTING_ctc_align
 static bool
 lrc_ctc_align_graph_build(
     LrcCtcAlignGraph *graph,
@@ -554,6 +559,7 @@ lrc_ctc_align_graph_build(
         result
     );
 }
+#endif /* TESTING_ctc_align */
 
 static int32
 lrc_ctc_required_frame_count_for_graph(LrcCtcAlignGraph *graph) {
@@ -1160,6 +1166,7 @@ lrc_ctc_trellis_allocate_for_state_count(
     return true;
 }
 
+#if TESTING_ctc_align
 static bool
 lrc_ctc_trellis_allocate(
     LrcCtcTrellis *trellis,
@@ -1185,6 +1192,7 @@ lrc_ctc_trellis_allocate(
         result
     );
 }
+#endif /* TESTING_ctc_align */
 
 static bool
 lrc_ctc_align_emissions_ready(
@@ -1335,6 +1343,7 @@ lrc_ctc_trellis_prepare_for_graph(
     return true;
 }
 
+#if TESTING_ctc_align
 static bool
 lrc_ctc_trellis_prepare(
     LrcCtcTrellis *trellis,
@@ -1393,6 +1402,7 @@ lrc_ctc_trellis_prepare(
 
     return true;
 }
+#endif /* TESTING_ctc_align */
 
 static float
 lrc_ctc_emission_value(

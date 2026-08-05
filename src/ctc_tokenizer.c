@@ -708,18 +708,6 @@ lrc_ctc_tokenizer_token_id(
     return false;
 }
 
-static LrcCtcToken *
-lrc_ctc_tokenizer_id_to_token(LrcCtcTokenizer *tokenizer, int32 id) {
-    if ((tokenizer == NULL) || (tokenizer->tokens == NULL)) {
-        return NULL;
-    }
-    if ((id < 0) || (id >= tokenizer->token_count)) {
-        return NULL;
-    }
-
-    return tokenizer->tokens + id;
-}
-
 static bool
 lrc_ctc_tokenizer_add_token(
     LrcCtcTokenizer *tokenizer,
@@ -976,6 +964,18 @@ lrc_ctc_tokenizer_load_file(
 #include "lyrics.c"
 #include "unicode_norm.c"
 #include "ctc_text.c"
+
+static LrcCtcToken *
+lrc_ctc_tokenizer_id_to_token(LrcCtcTokenizer *tokenizer, int32 id) {
+    if ((tokenizer == NULL) || (tokenizer->tokens == NULL)) {
+        return NULL;
+    }
+    if ((id < 0) || (id >= tokenizer->token_count)) {
+        return NULL;
+    }
+
+    return tokenizer->tokens + id;
+}
 
 static int32
 ctc_tokenizer_test_fail(char *name) {

@@ -36,6 +36,7 @@ static OrtExecutionProviderInfo ort_execution_provider_infos[] = {
 #undef ORT_EXECUTION_PROVIDER_INFO_ENTRY
 };
 
+#if TESTING_ort
 static char *
 ort_execution_provider_str(enum OrtExecutionProvider provider) {
     for (int32 i = 0; i < LENGTH(ort_execution_provider_infos); i += 1) {
@@ -46,6 +47,7 @@ ort_execution_provider_str(enum OrtExecutionProvider provider) {
 
     return "unknown";
 }
+#endif /* TESTING_ort */
 
 static bool
 ort_execution_provider_parse(

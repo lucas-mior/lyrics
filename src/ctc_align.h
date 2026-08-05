@@ -193,6 +193,7 @@ static float *lrc_ctc_trellis_cell(
     int32 frame_index,
     int32 state_index
 );
+#if TESTING_ctc_align
 static bool lrc_ctc_trellis_allocate(
     LrcCtcTrellis *trellis,
     int32 frame_count,
@@ -206,6 +207,7 @@ static bool lrc_ctc_trellis_prepare(
     int32 blank_token_id,
     LrcCtcAlignResult *result
 );
+#endif
 static void lrc_ctc_align_plan_init(
     LrcCtcAlignPlan *plan,
     int32 *target_token_ids,
