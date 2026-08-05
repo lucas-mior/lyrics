@@ -564,26 +564,6 @@ a_bool_##MODE(char *file, int32 line, char *func,                              \
     return;                                                                    \
 }
 
-static void __attribute((noreturn))
-a_bool_more(void *p, ...) {
-    (void)p;
-    TRAP();
-}
-static void __attribute((noreturn))
-a_bool_less(void *p, ...) {
-    (void)p;
-    TRAP();
-}
-static void __attribute((noreturn))
-a_bool_more_equal(void *p, ...) {
-    (void)p;
-    TRAP();
-}
-static void __attribute((noreturn))
-a_bool_less_equal(void *p, ...) {
-    (void)p;
-    TRAP();
-}
 GENERATE_ASSERT_BOOLS(equal, ==)
 GENERATE_ASSERT_BOOLS(not_equal, !=)
 
