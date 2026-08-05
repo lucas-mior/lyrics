@@ -497,11 +497,14 @@ assert_double_failure(char *file, int32 line, char *func,
     if (!DEBUGGING) {
         UNREACHABLE();
     }
-    fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func);
-    fprintf(stderr, "[%s%lld]%s = %f %s %f = %s[%s%lld]\n",
-           type1, bits1, name1, var1, symbol, var2, name2, type2, bits2);
-    fprintf(stderr, "floating diff = %f, abs_tol = %f, rel_tol = %f\n",
-           diff, abs_tol, rel_tol);
+    fprintf(stderr,
+            "\nAssertion failed at %s:%d:%s\n", file, line, func);
+    fprintf(stderr,
+            "[%s%lld]%s = %f %s %f = %s[%s%lld]\n",
+            type1, bits1, name1, var1, symbol, var2, name2, type2, bits2);
+    fprintf(stderr,
+            "floating diff = %f, abs_tol = %f, rel_tol = %f\n",
+            diff, abs_tol, rel_tol);
     TRAP();
 }
 
