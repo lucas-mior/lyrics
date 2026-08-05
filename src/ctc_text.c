@@ -2119,33 +2119,6 @@ lrc_lyrics_normalize_with_options(
     return normalized->text_len > 0;
 }
 
-static bool
-lrc_lyrics_normalize(
-    LrcLyrics *lyrics,
-    LrcLyricsNormalized *normalized
-) {
-    LrcLyricsPreprocessOptions options;
-
-    lrc_lyrics_preprocess_options_init(&options);
-
-    return lrc_lyrics_normalize_with_options(lyrics, normalized, &options);
-}
-
-static int32
-lrc_lyrics_normalized_line_at(
-    LrcLyricsNormalized *normalized,
-    int32 byte_offset
-) {
-    if (normalized == NULL) {
-        return -1;
-    }
-    if ((byte_offset < 0) || (byte_offset >= normalized->byte_count)) {
-        return -1;
-    }
-
-    return normalized->bytes[byte_offset].line_index;
-}
-
 static enum LrcLyricsNormalizedLineKind
 lrc_lyrics_normalized_line_kind(
     LrcLyricsNormalized *normalized,
@@ -2196,6 +2169,35 @@ lrc_lyrics_normalized_line_range(
 
     return true;
 }
+
+#if TESTING
+static bool
+lrc_lyrics_normalize(
+    LrcLyrics *lyrics,
+    LrcLyricsNormalized *normalized
+) {
+    LrcLyricsPreprocessOptions options;
+
+    lrc_lyrics_preprocess_options_init(&options);
+
+    return lrc_lyrics_normalize_with_options(lyrics, normalized, &options);
+}
+
+static int32
+lrc_lyrics_normalized_line_at(
+    LrcLyricsNormalized *normalized,
+    int32 byte_offset
+) {
+    if (normalized == NULL) {
+        return -1;
+    }
+    if ((byte_offset < 0) || (byte_offset >= normalized->byte_count)) {
+        return -1;
+    }
+
+    return normalized->bytes[byte_offset].line_index;
+}
+#endif
 
 #if TESTING_ctc_text
 #define CBASE_IMPLEMENT

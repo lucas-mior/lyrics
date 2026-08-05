@@ -920,6 +920,7 @@ lrc_ctc_inference_run(
 }
 
 
+#if TESTING
 static bool
 lrc_ctc_fake_inference_set_shape(
     LrcCtcFakeInference *fake,
@@ -1040,6 +1041,7 @@ lrc_ctc_fake_inference_backend(
 
     return;
 }
+#endif
 
 
 static void

@@ -56,173 +56,6 @@ audio_prepare_output_format(
 }
 
 static void
-audio_file_info_init(AudioFileInfo *info) {
-    info->sample_rate = 0;
-    info->channel_count = 0;
-    info->estimated_frame_count = 0;
-
-    info->duration_seconds = 0.0;
-
-    return;
-}
-
-static bool
-audio_parse_int32_field(char *value, int32 *out) {
-    char *end;
-    int64 parsed;
-
-    errno = 0;
-    end = NULL;
-    parsed = strtoll(value, &end, 10);
-    if ((errno != 0) || (end == value) || (*end != '\0')) {
-        return false;
-    }
-    if ((parsed < 0) || (parsed >= MAXOF(*out))) {
-        return false;
-    }
-
-    *out = (int32)parsed;
-
-    return true;
-}
-
-static bool
-audio_parse_double_field(char *value, double *out) {
-    char *end;
-    double parsed;
-
-    errno = 0;
-    end = NULL;
-    parsed = strtod(value, &end);
-    if ((errno != 0) || (end == value) || (*end != '\0')) {
-        return false;
-    }
-    if (!isfinite(parsed) || (parsed < 0.0)) {
-        return false;
-    }
-
-    *out = parsed;
-
-    return true;
-}
-
-static bool
-audio_file_info_parse(AudioFileInfo *info, char *output) {
-    bool duration_found;
-    bool sample_rate_found;
-    bool channels_found;
-
-    audio_file_info_init(info);
-    duration_found = false;
-    sample_rate_found = false;
-    channels_found = false;
-
-    for (int32 start = 0; output[start] != '\0'; start += 1) {
-        char *line;
-        char *value;
-        char saved;
-        int32 end = start;
-
-        while ((output[end] != '\0') && (output[end] != '\n')) {
-            end += 1;
-        }
-
-        line = output + start;
-        saved = output[end];
-        output[end] = '\0';
-
-        if (strncmp32(line, "sample_rate=", 12) == 0) {
-            value = line + 12;
-            if (!audio_parse_int32_field(value, &info->sample_rate)) {
-                return false;
-            }
-            sample_rate_found = true;
-        } else if (strncmp32(line, "channels=", 9) == 0) {
-            value = line + 9;
-            if (!audio_parse_int32_field(value, &info->channel_count)) {
-                return false;
-            }
-            channels_found = true;
-        } else if (strncmp32(line, "duration=", 9) == 0) {
-            value = line + 9;
-            if (!audio_parse_double_field(value, &info->duration_seconds)) {
-                return false;
-            }
-            duration_found = true;
-        }
-
-        if (saved == '\0') {
-            break;
-        }
-        start = end;
-    }
-
-    if (!sample_rate_found || !channels_found || !duration_found) {
-        return false;
-    }
-    if (info->sample_rate <= 0) {
-        return false;
-    }
-    if ((info->channel_count != 1) && (info->channel_count != 2)) {
-        return false;
-    }
-
-    info->estimated_frame_count =
-        (int64)(info->duration_seconds*(double)info->sample_rate + 0.5);
-
-    return true;
-}
-
-static bool
-audio_file_info_read(
-    AudioFileInfo *info,
-    char *path,
-    char *ffprobe_path
-) {
-    char *argv[] = {
-        ffprobe_path,
-        "-v",
-        "error",
-        "-select_streams",
-        "a:0",
-        "-show_entries",
-        "stream=sample_rate,channels:format=duration",
-        "-of",
-        "default=noprint_wrappers=1",
-        path,
-        NULL,
-    };
-    Command command = {0};
-    bool result = false;
-
-    if ((info == NULL) || (path == NULL) || (ffprobe_path == NULL)) {
-        return false;
-    }
-
-    audio_file_info_init(info);
-    command_push_array(&command, LENGTH(argv) - 1, argv);
-    if (!command_run_capture_all(&command)) {
-        goto cleanup;
-    }
-    if (!command.result.exited || (command.result.exit_status != 0)) {
-        goto cleanup;
-    }
-    if (command.result.stdout_output == NULL) {
-        goto cleanup;
-    }
-
-    result = audio_file_info_parse(info, command.result.stdout_output);
-
-cleanup:
-    command_free(&command);
-    if (!result) {
-        audio_file_info_init(info);
-    }
-
-    return result;
-}
-
-static void
 audio_buffer_init(AudioBuffer *audio) {
     audio->left = NULL;
     audio->right = NULL;
@@ -290,15 +123,6 @@ audio_can_decode_file(char *path, char *ffmpeg_path) {
     };
 
     return audio_run_process(LENGTH(argv) - 1, argv);
-}
-
-static bool
-audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
-    AudioIoFormat format;
-
-    audio_io_format_init(&format);
-
-    return audio_read_file_format(audio, path, &format, ffmpeg_path);
 }
 
 static bool
@@ -470,18 +294,6 @@ audio_interleaved_buffer_create(
     return true;
 }
 
-#if TESTING_audio
-static bool
-audio_write_file(
-    AudioBuffer *audio,
-    char *path,
-    char *format,
-    char *ffmpeg_path
-) {
-    return audio_write_file_format(audio, path, format, NULL, ffmpeg_path);
-}
-#endif /* TESTING_audio */
-
 static bool
 audio_write_file_format(
     AudioBuffer *audio,
@@ -585,6 +397,182 @@ cleanup:
 
 #if TESTING
 static void
+audio_file_info_init(AudioFileInfo *info) {
+    info->sample_rate = 0;
+    info->channel_count = 0;
+    info->estimated_frame_count = 0;
+
+    info->duration_seconds = 0.0;
+
+    return;
+}
+
+static bool
+audio_parse_int32_field(char *value, int32 *out) {
+    char *end;
+    int64 parsed;
+
+    errno = 0;
+    end = NULL;
+    parsed = strtoll(value, &end, 10);
+    if ((errno != 0) || (end == value) || (*end != '\0')) {
+        return false;
+    }
+    if ((parsed < 0) || (parsed >= MAXOF(*out))) {
+        return false;
+    }
+
+    *out = (int32)parsed;
+
+    return true;
+}
+
+static bool
+audio_parse_double_field(char *value, double *out) {
+    char *end;
+    double parsed;
+
+    errno = 0;
+    end = NULL;
+    parsed = strtod(value, &end);
+    if ((errno != 0) || (end == value) || (*end != '\0')) {
+        return false;
+    }
+    if (!isfinite(parsed) || (parsed < 0.0)) {
+        return false;
+    }
+
+    *out = parsed;
+
+    return true;
+}
+
+static bool
+audio_file_info_parse(AudioFileInfo *info, char *output) {
+    bool duration_found;
+    bool sample_rate_found;
+    bool channels_found;
+
+    audio_file_info_init(info);
+    duration_found = false;
+    sample_rate_found = false;
+    channels_found = false;
+
+    for (int32 start = 0; output[start] != '\0'; start += 1) {
+        char *line;
+        char *value;
+        char saved;
+        int32 end = start;
+
+        while ((output[end] != '\0') && (output[end] != '\n')) {
+            end += 1;
+        }
+
+        line = output + start;
+        saved = output[end];
+        output[end] = '\0';
+
+        if (strncmp32(line, "sample_rate=", 12) == 0) {
+            value = line + 12;
+            if (!audio_parse_int32_field(value, &info->sample_rate)) {
+                return false;
+            }
+            sample_rate_found = true;
+        } else if (strncmp32(line, "channels=", 9) == 0) {
+            value = line + 9;
+            if (!audio_parse_int32_field(value, &info->channel_count)) {
+                return false;
+            }
+            channels_found = true;
+        } else if (strncmp32(line, "duration=", 9) == 0) {
+            value = line + 9;
+            if (!audio_parse_double_field(value, &info->duration_seconds)) {
+                return false;
+            }
+            duration_found = true;
+        }
+
+        if (saved == '\0') {
+            break;
+        }
+        start = end;
+    }
+
+    if (!sample_rate_found || !channels_found || !duration_found) {
+        return false;
+    }
+    if (info->sample_rate <= 0) {
+        return false;
+    }
+    if ((info->channel_count != 1) && (info->channel_count != 2)) {
+        return false;
+    }
+
+    info->estimated_frame_count =
+        (int64)(info->duration_seconds*(double)info->sample_rate + 0.5);
+
+    return true;
+}
+
+static bool
+audio_file_info_read(
+    AudioFileInfo *info,
+    char *path,
+    char *ffprobe_path
+) {
+    char *argv[] = {
+        ffprobe_path,
+        "-v",
+        "error",
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=sample_rate,channels:format=duration",
+        "-of",
+        "default=noprint_wrappers=1",
+        path,
+        NULL,
+    };
+    Command command = {0};
+    bool result = false;
+
+    if ((info == NULL) || (path == NULL) || (ffprobe_path == NULL)) {
+        return false;
+    }
+
+    audio_file_info_init(info);
+    command_push_array(&command, LENGTH(argv) - 1, argv);
+    if (!command_run_capture_all(&command)) {
+        goto cleanup;
+    }
+    if (!command.result.exited || (command.result.exit_status != 0)) {
+        goto cleanup;
+    }
+    if (command.result.stdout_output == NULL) {
+        goto cleanup;
+    }
+
+    result = audio_file_info_parse(info, command.result.stdout_output);
+
+cleanup:
+    command_free(&command);
+    if (!result) {
+        audio_file_info_init(info);
+    }
+
+    return result;
+}
+
+static bool
+audio_read_file(AudioBuffer *audio, char *path, char *ffmpeg_path) {
+    AudioIoFormat format;
+
+    audio_io_format_init(&format);
+
+    return audio_read_file_format(audio, path, &format, ffmpeg_path);
+}
+
+static void
 audio_test_sine_options_init(AudioTestSineOptions *options) {
     audio_io_format_init(&options->format);
 
@@ -682,6 +670,20 @@ audio_test_generate_sine_wav(
 
 
 #if TESTING_audio
+
+#define CBASE_IMPLEMENT
+#include "cbase.h"
+
+static bool
+audio_write_file(
+    AudioBuffer *audio,
+    char *path,
+    char *format,
+    char *ffmpeg_path
+) {
+    return audio_write_file_format(audio, path, format, NULL, ffmpeg_path);
+}
+
 static void
 audio_compare_options_init(AudioCompareOptions *options) {
     options->mode = AUDIO_COMPARE_MODE_TOLERANT;
@@ -1138,12 +1140,6 @@ audio_compare_result_print(
 
     return;
 }
-#endif /* TESTING_audio */
-
-#if TESTING_audio
-
-#define CBASE_IMPLEMENT
-#include "cbase.h"
 
 static int32
 audio_test_fail(char *name) {

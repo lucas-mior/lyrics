@@ -2371,102 +2371,6 @@ lrc_pipeline_prepare_vocals_stage_for_generation(
     return true;
 }
 
-#if TESTING_pipeline
-static bool
-lrc_generate_config_path_ready(
-    char *path,
-    enum LsError error,
-    char *message,
-    LrcPipelineGenerateResult *result
-) {
-    if (!path_missing(path)) {
-        return true;
-    }
-
-    lrc_pipeline_generate_result_set(result, error, message, path);
-
-    return false;
-}
-#endif /* TESTING_pipeline */
-
-#if TESTING_pipeline
-static bool
-lrc_generate_from_song(
-    LrcPipelineConfig *config,
-    LrcPipelineGenerateResult *result
-) {
-    LrcPipeline pipeline;
-    bool ok;
-
-    if (result) {
-        lrc_pipeline_generate_result_init(result);
-    }
-    if (config == NULL) {
-        lrc_pipeline_generate_result_set(
-            result,
-            LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT,
-            "generation configuration is missing",
-            NULL
-        );
-        return false;
-    }
-    if (!lrc_generate_config_path_ready(
-        config->song_path,
-        LS_ERROR_PIPELINE_GENERATE_MISSING_SONG,
-        "input song path is missing",
-        result
-    )) {
-        return false;
-    }
-    if (!lrc_generate_config_path_ready(
-        config->lyrics_text_path,
-        LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS,
-        "lyrics text path is missing",
-        result
-    )) {
-        return false;
-    }
-    if (!lrc_generate_config_path_ready(
-        config->output_lrc_path,
-        LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT,
-        "output LRC path is missing",
-        result
-    )) {
-        return false;
-    }
-    if (!lrc_generate_config_path_ready(
-        config->vocals_model_path,
-        LS_ERROR_PIPELINE_GENERATE_MISSING_VOCALS_MODEL,
-        "vocals model path is missing",
-        result
-    )) {
-        return false;
-    }
-    if (!lrc_generate_config_path_ready(
-        config->ctc_model_path,
-        LS_ERROR_PIPELINE_GENERATE_MISSING_CTC_MODEL,
-        "CTC model path is missing",
-        result
-    )) {
-        return false;
-    }
-    if (!lrc_generate_config_path_ready(
-        config->tokenizer_path,
-        LS_ERROR_PIPELINE_GENERATE_MISSING_TOKENIZER,
-        "CTC tokenizer path is missing",
-        result
-    )) {
-        return false;
-    }
-
-    lrc_pipeline_init(&pipeline, config);
-    ok = lrc_pipeline_generate_lrc(&pipeline, result);
-    lrc_pipeline_cleanup(&pipeline);
-
-    return ok;
-}
-#endif /* TESTING_pipeline */
-
 static bool
 lrc_pipeline_generate_lrc(
     LrcPipeline *pipeline,
@@ -3503,6 +3407,98 @@ lrc_extract_vocals(
 #include "cbase.h"
 
 #include "ctc_assets.c"
+
+static bool
+lrc_generate_config_path_ready(
+    char *path,
+    enum LsError error,
+    char *message,
+    LrcPipelineGenerateResult *result
+) {
+    if (!path_missing(path)) {
+        return true;
+    }
+
+    lrc_pipeline_generate_result_set(result, error, message, path);
+
+    return false;
+}
+
+static bool
+lrc_generate_from_song(
+    LrcPipelineConfig *config,
+    LrcPipelineGenerateResult *result
+) {
+    LrcPipeline pipeline;
+    bool ok;
+
+    if (result) {
+        lrc_pipeline_generate_result_init(result);
+    }
+    if (config == NULL) {
+        lrc_pipeline_generate_result_set(
+            result,
+            LS_ERROR_PIPELINE_GENERATE_INVALID_ARGUMENT,
+            "generation configuration is missing",
+            NULL
+        );
+        return false;
+    }
+    if (!lrc_generate_config_path_ready(
+        config->song_path,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_SONG,
+        "input song path is missing",
+        result
+    )) {
+        return false;
+    }
+    if (!lrc_generate_config_path_ready(
+        config->lyrics_text_path,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_LYRICS,
+        "lyrics text path is missing",
+        result
+    )) {
+        return false;
+    }
+    if (!lrc_generate_config_path_ready(
+        config->output_lrc_path,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_OUTPUT,
+        "output LRC path is missing",
+        result
+    )) {
+        return false;
+    }
+    if (!lrc_generate_config_path_ready(
+        config->vocals_model_path,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_VOCALS_MODEL,
+        "vocals model path is missing",
+        result
+    )) {
+        return false;
+    }
+    if (!lrc_generate_config_path_ready(
+        config->ctc_model_path,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_CTC_MODEL,
+        "CTC model path is missing",
+        result
+    )) {
+        return false;
+    }
+    if (!lrc_generate_config_path_ready(
+        config->tokenizer_path,
+        LS_ERROR_PIPELINE_GENERATE_MISSING_TOKENIZER,
+        "CTC tokenizer path is missing",
+        result
+    )) {
+        return false;
+    }
+
+    lrc_pipeline_init(&pipeline, config);
+    ok = lrc_pipeline_generate_lrc(&pipeline, result);
+    lrc_pipeline_cleanup(&pipeline);
+
+    return ok;
+}
 
 static int32
 pipeline_test_fail(char *name) {

@@ -36,19 +36,6 @@ static OrtExecutionProviderInfo ort_execution_provider_infos[] = {
 #undef ORT_EXECUTION_PROVIDER_INFO_ENTRY
 };
 
-#if TESTING_ort
-static char *
-ort_execution_provider_str(enum OrtExecutionProvider provider) {
-    for (int32 i = 0; i < LENGTH(ort_execution_provider_infos); i += 1) {
-        if (ort_execution_provider_infos[i].provider == provider) {
-            return ort_execution_provider_infos[i].name;
-        }
-    }
-
-    return "unknown";
-}
-#endif /* TESTING_ort */
-
 static bool
 ort_execution_provider_parse(
     char *value,
@@ -962,6 +949,17 @@ ort_tensor_destroy(OrtContext *context, OrtTensor *tensor) {
 #if TESTING_ort
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
+static char *
+ort_execution_provider_str(enum OrtExecutionProvider provider) {
+    for (int32 i = 0; i < LENGTH(ort_execution_provider_infos); i += 1) {
+        if (ort_execution_provider_infos[i].provider == provider) {
+            return ort_execution_provider_infos[i].name;
+        }
+    }
+
+    return "unknown";
+}
 
 static int32
 ort_test_fail(char *name) {

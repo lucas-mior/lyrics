@@ -128,6 +128,7 @@ static bool lrc_lyrics_normalize_with_options(
     LrcLyricsNormalized *normalized,
     LrcLyricsPreprocessOptions *options
 );
+#if TESTING
 static bool lrc_lyrics_normalize(
     LrcLyrics *lyrics,
     LrcLyricsNormalized *normalized
@@ -136,6 +137,7 @@ static int32 lrc_lyrics_normalized_line_at(
     LrcLyricsNormalized *normalized,
     int32 byte_offset
 );
+#endif
 static enum LrcLyricsNormalizedLineKind lrc_lyrics_normalized_line_kind(
     LrcLyricsNormalized *normalized,
     int32 line_index

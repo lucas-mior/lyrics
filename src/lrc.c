@@ -8,40 +8,6 @@
 #endif
 
 static void
-lrc_parse_result_init(LrcParseResult *result) {
-    if (result == NULL) {
-        return;
-    }
-
-    lrc_result_header_init(&result->header);
-
-    result->line_index = -1;
-    result->byte_offset = -1;
-
-    return;
-}
-
-static void
-lrc_parse_result_set(
-    LrcParseResult *result,
-    enum LsError error,
-    char *message,
-    int32 line_index,
-    int32 byte_offset
-) {
-    if (result == NULL) {
-        return;
-    }
-
-    lrc_result_header_set(&result->header, error, message);
-
-    result->line_index = line_index;
-    result->byte_offset = byte_offset;
-
-    return;
-}
-
-static void
 lrc_format_result_init(LrcFormatResult *result) {
     if (result == NULL) {
         return;
@@ -292,6 +258,41 @@ lrc_format_timestamped_line_hundredths(
     sb_append(builder, text, text_len);
 
     return true;
+}
+
+#if TESTING
+static void
+lrc_parse_result_init(LrcParseResult *result) {
+    if (result == NULL) {
+        return;
+    }
+
+    lrc_result_header_init(&result->header);
+
+    result->line_index = -1;
+    result->byte_offset = -1;
+
+    return;
+}
+
+static void
+lrc_parse_result_set(
+    LrcParseResult *result,
+    enum LsError error,
+    char *message,
+    int32 line_index,
+    int32 byte_offset
+) {
+    if (result == NULL) {
+        return;
+    }
+
+    lrc_result_header_set(&result->header, error, message);
+
+    result->line_index = line_index;
+    result->byte_offset = byte_offset;
+
+    return;
 }
 
 static void
@@ -622,6 +623,7 @@ lrc_parse_text(
 
     return true;
 }
+#endif
 
 static bool
 lrc_output_line_validate(

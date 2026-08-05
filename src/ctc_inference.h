@@ -106,6 +106,7 @@ static bool lrc_ctc_inference_run(
     LrcCtcInferenceResult *result
 );
 
+#if TESTING
 static bool lrc_ctc_fake_inference_set_shape(
     LrcCtcFakeInference *fake,
     float *values,
@@ -123,6 +124,7 @@ static void lrc_ctc_fake_inference_backend(
     LrcCtcFakeInference *fake,
     LrcCtcInferenceBackend *backend
 );
+#endif
 
 static void lrc_ctc_onnx_inference_destroy(LrcCtcOnnxInference *onnx);
 static bool lrc_ctc_onnx_inference_load(

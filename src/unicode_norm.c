@@ -82,17 +82,6 @@ ctc_unicode_norm_copy_fallback(
     return true;
 }
 
-#if TESTING_unicode_norm
-static bool
-ctc_unicode_norm_icu_available(void) {
-#if LRC_UNICODE_ENABLE_ICU
-    return true;
-#else
-    return false;
-#endif
-}
-#endif /* TESTING_unicode_norm */
-
 #if LRC_UNICODE_ENABLE_ICU
 static bool
 ctc_unicode_norm_check_icu_status(UErrorCode status) {
@@ -582,6 +571,15 @@ ctc_unicode_norm_transliterate_latin(
 #if TESTING_unicode_norm
 #define CBASE_IMPLEMENT
 #include "cbase.h"
+
+static bool
+ctc_unicode_norm_icu_available(void) {
+#if LRC_UNICODE_ENABLE_ICU
+    return true;
+#else
+    return false;
+#endif
+}
 
 static int32
 unicode_norm_test_fail(char *name) {

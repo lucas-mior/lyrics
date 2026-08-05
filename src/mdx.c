@@ -668,26 +668,6 @@ cleanup:
     return result;
 }
 
-#if TESTING_mdx
-static bool
-mdx_process_song(
-    MdxConfig *config,
-    StftPlan *stft_plan,
-    OrtContext *ort_context,
-    OrtModel *ort_model,
-    AudioBuffer *input,
-    AudioBuffer *output
-) {
-    return mdx_process_song_with_progress(config,
-                                          stft_plan,
-                                          ort_context,
-                                          ort_model,
-                                          input,
-                                          output,
-                                          false);
-}
-#endif /* TESTING_mdx */
-
 static bool
 mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
     int64 input_batch;
@@ -844,6 +824,24 @@ mdx_model_inspect(MdxModelInfo *info, MdxConfig *config, OrtModel *model) {
 #include "stft.c"
 #include "fftw.c"
 #include "audio.c"
+
+static bool
+mdx_process_song(
+    MdxConfig *config,
+    StftPlan *stft_plan,
+    OrtContext *ort_context,
+    OrtModel *ort_model,
+    AudioBuffer *input,
+    AudioBuffer *output
+) {
+    return mdx_process_song_with_progress(config,
+                                          stft_plan,
+                                          ort_context,
+                                          ort_model,
+                                          input,
+                                          output,
+                                          false);
+}
 
 typedef struct MdxTestStderrSilence {
     int32 saved_stderr;
