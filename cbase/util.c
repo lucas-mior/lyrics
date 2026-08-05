@@ -160,6 +160,48 @@ strequal(char *s1, char *s2) {
     return !strcmp(s1, s2);
 }
 
+#if DEBUGGING
+static void
+striqual_validate_ascii_utf8(char *string, int32 string_len) {
+    int32 bad_offset = 0;
+
+    if (string_len < 0) {
+        error("Error: Invalid string length = %d.\n", string_len);
+        fatal(EXIT_FAILURE);
+    }
+    if ((string == NULL) && (string_len > 0)) {
+        error("Error: NULL string with length = %d.\n", string_len);
+        fatal(EXIT_FAILURE);
+    }
+    if (!utf8_valid(string, string_len, &bad_offset)) {
+        error("Error: String is invalid UTF-8 at byte %d.\n", bad_offset);
+        fatal(EXIT_FAILURE);
+    }
+    for (int32 i = 0; i < string_len; i += 1) {
+        if ((uchar)string[i] > 0x7f) {
+            error("Error: String contains non-ASCII UTF-8 at byte %d.\n", i);
+            fatal(EXIT_FAILURE);
+        }
+    }
+
+    return;
+}
+#endif
+
+static char
+striqual_ascii_lower(char c) {
+    if ((c >= 'A') && (c <= 'Z')) {
+        c = (char)(c - 'A' + 'a');
+    }
+
+    return c;
+}
+
+CBASE_API_DEF bool
+striqual(char *s1, char *s2) {
+    return striqual2(s1, strlen32(s1), s2, strlen32(s2));
+}
+
 CBASE_API_DEF bool
 optional_strequal(char *a, int32 a_len, char *b, int32 b_len) {
     if ((a == NULL) || (b == NULL)) {
@@ -176,6 +218,25 @@ strequal2(char *a, int32 a_len, char *b, int32 b_len) {
     }
     if (memcmp64(a, b, a_len)) {
         return false;
+    }
+
+    return true;
+}
+
+CBASE_API_DEF bool
+striqual2(char *a, int32 a_len, char *b, int32 b_len) {
+#if DEBUGGING
+    striqual_validate_ascii_utf8(a, a_len);
+    striqual_validate_ascii_utf8(b, b_len);
+#endif
+
+    if (a_len != b_len) {
+        return false;
+    }
+    for (int32 i = 0; i < a_len; i += 1) {
+        if (striqual_ascii_lower(a[i]) != striqual_ascii_lower(b[i])) {
+            return false;
+        }
     }
 
     return true;
@@ -2701,6 +2762,17 @@ main(int argc, char **argv) {
     ASSERT(ENDS_WITH(s1, strlen32(s1), "aaaabbbb"));
     ASSERT(!ENDS_WITH(s1, strlen32(s1), "aaaa"));
     ASSERT(!ENDS_WITH(s1, strlen32(s1), "aaaaabbbbb"));
+
+    ASSERT(striqual("abc", "ABC"));
+    ASSERT(striqual("ASCII 123 _-", "ascii 123 _-"));
+    ASSERT(!striqual("abc", "abd"));
+    ASSERT(!striqual("abc", "abcd"));
+
+    ASSERT(STRIQUAL(s1, strlen32(s1), "AAAABBBB"));
+    ASSERT(STRIQUAL(s1 + 4, 4, "BBBB"));
+    ASSERT(STRIQUAL("MiXeD", 5, "mixed", 5));
+    ASSERT(!STRIQUAL("MiXeD", 4, "mixed", 5));
+    ASSERT(!STRIQUAL("MiXeD", 5, "match", 5));
 
     {
         StrBuilder builder = {0};

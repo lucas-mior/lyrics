@@ -211,6 +211,8 @@ CBASE_API_DECL int64 clamp_int64(int64, int64, int64);
 CBASE_API_DECL int64 square_int64(int64);
 CBASE_API_DECL bool strequal(char *, char *);
 CBASE_API_DECL bool strequal2(char *, int32, char *, int32);
+CBASE_API_DECL bool striqual(char *, char *);
+CBASE_API_DECL bool striqual2(char *, int32, char *, int32);
 CBASE_API_DEF bool optional_strequal(char *a, int32 a_len, char *b, int32 b_len);
 CBASE_API_DECL int64 strftime2(char *, int64, char *, struct tm *);
 CBASE_API_DECL int strncmp32(char *, char *, int64);
@@ -359,6 +361,10 @@ _Generic((VAR), \
 #define strequal2_3(A, A_LEN, B) strequal2(A, A_LEN, B, strlen32(B))
 #define strequal2_4(A, A_LEN, B, B_LEN) strequal2(A, A_LEN, B, B_LEN)
 #define STREQUAL(...) SELECT_ON_NUM_ARGS(strequal2_, __VA_ARGS__)
+
+#define striqual2_3(A, A_LEN, B) striqual2(A, A_LEN, B, strlen32(B))
+#define striqual2_4(A, A_LEN, B, B_LEN) striqual2(A, A_LEN, B, B_LEN)
+#define STRIQUAL(...) SELECT_ON_NUM_ARGS(striqual2_, __VA_ARGS__)
 
 #define HERE here_impl(__FILE__, __LINE__, (char *)__func__)
 
