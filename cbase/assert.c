@@ -433,16 +433,18 @@ assert_double_almost_equal(double var1, double var2,
 
 static bool
 assert_double_less(double var1, double var2, int kind1, int kind2) {
-    return (var1 < var2)
-           && !assert_double_almost_equal(var1, var2, kind1, kind2,
-                                           NULL, NULL, NULL);
+    (void)kind1;
+    (void)kind2;
+
+    return var1 < var2;
 }
 
 static bool
 assert_double_more(double var1, double var2, int kind1, int kind2) {
-    return (var1 > var2)
-           && !assert_double_almost_equal(var1, var2, kind1, kind2,
-                                           NULL, NULL, NULL);
+    (void)kind1;
+    (void)kind2;
+
+    return var1 > var2;
 }
 
 static void __attribute((noreturn))
@@ -991,6 +993,14 @@ main(void) {
         ASSERT_LESS_EQUAL(a, b);
         ASSERT_MORE_EQUAL(a, b);
         ASSERT_NOT_EQUAL(a, b + 1.0e-9);
+        ASSERT_LESS(b, a);
+        ASSERT_MORE(a, b);
+    } {
+        float a = 0.3f;
+        double b = 0.3;
+        ASSERT_EQUAL(a, b);
+        ASSERT_MORE(a, b);
+        ASSERT_LESS(b, a);
     } {
         float a = 0.1f + 0.2f;
         double b = 0.3;
