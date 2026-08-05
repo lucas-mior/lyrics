@@ -112,7 +112,6 @@ CBASE_API_DECL char utf8_encode_byte(uint32, int32);
 CBASE_API_DECL int32 utf8_encode_raw(uint32, char *);
 CBASE_API_DECL bool utf8_has_bom(char *, int32);
 CBASE_API_DECL bool utf8_valid(char *, int32, int32 *);
-CBASE_API_DECL void utf8_functions_sink(void);
 CBASE_API_DECL int32 utf8_next_position(char *, int32, int32);
 CBASE_API_DECL int32 utf8_suffix_width_position(char *, int32, int32);
 CBASE_API_DECL int32 utf8_validate(uint32 *, int32);
@@ -225,7 +224,6 @@ CBASE_API_DECL void util_die_notify(char *, char *, ...);
 CBASE_API_DECL bool util_equal_files(char *, char *);
 CBASE_API_DECL bool util_file_exists(char *);
 CBASE_API_DECL int32 util_filename_from(char *, int64, int);
-CBASE_API_DECL void util_functions_sink(void);
 CBASE_API_DECL int32 util_nthreads(void);
 CBASE_API_DECL int32 util_string_int32(int32 *, char *);
 CBASE_API_DECL void warn(char *, ...);
@@ -262,7 +260,6 @@ CBASE_API_DECL int32 parallel_for_max_threads_min_items(
     ParallelForFunction *,
     void *
 );
-CBASE_API_DECL void threads_functions_sink(void);
 CBASE_API_DECL void write_all(int, char *, int64);
 CBASE_API_DECL bool write_entire_file(char *, char *, int64);
 CBASE_API_DECL int xclose(char *, int, int *, char *, char *);
@@ -537,23 +534,6 @@ CBASE_API_DECL bool command_wait(Command *);
 #define MAX_NTHREADS 64
 #endif
 
-typedef struct HeapNode {
-    void *value;
-    int32 p_index;
-    int32 unused;
-} HeapNode;
-
-CBASE_API_DECL void sort_functions_sink(void);
-CBASE_API_DECL void sort_heapify(HeapNode *, int32, int32, int32 (*)(void *, void *));
-CBASE_API_DECL void sort_merge_subsorted(
-    void *,
-    int32,
-    int32,
-    int64,
-    int32 (*)(void *, void *)
-);
-CBASE_API_DECL void sort_shuffle(void *, int64, int64);
-
 typedef struct GenericArrayHeader {
     ldouble alignment;
     int32 count;
@@ -566,7 +546,6 @@ CBASE_API_DECL void *generic_array_grow(void *, int64);
 CBASE_API_DECL bool generic_array_reserve(void **, int32, int64);
 CBASE_API_DECL int32 generic_array_capacity(void *);
 CBASE_API_DECL void generic_array_set_count(void *, int32);
-CBASE_API_DECL void array_sink(void);
 
 #define ARRAY_HEADER(ARRAY) ((GenericArrayHeader *)(ARRAY) - 1)
 #define ARRAY_LEN(ARRAY) ((ARRAY) ? ARRAY_HEADER(ARRAY)->count : 0)

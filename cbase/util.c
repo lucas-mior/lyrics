@@ -2296,8 +2296,21 @@ util_is_integer(char *string) {
 }
 
 #if 0 == TESTING_util
-CBASE_API_DEF void
+static inline void
 util_functions_sink(void) {
+    (void)util_functions_sink;
+    (void)util_is_integer;
+    (void)is_ident_start_char;
+    (void)sb_append_byte_if_not;
+    (void)sb_move;
+    (void)sb_opt_cstr;
+    (void)str_builder_array_copy;
+    (void)str_builder_array_move;
+    (void)str_builder_array_swap;
+    (void)optional_strequal;
+    (void)warn;
+    (void)xfopen;
+    (void)here_impl;
     (void)here_counter;
     (void)strequal;
     (void)path_missing;

@@ -444,8 +444,9 @@ parallel_for(int64 length, ParallelForFunction *function, void *user_data) {
 }
 
 #if 0 == TESTING_threads
-CBASE_API_DEF void
+static inline void
 threads_functions_sink(void) {
+    (void)threads_functions_sink;
     (void)parallel_for;
     (void)parallel_for_min_items;
     (void)parallel_for_max_threads_min_items;
