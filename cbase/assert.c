@@ -188,9 +188,10 @@ a_pointers_##MODE(char *file, int32 line, char *func,                          \
         if (!DEBUGGING) {                                                      \
             UNREACHABLE();                                                     \
         }                                                                      \
-        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func); \
-        fprintf(stderr, "%s = %p " #SYMBOL " %p = %s\n",                       \
-               name1, var1, var2, name2);                                      \
+        fprintf(stderr,                                                        \
+                "\nAssertion failed at %s:%d:%s\n", file, line, func);         \
+        fprintf(stderr,                                                        \
+                "%s = %p " #SYMBOL " %p = %s\n", name1, var1, var2, name2);    \
         TRAP();                                                                \
     }                                                                          \
     return;                                                                    \
