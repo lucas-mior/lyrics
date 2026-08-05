@@ -461,7 +461,7 @@ _Generic((x), \
     default: UNSUPPORTED_TYPE_FOR_DOUBLE_GET_GENERIC            \
 )(x)
 
-#if defined(__GNUC__) || defined(__clang__)
+#if CC_GCC || CC_CLANG
 #define DOUBLE_GET2(VAR, TYPE) double_get((union Primitive)(VAR), TYPE)
 #else
 #define DOUBLE_GET2(VAR, TYPE) DOUBLE_GET(VAR)
