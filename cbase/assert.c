@@ -562,22 +562,22 @@ a_bool_##MODE(char *file, int32 line, char *func,                           \
     return;                                                                \
 }
 
-static void
+static void __attribute((noreturn))
 a_bool_more(void *p, ...) {
     (void)p;
     TRAP();
 }
-static void
+static void __attribute((noreturn))
 a_bool_less(void *p, ...) {
     (void)p;
     TRAP();
 }
-static void
+static void __attribute((noreturn))
 a_bool_more_equal(void *p, ...) {
     (void)p;
     TRAP();
 }
-static void
+static void __attribute((noreturn))
 a_bool_less_equal(void *p, ...) {
     (void)p;
     TRAP();
@@ -655,6 +655,8 @@ void UNSUPPORTED_TYPE_FOR_GENERIC_A_FIRST_BOOL(void);
 void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_COMPARE_CHARP(void);
 void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_COMPARE_VOIDP(void);
 void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_COMPARE(void);
+void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_FIRST(void);
+void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_SECOND(void);
 
 #define ASSERT(C) do {                                     \
     if (!(C)) {                                            \
@@ -840,6 +842,28 @@ _Generic((VAR1),                                                        \
 #define ASSERT_MORE(VAR1, VAR2)       ASSERT_COMPARE(more,       VAR1, VAR2)
 #define ASSERT_MORE_EQUAL(VAR1, VAR2) ASSERT_COMPARE(more_equal, VAR1, VAR2)
 
+#define A_BOTH_DOUBLE_CLOSE(VAR1, VAR2, TYPE1, TYPE2)                      \
+    a_double_close(__FILE__, __LINE__, FUNC__,                             \
+                   #VAR1, #VAR2,                                           \
+                   typename(TYPE1), typename(TYPE2),                       \
+                   typebits(TYPE1), typebits(TYPE2),                       \
+                   ASSERT_FP_KIND_EXPR(VAR1), ASSERT_FP_KIND_EXPR(VAR2),   \
+                   DOUBLE_GET2(VAR1, TYPE1), DOUBLE_GET2(VAR2, TYPE2))
+
+#define A_FIRST_DOUBLE_CLOSE(VAR1, VAR2, TYPE1) \
+_Generic((VAR2), \
+    float:  A_BOTH_DOUBLE_CLOSE(VAR1, VAR2, TYPE1, TYPE_FLOAT),  \
+    double: A_BOTH_DOUBLE_CLOSE(VAR1, VAR2, TYPE1, TYPE_DOUBLE), \
+    default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_SECOND()  \
+)
+
+#define ASSERT_CLOSE(VAR1, VAR2) \
+_Generic((VAR1), \
+    float:  A_FIRST_DOUBLE_CLOSE(VAR1, VAR2, TYPE_FLOAT),  \
+    double: A_FIRST_DOUBLE_CLOSE(VAR1, VAR2, TYPE_DOUBLE), \
+    default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_FIRST()   \
+)
+
 #define ASSERT_NULL(VAR1) do {                                          \
     void *p = VAR1;                                                     \
     if (p != NULL) {                                                    \
@@ -947,24 +971,21 @@ main(void) {
     } {
         double a = 0.1 + 0.2;
         double b = 0.3;
-        ASSERT_EQUAL(a, b);
-        ASSERT_LESS_EQUAL(a, b);
-        ASSERT_MORE_EQUAL(a, b);
+        ASSERT_CLOSE(a, b);
+        ASSERT_CLOSE(b, a);
         ASSERT_NOT_EQUAL(a, b + 1.0e-9);
         ASSERT_LESS(b, a);
         ASSERT_MORE(a, b);
     } {
         float a = 0.3f;
         double b = 0.3;
-        ASSERT_EQUAL(a, b);
+        ASSERT_CLOSE(a, b);
         ASSERT_MORE(a, b);
         ASSERT_LESS(b, a);
     } {
         float a = 0.1f + 0.2f;
         double b = 0.3;
-        ASSERT_EQUAL(a, b);
-        ASSERT_LESS_EQUAL(a, b);
-        ASSERT_MORE_EQUAL(a, b);
+        ASSERT_CLOSE(a, b);
     } {
         long a = -1;
         double b = -1;
