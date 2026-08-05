@@ -184,7 +184,7 @@ static void                                                              \
 a_pointers_##MODE(char *file, int32 line, char *func,                     \
                   char *name1, char *name2,                              \
                   void *var1, void *var2) {                              \
-    if (!((uintptr_t)var1 SYMBOL (uintptr_t)var2)) {                     \
+    if (!((uintptr)var1 SYMBOL (uintptr)var2)) {                     \
         if (!DEBUGGING) {                                                \
             UNREACHABLE();                                               \
         }                                                                \
@@ -844,8 +844,8 @@ _Generic((VAR2),                                               \
 #define A_POINTERS(MODE, VAR1, VAR2)                           \
     a_pointers_##MODE(__FILE__, __LINE__, FUNC__,    \
                       #VAR1, #VAR2,                            \
-                      (void *)(uintptr_t)(VAR1),               \
-                      (void *)(uintptr_t)(VAR2))
+                      (void *)(uintptr)(VAR1),               \
+                      (void *)(uintptr)(VAR2))
 
 #define ASSERT_COMPARE(MODE, VAR1, VAR2)                                \
 _Generic((VAR1),                                                        \
@@ -857,8 +857,8 @@ _Generic((VAR1),                                                        \
     char *: _Generic((VAR2),                                            \
         char *: a_strings_##MODE(__FILE__, __LINE__, FUNC__,  \
                                  #VAR1, #VAR2,                          \
-                                 (char *)(uintptr_t)(VAR1),             \
-                                 (char *)(uintptr_t)(VAR2)),            \
+                                 (char *)(uintptr)(VAR1),             \
+                                 (char *)(uintptr)(VAR2)),            \
         void *: A_POINTERS(MODE, VAR1, VAR2),                           \
         default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_COMPARE_CHARP()    \
     ),                                                                  \
