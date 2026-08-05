@@ -182,7 +182,7 @@ _Generic((SIZE), \
 #endif
 
 #if TESTING
-  #define TRAP(...) raise(SIGILL)
+  #define TRAP(...) do { raise(SIGILL); exit(EXIT_FAILURE); } while (0)
 #else
   #if CC_GCC || CC_CLANG
     #define TRAP(...) __builtin_trap()
