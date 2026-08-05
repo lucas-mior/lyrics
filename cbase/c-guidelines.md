@@ -148,7 +148,14 @@ suffice. Properly order the functions in a file so that extra declarations
 aren't needed. For functions that do need an extra pre declaration, put the
 declaration in a project-wide header file or in the header file associated with
 the C file itself. Avoid declaring functions defined in a C file, in another C
-file. 
+file. If a C function for whatever reason needs to define a function that is
+only used for tests in itself and tests in another file, put it inside an #if
+TESTING block, to avoid unused function warnings when compiling the main
+program.
+- Never use `#if TESTING_module` block in `.h` files.
+- Never use more than one `#if TESTING_module` block in a C file.
+- Never use more than one `#if TESTING` block in a C file and use it only if
+  absolutely needed as explained above.
 
 ## Struct declarations
 
