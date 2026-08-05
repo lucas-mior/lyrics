@@ -146,14 +146,4 @@ static bool lrc_lyrics_normalized_line_range(
     int32 *start,
     int32 *end
 );
-#if TESTING_ctc_text
-static int32 lrc_lyrics_normalized_segment_count(
-    LrcLyricsNormalized *normalized
-);
-static CtcTextSegment *lrc_lyrics_normalized_segment(
-    LrcLyricsNormalized *normalized,
-    int32 segment_index
-);
-#endif
-
 #endif /* CTC_TEXT_H */

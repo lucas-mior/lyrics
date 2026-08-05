@@ -81,22 +81,6 @@ static bool lrc_format_timestamp_hundredths(
     int32 *formatted_len,
     LrcFormatResult *result
 );
-#if TESTING_lrc
-static bool lrc_format_timestamp_seconds(
-    float seconds,
-    char *buffer,
-    int32 buffer_len,
-    int32 *formatted_len,
-    LrcFormatResult *result
-);
-static bool lrc_format_timestamped_line(
-    StrBuilder *builder,
-    float seconds,
-    char *text,
-    int32 text_len,
-    LrcFormatResult *result
-);
-#endif
 static bool lrc_format_timestamped_line_hundredths(
     StrBuilder *builder,
     int32 timestamp_hundredths,
