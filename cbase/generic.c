@@ -146,25 +146,25 @@ toString(char *restrict buf, int64 bufSize, char *restrict fmt, ...) {
     return buf;
 }
 
-static double
+static double UNUSED
 double_from_voidp(void* x) {
     (void)x;
     TRAP();
     return 0.0;  // NOLINT
 }
-static double
+static double UNUSED
 double_from_charp(char* x) {
     (void)x;
     TRAP();
     return 0.0;  // NOLINT
 }
-static double
+static double UNUSED
 double_from_bool(bool x) {
     (void)x;
     TRAP();
     return 0.0;  // NOLINT
 }
-static double
+static double UNUSED
 double_from_char(char x) {
     (void)x;
     TRAP();
@@ -180,50 +180,62 @@ check_integer_fits_in_double(llong x) {
     }
     return;
 }
-static double double_from_schar  (schar x)   {
+static double UNUSED
+double_from_schar(schar x) {
     return (double)x;
 }
-static double double_from_short  (short x)   {
+static double UNUSED
+double_from_short(short x) {
     return (double)x;
 }
-static double double_from_int    (int x)     {
+static double UNUSED
+double_from_int(int x) {
     return (double)x;
 }
-static double double_from_long   (long x)    {
+static double UNUSED
+double_from_long(long x) {
     check_integer_fits_in_double((llong)x);
     return (double)x;
 }
-static double double_from_llong  (llong x)   {
+static double UNUSED
+double_from_llong(llong x) {
     check_integer_fits_in_double(x);
     return (double)x;
 }
-static double double_from_uchar  (uchar x)   {
+static double UNUSED
+double_from_uchar(uchar x) {
     return (double)x;
 }
-static double double_from_ushort (ushort x)  {
+static double UNUSED
+double_from_ushort(ushort x) {
     return (double)x;
 }
-static double double_from_uint   (uint x)    {
+static double UNUSED
+double_from_uint(uint x) {
     return (double)x;
 }
-static double double_from_ulong  (ulong x)   {
+static double UNUSED
+double_from_ulong(ulong x) {
     if (x >= (ullong)LLONG_MAX) {
         TRAP();
     }
     check_integer_fits_in_double((llong)x);
     return (double)x;
 }
-static double double_from_ullong (ullong x)  {
+static double UNUSED
+double_from_ullong(ullong x) {
     if (x >= (ullong)LLONG_MAX) {
         TRAP();
     }
     check_integer_fits_in_double((llong)x);
     return (double)x;
 }
-static double double_from_float  (float x)   {
+static double UNUSED
+double_from_float(float x) {
     return (double)x;
 }
-static double double_from_double (double x)  {
+static double UNUSED
+double_from_double(double x)  {
     return (double)x;
 }
 
@@ -346,27 +358,10 @@ double_get(union Primitive var, enum Type type) {
 #if 0 == TESTING_generic
 static inline void
 generic_functions_sink(void) {
-    (void)double_from_voidp;
-    (void)double_from_charp;
-    (void)double_from_bool;
-    (void)double_from_char;
-    (void)double_from_schar;
-    (void)double_from_short;
-    (void)double_from_int;
-    (void)double_from_long;
-    (void)double_from_llong;
-    (void)double_from_uchar;
-    (void)double_from_ushort;
-    (void)double_from_uint;
-    (void)double_from_ulong;
-    (void)double_from_ullong;
-    (void)double_from_float;
-    (void)double_from_double;
-
+    (void)generic_functions_sink;
     (void)typebits;
     (void)typename;
     (void)double_get;
-    (void)generic_functions_sink;
     return;
 }
 #endif
@@ -533,7 +528,7 @@ _Generic((x), \
 
 #define PRINT_OTHER(VAR, TYPE, FORMAT, CAST) \
   fprintf(stderr, "["GREEN("%s%lld")"]%s = "FORMAT" ", \
-                  typename(TYPE), typebits(TYPE), #VAR, (CAST)(uintptr_t)(VAR))
+                  typename(TYPE), typebits(TYPE), #VAR, (CAST)(uintptr)(VAR))
 
 #define PRINT(VAR) \
 _Generic((VAR), \

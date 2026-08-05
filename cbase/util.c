@@ -581,7 +581,7 @@ util_filename_from(char *buffer, int64 size, int fd) {
 #elif OS_WINDOWS
     HANDLE h;
     DWORD len;
-    intptr_t h2 = _get_osfhandle(fd);
+    intptr h2 = _get_osfhandle(fd);
 
     if ((h = (HANDLE)h2) == INVALID_HANDLE_VALUE) {
         return -1;
@@ -1107,8 +1107,9 @@ CBASE_API_DEF void
 send_signal(char *executable, int32 signal_number) {
     char signal_string[14];
     SNPRINTF(signal_string, "%d", signal_number);
+    pid_t child;
 
-    switch (fork()) {
+    switch (child = fork()) {
     case -1:
         error("Error forking: %s\n", strerror(errno));
         return;
@@ -1117,15 +1118,14 @@ send_signal(char *executable, int32 signal_number) {
         error("Error executing pkill: %s\n", strerror(errno));
         fatal(EXIT_FAILURE);
     default:
-        wait(NULL);
+        while (waitpid(child, NULL, 0) < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            fprintf(stderr, "Error waiting for child: %s.\n", strerror(errno));
+            fatal(EXIT_FAILURE);
+        }
     }
-    return;
-}
-#else
-CBASE_API_DEF void
-send_signal(char *executable, int32 signal_number) {
-    (void)executable;
-    (void)signal_number;
     return;
 }
 #endif
@@ -1409,7 +1409,7 @@ basename2(char *path, int32 *full_length, int32 *base_len) {
             }
             return p;
         }
-        if ((uintptr_t)fslash > (uintptr_t)bslash) {
+        if ((uintptr)fslash > (uintptr)bslash) {
             length = fslash - p + 1;
             p = fslash + 1;
         } else {
@@ -1937,11 +1937,11 @@ sb_append(StrBuilder *str_builder, char *data, int32 data_len) {
     if (data == str_builder->data) {
         aliases = true;
     } else if (str_builder->data) {
-        uintptr_t data_address = (uintptr_t)data;
-        uintptr_t start = (uintptr_t)str_builder->data;
+        uintptr data_address = (uintptr)data;
+        uintptr start = (uintptr)str_builder->data;
 
         if (data_address >= start) {
-            uintptr_t offset = data_address - start;
+            uintptr offset = data_address - start;
 
             if (offset < (uint32)str_builder->cap) {
                 aliases = true;
@@ -2326,6 +2326,7 @@ util_functions_sink(void) {
 #if OS_UNIX
     (void)util_copy_file_sync;
     (void)util_copy_file_async;
+    (void)send_signal;
 #endif
     (void)util_equal_files;
 
@@ -2333,7 +2334,6 @@ util_functions_sink(void) {
     (void)realloc_debug;
     (void)free_debug;
 
-    (void)send_signal;
     (void)atoi2;
 #if OS_UNIX
     (void)command_run_capture;
@@ -2449,15 +2449,11 @@ test_make_temp_dir(char *buffer, int32 capacity, char *name) {
     char *tmpdir;
     int32 len;
 
-    tmpdir = getenv("CECUP_TEST_TMPDIR");
-    if (tmpdir == NULL) {
-        tmpdir = getenv("TMPDIR");
-    }
-    if (tmpdir == NULL) {
+    if ((tmpdir = getenv("TMPDIR")) == NULL) {
         tmpdir = "/tmp";
     }
 
-    len = snprintf2(buffer, capacity, "%s/cecup_%s_XXXXXX", tmpdir, name);
+    len = snprintf2(buffer, capacity, "%s/%s_XXXXXX", tmpdir, name);
     if ((len <= 0) || (len >= capacity)) {
         error("Temporary directory path too long.\n");
         fatal(EXIT_FAILURE);
@@ -2661,7 +2657,9 @@ main(int argc, char **argv) {
     (void)argv;
     (void)here_counter;
 
+#if TESTING && OS_UNIX
     test_make_temp_dir(temp_dir, SIZEOF(temp_dir), "util");
+#endif
 
     ASSERT(BEGINS_WITH(s1, strlen32(s1), "aaaa"));
     ASSERT(BEGINS_WITH(s1, strlen32(s1), "aaaabbbb"));
@@ -2972,9 +2970,10 @@ main(int argc, char **argv) {
 
     (void)fwrite64;
     (void)fread64;
-    (void)program_len;
 
+#if TESTING && OS_UNIX
     test_remove_tree(temp_dir);
+#endif
 
     time_monotonic_precise(&t1);
     PRINT_TIMINGS(1, t0, t1);
