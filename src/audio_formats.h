@@ -41,17 +41,6 @@ static LrcAudioFormatInfo lrc_audio_format_infos[] = {
 };
 
 static LrcAudioFormatInfo *
-lrc_audio_format_info(enum LrcAudioFormat format) {
-    for (int32 i = 0; i < LENGTH(lrc_audio_format_infos); i += 1) {
-        if (lrc_audio_format_infos[i].format == format) {
-            return &lrc_audio_format_infos[i];
-        }
-    }
-
-    return NULL;
-}
-
-static LrcAudioFormatInfo *
 lrc_audio_format_info_from_name(char *value) {
     if (value == NULL) {
         return NULL;
