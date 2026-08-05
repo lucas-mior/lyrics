@@ -736,14 +736,14 @@ _Generic((VAR2),                                                       \
     default: UNSUPPORTED_TYPE_FOR_GENERIC_A_FIRST_SIGNED()             \
 )
 #define A_BOTH_UNSIGNED(MODE, VAR1, VAR2, TYPE1, TYPE2)             \
-    a_both_unsigned_##MODE(__FILE__, __LINE__, FUNC__,    \
+    a_both_unsigned_##MODE(__FILE__, __LINE__, FUNC__,              \
                            #VAR1, #VAR2,                            \
                            typename(TYPE1), typename(TYPE2),        \
                            typebits(TYPE1), typebits(TYPE2),        \
                            (ullong)(VAR1), (ullong)(VAR2))
 
 #define A_UNSIGNED_SIGNED(MODE, VAR1, VAR2, TYPE1, TYPE2)           \
-    a_unsigned_signed_##MODE(__FILE__, __LINE__, FUNC__,  \
+    a_unsigned_signed_##MODE(__FILE__, __LINE__, FUNC__,            \
                              #VAR1, #VAR2,                          \
                              typename(TYPE1), typename(TYPE2),      \
                              typebits(TYPE1), typebits(TYPE2),      \
@@ -767,10 +767,10 @@ _Generic((VAR2),                                                         \
     default: UNSUPPORTED_TYPE_FOR_GENERIC_A_FIRST_UNSIGNED()             \
 )
 #define A_BOTH_DOUBLE(MODE, VAR1, VAR2, TYPE1, TYPE2)                      \
-    a_double_##MODE(__FILE__, __LINE__, FUNC__,                  \
-                    #VAR1, #VAR2,                                         \
-                    typename(TYPE1), typename(TYPE2),                     \
-                    typebits(TYPE1), typebits(TYPE2),                     \
+    a_double_##MODE(__FILE__, __LINE__, FUNC__,                            \
+                    #VAR1, #VAR2,                                          \
+                    typename(TYPE1), typename(TYPE2),                      \
+                    typebits(TYPE1), typebits(TYPE2),                      \
                     DOUBLE_GET2(VAR1, TYPE1), DOUBLE_GET2(VAR2, TYPE2))
 
 #define A_FIRST_DOUBLE(MODE, VAR1, VAR2, TYPE1) \
@@ -792,7 +792,7 @@ _Generic((VAR2), \
 )
 #define A_FIRST_BOOL(MODE, VAR1, VAR2, TYPE1)                  \
 _Generic((VAR2),                                               \
-    bool: a_bool_##MODE(__FILE__, __LINE__, FUNC__,  \
+    bool: a_bool_##MODE(__FILE__, __LINE__, FUNC__,            \
                         #VAR1, #VAR2,                          \
                         typename(TYPE1), typename(TYPE_BOOL),  \
                         typebits(TYPE1), typebits(TYPE_BOOL),  \
@@ -800,9 +800,9 @@ _Generic((VAR2),                                               \
     default: UNSUPPORTED_TYPE_FOR_GENERIC_A_FIRST_BOOL()       \
 )
 #define A_POINTERS(MODE, VAR1, VAR2)                           \
-    a_pointers_##MODE(__FILE__, __LINE__, FUNC__,    \
+    a_pointers_##MODE(__FILE__, __LINE__, FUNC__,              \
                       #VAR1, #VAR2,                            \
-                      (void *)(uintptr)(VAR1),               \
+                      (void *)(uintptr)(VAR1),                 \
                       (void *)(uintptr)(VAR2))
 
 #define ASSERT_COMPARE(MODE, VAR1, VAR2)                                \
@@ -813,10 +813,10 @@ _Generic((VAR1),                                                        \
         default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_COMPARE_VOIDP()    \
     ),                                                                  \
     char *: _Generic((VAR2),                                            \
-        char *: a_strings_##MODE(__FILE__, __LINE__, FUNC__,  \
+        char *: a_strings_##MODE(__FILE__, __LINE__, FUNC__,            \
                                  #VAR1, #VAR2,                          \
-                                 (char *)(uintptr)(VAR1),             \
-                                 (char *)(uintptr)(VAR2)),            \
+                                 (char *)(uintptr)(VAR1),               \
+                                 (char *)(uintptr)(VAR2)),              \
         void *: A_POINTERS(MODE, VAR1, VAR2),                           \
         default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_COMPARE_CHARP()    \
     ),                                                                  \
@@ -861,9 +861,9 @@ _Generic((VAR2), \
 
 #define ASSERT_CLOSE(VAR1, VAR2) \
 _Generic((VAR1), \
-    float:  A_FIRST_DOUBLE_CLOSE(VAR1, VAR2, TYPE_FLOAT),  \
-    double: A_FIRST_DOUBLE_CLOSE(VAR1, VAR2, TYPE_DOUBLE), \
-    default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_FIRST()   \
+    float:  A_FIRST_DOUBLE_CLOSE(VAR1, VAR2, TYPE_FLOAT),                      \
+    double: A_FIRST_DOUBLE_CLOSE(VAR1, VAR2, TYPE_DOUBLE),                     \
+    default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_FIRST()                 \
 )
 
 #define ASSERT_NULL(VAR1) do {                                                 \
