@@ -866,14 +866,15 @@ _Generic((VAR1), \
     default: UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_FIRST()   \
 )
 
-#define ASSERT_NULL(VAR1) do {                                          \
-    void *p = VAR1;                                                     \
-    if (p != NULL) {                                                    \
-        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n",                      \
-               __FILE__, __LINE__, __func__);                           \
-        fprintf(stderr, "%s = %p == NULL\n", #VAR1, p);                          \
-        TRAP();                                                         \
-    }                                                                   \
+#define ASSERT_NULL(VAR1) do {                                                 \
+    void *p = VAR1;                                                            \
+    if (p != NULL) {                                                           \
+        fprintf(stderr,                                                        \
+                "\nAssertion failed at %s:%d:%s\n",                            \
+                __FILE__, __LINE__, FUNC__);                                   \
+        fprintf(stderr, "%s = %p == NULL\n", #VAR1, p);                        \
+        TRAP();                                                                \
+    }                                                                          \
 } while (0)
 
 #if TESTING_assert
