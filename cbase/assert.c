@@ -396,10 +396,10 @@ assert_fp_abs_tol(int common_kind) {
 
 static bool
 assert_double_close(double var1, double var2,
-                           int kind1, int kind2,
-                           double *diff_out,
-                           double *abs_tol_out,
-                           double *rel_tol_out) {
+                    int kind1, int kind2,
+                    double *diff_out,
+                    double *abs_tol_out,
+                    double *rel_tol_out) {
     int common_kind;
     double diff;
     double abs1;
