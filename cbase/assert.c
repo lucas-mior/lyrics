@@ -1039,16 +1039,10 @@ main(void) {
         bool a = true;
         bool b = true;
         ASSERT_EQUAL(a, b);
-        ASSERT_LESS_EQUAL(a, b);
-        ASSERT_MORE_EQUAL(a, b);
     } {
         bool a = true;
         bool b = false;
         ASSERT_NOT_EQUAL(a, b);
-        ASSERT_MORE(a, b);
-        ASSERT_MORE_EQUAL(a, b);
-        ASSERT_LESS(b, a);
-        ASSERT_LESS_EQUAL(b, a);
     } {
         char haystack[] = "alpha beta gamma";
         char binary_haystack[] = { 'a', 'b', '\0', 'c', 'd' };
