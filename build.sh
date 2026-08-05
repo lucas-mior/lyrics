@@ -300,7 +300,7 @@ install)
 test)
     setup_pkg_config_flags
 
-    find src -iname "*.c" | grep -v '/main[^/]*\.c$' | sort \
+    find src cbase -iname "*.c" | grep -v '/main[^/]*\.c$' | sort \
         | while read -r module; do
         name=$(basename "$module" | sed 's/\.c$//')
         test_exe="/tmp/${name}_test"
