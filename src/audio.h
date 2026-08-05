@@ -103,14 +103,6 @@ static bool audio_read_file_format(
     AudioIoFormat *format,
     char *ffmpeg_path
 );
-#if TESTING_audio
-static bool audio_write_file(
-    AudioBuffer *audio,
-    char *path,
-    char *format,
-    char *ffmpeg_path
-);
-#endif
 static bool audio_write_file_format(
     AudioBuffer *audio,
     char *path,
@@ -118,34 +110,6 @@ static bool audio_write_file_format(
     AudioIoFormat *output_format,
     char *ffmpeg_path
 );
-#if TESTING_audio
-static void audio_compare_options_init(AudioCompareOptions *options);
-static void audio_compare_result_init(AudioCompareResult *result);
-static bool audio_compare_buffers(
-    AudioCompareResult *result,
-    AudioBuffer *expected,
-    AudioBuffer *actual,
-    AudioCompareOptions *options
-);
-static bool audio_compare_files(
-    AudioCompareResult *result,
-    char *expected_path,
-    char *actual_path,
-    AudioCompareOptions *options,
-    char *ffmpeg_path
-);
-static bool audio_compare_reconstruction_buffers(
-    AudioCompareResult *result,
-    AudioBuffer *mixture,
-    AudioBuffer *first_stem,
-    AudioBuffer *second_stem,
-    AudioCompareOptions *options
-);
-static void audio_compare_result_print(
-    AudioCompareResult *result,
-    char *name
-);
-#endif
 #if TESTING
 static void audio_test_sine_options_init(AudioTestSineOptions *options);
 static bool audio_test_generate_sine_wav(
