@@ -172,10 +172,10 @@ double_from_char(char x) {
 }
 static void
 check_integer_fits_in_double(llong x) {
-    if (x >= (1ll << DBL_MANT_DIG)) {
+    if (x > (1ll << DBL_MANT_DIG)) {
         TRAP();
     }
-    if (x <= -(1ll << DBL_MANT_DIG)) {
+    if (x < -(1ll << DBL_MANT_DIG)) {
         TRAP();
     }
     return;
