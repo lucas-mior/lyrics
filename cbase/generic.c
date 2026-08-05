@@ -150,25 +150,25 @@ static double
 double_from_voidp(void* x) {
     (void)x;
     TRAP();
-    return (double)0.0;
+    return 0.0;  // NOLINT
 }
 static double
 double_from_charp(char* x) {
     (void)x;
     TRAP();
-    return (double)0.0;
+    return 0.0;  // NOLINT
 }
 static double
 double_from_bool(bool x) {
     (void)x;
     TRAP();
-    return (double)0.0;
+    return 0.0;  // NOLINT
 }
 static double
 double_from_char(char x) {
     (void)x;
     TRAP();
-    return (double)0.0;
+    return 0.0;  // NOLINT
 }
 static void
 check_integer_fits_in_double(llong x) {
@@ -289,10 +289,10 @@ typename(enum Type type) {
 static double
 double_get(union Primitive var, enum Type type) {
     switch (type) {
-    case TYPE_VOIDP:   TRAP(); break;
-    case TYPE_CHARP:   TRAP(); break;
-    case TYPE_BOOL:    TRAP(); break;
-    case TYPE_CHAR:    TRAP(); break;
+    case TYPE_VOIDP:   TRAP(); break;  // NOLINT
+    case TYPE_CHARP:   TRAP(); break;  // NOLINT
+    case TYPE_BOOL:    TRAP(); break;  // NOLINT
+    case TYPE_CHAR:    TRAP(); break;  // NOLINT
     case TYPE_SCHAR:   return (double)var.aschar;
     case TYPE_SHORT:   return (double)var.ashort;
     case TYPE_INT:     return (double)var.aint;
@@ -306,7 +306,7 @@ double_get(union Primitive var, enum Type type) {
     case TYPE_FLOAT:   return (double)var.afloat;
     case TYPE_DOUBLE:  return (double)var.adouble;
     case TYPE_OTHER:
-    default:           TRAP(); break;
+    default:           TRAP(); break;  // NOLINT
     }
     return (double)0.0;
 }
