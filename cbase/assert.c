@@ -285,23 +285,23 @@ GENERATE_ASSERT_SIGNED_UNSIGNED(more_equal, >=)
 
 #undef GENERATE_ASSERT_SIGNED_UNSIGNED
 
-#define GENERATE_ASSERT_UNSIGNED_SIGNED(MODE, SYMBOL)                   \
-static void                                                             \
-a_unsigned_signed_##MODE(char *file, int32 line, char *func,             \
-                         char *name1, char *name2,                      \
-                         char *type1, char *type2,                      \
-                         llong bits1, llong bits2,                      \
-                         ullong var1, llong var2) {                     \
-    if (!((-compare_sign_with_unsign(var2, var1)) SYMBOL 0)) {          \
-        if (!DEBUGGING) {                              \
-            UNREACHABLE(); \
-        } \
-        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func);   \
-        fprintf(stderr, "[%s%lld]%s = %llu " #SYMBOL " %lld = %s[%s%lld]\n",     \
-               type1, bits1, name1, var1, var2, name2, type2, bits2);   \
-        TRAP();                                                         \
-    }                                                                   \
-    return;                                                             \
+#define GENERATE_ASSERT_UNSIGNED_SIGNED(MODE, SYMBOL)                          \
+static void                                                                    \
+a_unsigned_signed_##MODE(char *file, int32 line, char *func,                   \
+                         char *name1, char *name2,                             \
+                         char *type1, char *type2,                             \
+                         llong bits1, llong bits2,                             \
+                         ullong var1, llong var2) {                            \
+    if (!((-compare_sign_with_unsign(var2, var1)) SYMBOL 0)) {                 \
+        if (!DEBUGGING) {                                                      \
+            UNREACHABLE();                                                     \
+        }                                                                      \
+        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func); \
+        fprintf(stderr, "[%s%lld]%s = %llu " #SYMBOL " %lld = %s[%s%lld]\n",   \
+               type1, bits1, name1, var1, var2, name2, type2, bits2);          \
+        TRAP();                                                                \
+    }                                                                          \
+    return;                                                                    \
 }
 
 GENERATE_ASSERT_UNSIGNED_SIGNED(equal, ==)
