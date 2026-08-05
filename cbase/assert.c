@@ -521,8 +521,8 @@ a_double_close(char *file, int32 line, char *func,
     if (!assert_double_almost_equal(var1, var2, kind1, kind2,
                                      &diff, &abs_tol, &rel_tol)) {
         assert_double_failure(file, line, func, name1, name2,
-                               type1, type2, bits1, bits2,
-                               var1, var2, "~=", diff, abs_tol, rel_tol);
+                              type1, type2, bits1, bits2,
+                              var1, var2, "~=", diff, abs_tol, rel_tol);
     }
     return;
 }
@@ -540,8 +540,8 @@ a_double_not_close(char *file, int32 line, char *func,
     if (assert_double_almost_equal(var1, var2, kind1, kind2,
                                     &diff, &abs_tol, &rel_tol)) {
         assert_double_failure(file, line, func, name1, name2,
-                               type1, type2, bits1, bits2,
-                               var1, var2, "!~=", diff, abs_tol, rel_tol);
+                              type1, type2, bits1, bits2,
+                              var1, var2, "!~=", diff, abs_tol, rel_tol);
     }
     return;
 }
