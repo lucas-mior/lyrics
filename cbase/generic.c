@@ -724,7 +724,7 @@ main(void) {
         assert(n == strlen2("Now you can insert variables in situ:\n"
                             "1 divided by 8 equals 0.125\n"));
 
-        assert(!strcmp(buf, "Now you can insert variables in situ:\n"
+        assert(strequal(buf, "Now you can insert variables in situ:\n"
                             "1 divided by 8 equals 0.125\n"));
 
         n = snprint(buf, sizeof(buf),
@@ -733,16 +733,16 @@ main(void) {
                  "This is %s It's %lu characters long\n",
                  e, (ulong)strlen(e));
         assert(n == strlen2(expected));
-        assert(!strcmp(buf, expected));
+        assert(strequal(buf, expected));
 
         n = snprint(buf, sizeof(buf),
                     "custom " VF("%04i", c) " " VF("%c", a) "\n");
         assert(n == strlen2("custom 0001 i\n"));
-        assert(!strcmp(buf, "custom 0001 i\n"));
+        assert(strequal(buf, "custom 0001 i\n"));
 
         n = snprint(small, sizeof(small), "prefix-" W(e));
         assert(n == (int)(strlen("prefix-") + strlen(e)));
-        assert(!strcmp(small, "prefix-"));
+        assert(strequal(small, "prefix-"));
 
         fp = tmpfile();
         assert(fp);
@@ -750,7 +750,7 @@ main(void) {
         assert(n == strlen2("file 1 0001\n"));
         rewind(fp);
         assert(fgets(buf, sizeof(buf), fp));
-        assert(!strcmp(buf, "file 1 0001\n"));
+        assert(strequal(buf, "file 1 0001\n"));
         fclose(fp);
 
         n = print0("print ", V(a), " ", W(b), "\n");
