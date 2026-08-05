@@ -432,10 +432,10 @@ write_all(int fd, char *buffer, int64 left) {
 
     while (left > 0) {
         if ((w = write(fd, buffer + written, (RW_TYPE)left)) <= 0) {
-            fprintf(stderr, "Error writing: %s.\n", strerror(errno));
             if (errno == EINTR) {
                 continue;
             }
+            fprintf(stderr, "Error writing: %s.\n", strerror(errno));
             fatal(EXIT_FAILURE);
         }
         left -= w;
