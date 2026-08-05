@@ -574,7 +574,7 @@ assert_double_close_tolerance(double var1, double var2,
     bool handled;
     double diff;
 
-    if (tolerance < (double)0) {
+    if (tolerance < 0.0) {
         tolerance = -tolerance;
     }
 
