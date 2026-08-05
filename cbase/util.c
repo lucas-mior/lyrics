@@ -480,84 +480,6 @@ qsort64(void *base, int64 n, int64 size, int (*compar)(void *, void *)) {
     return;
 }
 
-#if OS_WINDOWS
-CBASE_API_DEF int32
-util_nthreads(void) {
-    SYSTEM_INFO sysinfo = {0};
-    GetSystemInfo(&sysinfo);
-    return (int32)sysinfo.dwNumberOfProcessors;
-}
-#else
-CBASE_API_DEF int32
-util_nthreads(void) {
-    return (int32)sysconf(_SC_NPROCESSORS_ONLN);
-}
-#endif
-
-#if OS_UNIX
-CBASE_API_DEF void
-xpthread_mutex_lock(pthread_mutex_t *mutex) {
-    int err;
-    if ((err = pthread_mutex_lock(mutex))) {
-        error("Error locking mutex %p: %s.\n", (void *)mutex, strerror(err));
-        fatal(EXIT_FAILURE);
-    }
-    return;
-}
-
-CBASE_API_DEF void
-xpthread_mutex_unlock(pthread_mutex_t *mutex) {
-    int err;
-    if ((err = pthread_mutex_unlock(mutex))) {
-        error("Error unlocking mutex %p: %s.\n", (void *)mutex, strerror(err));
-        fatal(EXIT_FAILURE);
-    }
-    return;
-}
-
-CBASE_API_DEF void
-xpthread_cond_destroy(pthread_cond_t *cond) {
-    int err;
-    if ((err = pthread_cond_destroy(cond))) {
-        error("Error destroying cond %p: %s.\n", (void *)cond, strerror(err));
-        fatal(EXIT_FAILURE);
-    }
-    return;
-}
-
-CBASE_API_DEF void
-xpthread_mutex_destroy(pthread_mutex_t *mutex) {
-    int err;
-    if ((err = pthread_mutex_destroy(mutex))) {
-        error("Error destroying mutex %p: %s.\n", (void *)mutex, strerror(err));
-        fatal(EXIT_FAILURE);
-    }
-    return;
-}
-
-CBASE_API_DEF void
-xpthread_create(pthread_t *thread, pthread_attr_t *attr,
-                void *(*function)(void *), void *arg) {
-    int err;
-    if ((err = pthread_create(thread, attr, function, arg))) {
-        error("Error creating thread: %s.\n", strerror(err));
-        fatal(EXIT_FAILURE);
-    }
-    return;
-}
-
-CBASE_API_DEF void
-xpthread_join(pthread_t *thread, void **thread_return) {
-    int err;
-    if ((err = pthread_join(*thread, thread_return))) {
-        error("Error joining thread: %s.\n", strerror(err));
-        fatal(EXIT_FAILURE);
-    }
-    *thread = 0;
-    return;
-}
-#endif
-
 CBASE_API_DEF int32 __attribute__((format(printf, 3, 4)))
 snprintf2(char *buffer, int64 size, char *format, ...) {
     int n;
@@ -1106,14 +1028,6 @@ util_copy_file_async_parsed(UtilCopyFilesAsync *copy_files) {
     }
     free2(copy_files, sizeof(*copy_files));
     return;
-}
-
-CBASE_API_DEF void *
-util_copy_file_async_thread(void *arg) {
-    UtilCopyFilesAsync *copy_files = arg;
-    util_copy_file_async_parsed(copy_files);
-    pthread_exit(NULL);
-    return NULL;
 }
 
 #endif
@@ -2398,7 +2312,6 @@ util_functions_sink(void) {
     (void)command_run_capture_all;
     (void)command_run_capture_combined;
     (void)util_segv_handler;
-    (void)util_nthreads;
     (void)util_filename_from;
     (void)util_string_int32;
     (void)util_die_notify;
@@ -2408,7 +2321,6 @@ util_functions_sink(void) {
 #if OS_UNIX
     (void)util_copy_file_sync;
     (void)util_copy_file_async;
-    (void)util_copy_file_async_thread;
 #endif
     (void)util_equal_files;
 
@@ -2445,15 +2357,6 @@ util_functions_sink(void) {
 #endif
     (void)xmemdup;
     (void)xunlink;
-
-#if OS_UNIX
-    (void)xpthread_mutex_lock;
-    (void)xpthread_mutex_unlock;
-    (void)xpthread_cond_destroy;
-    (void)xpthread_mutex_destroy;
-    (void)xpthread_create;
-    (void)xpthread_join;
-#endif
 
     (void)random_ascii_string;
     (void)strncpy32;
@@ -3049,7 +2952,6 @@ main(int argc, char **argv) {
 #if OS_UNIX
     (void)util_copy_file_sync;
     (void)util_copy_file_async;
-    (void)util_copy_file_async_thread;
 #endif
 
     (void)malloc_debug;
@@ -3062,15 +2964,6 @@ main(int argc, char **argv) {
     (void)xdup2;
     (void)xpipe;
     (void)xunlink;
-
-#if OS_UNIX
-    (void)xpthread_mutex_lock;
-    (void)xpthread_mutex_unlock;
-    (void)xpthread_cond_destroy;
-    (void)xpthread_mutex_destroy;
-    (void)xpthread_create;
-    (void)xpthread_join;
-#endif
 
     (void)fwrite64;
     (void)fread64;
