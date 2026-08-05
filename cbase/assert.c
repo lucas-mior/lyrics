@@ -313,7 +313,7 @@ GENERATE_ASSERT_UNSIGNED_SIGNED(more_equal, >=)
 
 #undef GENERATE_ASSERT_UNSIGNED_SIGNED
 
-#define GENERATE_ASSERT_DOUBLE(SYMBOL, MODE)                                       \
+#define GENERATE_ASSERT_DOUBLE(SYMBOL, MODE)                                   \
 static void                                                                    \
 a_double_##MODE(char *file, int32 line, char *func,                            \
                 char *name1, char *name2,                                      \
