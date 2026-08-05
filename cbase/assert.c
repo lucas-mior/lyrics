@@ -562,6 +562,18 @@ a_bool_##MODE(char *file, int32 line, char *func,                           \
     return;                                                                \
 }
 
+static void a_bool_more(void *, ...) {
+    TRAP();
+}
+static void a_bool_less(void *, ...) {
+    TRAP();
+}
+static void a_bool_more_equal(void *, ...) {
+    TRAP();
+}
+static void a_bool_less_equal(void *, ...) {
+    TRAP();
+}
 GENERATE_ASSERT_BOOLS(equal, ==)
 GENERATE_ASSERT_BOOLS(not_equal, !=)
 
