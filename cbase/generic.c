@@ -170,6 +170,15 @@ double_from_char(char x) {
     TRAP();
     return (double)0.0;
 }
+static void
+check_integer_fits_in_double(llong x) {
+    if (x >= (1ll << DBL_MANT_DIG)) {
+        TRAP();
+    }
+    if (x <= -(1ll << DBL_MANT_DIG)) {
+        TRAP();
+    }
+}
 static double double_from_schar  (schar x)   {
     return (double)x;
 }
@@ -180,9 +189,11 @@ static double double_from_int    (int x)     {
     return (double)x;
 }
 static double double_from_long   (long x)    {
+    check_integer_fits_in_double((llong)x);
     return (double)x;
 }
 static double double_from_llong  (llong x)   {
+    check_integer_fits_in_double(x);
     return (double)x;
 }
 static double double_from_uchar  (uchar x)   {
@@ -195,9 +206,17 @@ static double double_from_uint   (uint x)    {
     return (double)x;
 }
 static double double_from_ulong  (ulong x)   {
+    if (x >= (ullong)LLONG_MAX) {
+        TRAP();
+    }
+    check_integer_fits_in_double((llong)x);
     return (double)x;
 }
 static double double_from_ullong (ullong x)  {
+    if (x >= (ullong)LLONG_MAX) {
+        TRAP();
+    }
+    check_integer_fits_in_double((llong)x);
     return (double)x;
 }
 static double double_from_float  (float x)   {
