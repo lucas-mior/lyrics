@@ -225,10 +225,10 @@ strequal2(char *a, int32 a_len, char *b, int32 b_len) {
 
 CBASE_API_DEF bool
 striqual2(char *a, int32 a_len, char *b, int32 b_len) {
-#if DEBUGGING
-    striqual_validate_ascii_utf8(a, a_len);
-    striqual_validate_ascii_utf8(b, b_len);
-#endif
+    if (DEBUGGING) {
+        striqual_validate_ascii_utf8(a, a_len);
+        striqual_validate_ascii_utf8(b, b_len);
+    }
 
     if (a_len != b_len) {
         return false;
