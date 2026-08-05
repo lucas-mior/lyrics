@@ -588,31 +588,32 @@ a_double_more_equal(char *file, uint line, char *func,
     return;
 }
 
-#define GENERATE_ASSERT_BOOLS(MODE, SYMBOL)                            \
-static void                                                            \
-a_bool_##MODE(char *file, uint line, char *func,                       \
-              char *name1, char *name2,                                \
-              char *type1, char *type2,                                \
-              llong bits1, llong bits2,                                \
-              bool var1, bool var2) {                                  \
-    if (!(var1 SYMBOL var2)) {                                         \
-        char *s1 = "false";                                            \
-        char *s2 = "false";                                            \
-        if (!DEBUGGING) {                                              \
+#define GENERATE_ASSERT_BOOLS(MODE, SYMBOL)                                \
+static void                                                                \
+a_bool_##MODE(char *file, uint line, char *func,                           \
+              char *name1, char *name2,                                    \
+              char *type1, char *type2,                                    \
+              llong bits1, llong bits2,                                    \
+              bool var1, bool var2) {                                      \
+    if (!(var1 SYMBOL var2)) {                                             \
+        char *s1 = "false";                                                \
+        char *s2 = "false";                                                \
+        if (!DEBUGGING) {                                                  \
             UNREACHABLE();                                   \
-        }                                                              \
-        if (var1) {                                                    \
-            s1 = "true";                                               \
-        }                                                              \
-        if (var2) {                                                    \
-            s2 = "true";                                               \
-        }                                                              \
-        fprintf(stderr, "\nAssertion failed at %s:%u:%s\n", file, line, func);  \
-        fprintf(stderr, "[%s%lld]%s = %s " #SYMBOL " %s = %s[%s%lld]\n",        \
-               type1, bits1, name1, s1, s2, name2, type2, bits2);      \
-        TRAP();                                                        \
-    }                                                                  \
-    return;                                                            \
+        }                                                                  \
+        if (var1) {                                                        \
+            s1 = "true";                                                   \
+        }                                                                  \
+        if (var2) {                                                        \
+            s2 = "true";                                                   \
+        }                                                                  \
+        fprintf(stderr,                                                    \
+                "\nAssertion failed at %s:%u:%s\n", file, line, func);     \
+        fprintf(stderr, "[%s%lld]%s = %s " #SYMBOL " %s = %s[%s%lld]\n",   \
+                        type1, bits1, name1, s1, s2, name2, type2, bits2); \
+        TRAP();                                                            \
+    }                                                                      \
+    return;                                                                \
 }
 
 GENERATE_ASSERT_BOOLS(equal, ==)
