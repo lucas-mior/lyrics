@@ -179,21 +179,21 @@ GENERATE_ASSERT_STRINGS(more_equal, >=)
 
 #undef GENERATE_ASSERT_STRINGS
 
-#define GENERATE_ASSERT_POINTERS(MODE, SYMBOL)                           \
-static void                                                              \
-a_pointers_##MODE(char *file, int32 line, char *func,                     \
-                  char *name1, char *name2,                              \
-                  void *var1, void *var2) {                              \
-    if (!((uintptr)var1 SYMBOL (uintptr)var2)) {                     \
-        if (!DEBUGGING) {                                                \
-            UNREACHABLE();                                               \
-        }                                                                \
-        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func);    \
-        fprintf(stderr, "%s = %p " #SYMBOL " %p = %s\n",                          \
-               name1, var1, var2, name2);                                \
-        TRAP();                                                          \
-    }                                                                    \
-    return;                                                              \
+#define GENERATE_ASSERT_POINTERS(MODE, SYMBOL)                                 \
+static void                                                                    \
+a_pointers_##MODE(char *file, int32 line, char *func,                          \
+                  char *name1, char *name2,                                    \
+                  void *var1, void *var2) {                                    \
+    if (!((uintptr)var1 SYMBOL (uintptr)var2)) {                               \
+        if (!DEBUGGING) {                                                      \
+            UNREACHABLE();                                                     \
+        }                                                                      \
+        fprintf(stderr, "\nAssertion failed at %s:%d:%s\n", file, line, func); \
+        fprintf(stderr, "%s = %p " #SYMBOL " %p = %s\n",                       \
+               name1, var1, var2, name2);                                      \
+        TRAP();                                                                \
+    }                                                                          \
+    return;                                                                    \
 }
 
 GENERATE_ASSERT_POINTERS(less, <)
