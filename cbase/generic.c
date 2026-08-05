@@ -595,36 +595,36 @@ main(void) {
     assert(MAXOF(primitive.aullong)  == ULLONG_MAX);
     assert(MAXOF(primitive.abool)    == 1);
 
-    assert(!strcmp(TYPENAME(primitive.avoidp),
-                   typename(TYPEID(primitive.avoidp))));
-    assert(!strcmp(TYPENAME(primitive.acharp),
-                   typename(TYPEID(primitive.acharp))));
-    assert(!strcmp(TYPENAME(primitive.abool),
-                   typename(TYPEID(primitive.abool))));
-    assert(!strcmp(TYPENAME(primitive.aschar),
-                   typename(TYPEID(primitive.aschar))));
-    assert(!strcmp(TYPENAME(primitive.ashort),
-                   typename(TYPEID(primitive.ashort))));
-    assert(!strcmp(TYPENAME(primitive.aint),
-                   typename(TYPEID(primitive.aint))));
-    assert(!strcmp(TYPENAME(primitive.along),
-                   typename(TYPEID(primitive.along))));
-    assert(!strcmp(TYPENAME(primitive.allong),
-                   typename(TYPEID(primitive.allong))));
-    assert(!strcmp(TYPENAME(primitive.auchar),
-                   typename(TYPEID(primitive.auchar))));
-    assert(!strcmp(TYPENAME(primitive.aushort),
-                   typename(TYPEID(primitive.aushort))));
-    assert(!strcmp(TYPENAME(primitive.auint),
-                   typename(TYPEID(primitive.auint))));
-    assert(!strcmp(TYPENAME(primitive.aulong),
-                   typename(TYPEID(primitive.aulong))));
-    assert(!strcmp(TYPENAME(primitive.aullong),
-                   typename(TYPEID(primitive.aullong))));
-    assert(!strcmp(TYPENAME(primitive.afloat),
-                   typename(TYPEID(primitive.afloat))));
-    assert(!strcmp(TYPENAME(primitive.adouble),
-                   typename(TYPEID(primitive.adouble))));
+    assert(strequal(TYPENAME(primitive.avoidp),
+                    typename(TYPEID(primitive.avoidp))));
+    assert(strequal(TYPENAME(primitive.acharp),
+                    typename(TYPEID(primitive.acharp))));
+    assert(strequal(TYPENAME(primitive.abool),
+                    typename(TYPEID(primitive.abool))));
+    assert(strequal(TYPENAME(primitive.aschar),
+                    typename(TYPEID(primitive.aschar))));
+    assert(strequal(TYPENAME(primitive.ashort),
+                    typename(TYPEID(primitive.ashort))));
+    assert(strequal(TYPENAME(primitive.aint),
+                    typename(TYPEID(primitive.aint))));
+    assert(strequal(TYPENAME(primitive.along),
+                    typename(TYPEID(primitive.along))));
+    assert(strequal(TYPENAME(primitive.allong),
+                    typename(TYPEID(primitive.allong))));
+    assert(strequal(TYPENAME(primitive.auchar),
+                    typename(TYPEID(primitive.auchar))));
+    assert(strequal(TYPENAME(primitive.aushort),
+                    typename(TYPEID(primitive.aushort))));
+    assert(strequal(TYPENAME(primitive.auint),
+                    typename(TYPEID(primitive.auint))));
+    assert(strequal(TYPENAME(primitive.aulong),
+                    typename(TYPEID(primitive.aulong))));
+    assert(strequal(TYPENAME(primitive.aullong),
+                    typename(TYPEID(primitive.aullong))));
+    assert(strequal(TYPENAME(primitive.afloat),
+                    typename(TYPEID(primitive.afloat))));
+    assert(strequal(TYPENAME(primitive.adouble),
+                    typename(TYPEID(primitive.adouble))));
 
     {
         int32 var_int32;
