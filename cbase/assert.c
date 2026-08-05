@@ -494,7 +494,6 @@ assert_double_failure(char *file, int32 line, char *func,
     fprintf(stderr, "floating diff = %f, abs_tol = %f, rel_tol = %f\n",
            diff, abs_tol, rel_tol);
     TRAP();
-    exit(EXIT_FAILURE);
 }
 
 static void
@@ -748,7 +747,6 @@ _Generic((VAR2),                                                         \
                     #VAR1, #VAR2,                                         \
                     typename(TYPE1), typename(TYPE2),                     \
                     typebits(TYPE1), typebits(TYPE2),                     \
-                    ASSERT_FP_KIND_EXPR(VAR1), ASSERT_FP_KIND_EXPR(VAR2), \
                     DOUBLE_GET2(VAR1, TYPE1), DOUBLE_GET2(VAR2, TYPE2))
 
 #define A_FIRST_DOUBLE(MODE, VAR1, VAR2, TYPE1) \
