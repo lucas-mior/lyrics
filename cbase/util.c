@@ -779,7 +779,8 @@ xfopen(char *file, int32 line, char *func, char *filename, char *mode) {
     }
 
     if ((f = fopen(filename, mode)) == NULL) {
-        error_impl(file, line, func, "Error opening %s for %s: %s.\n",
+        error_impl(file, line, func,
+                   "Error opening %s for %s: %s.\n",
                    filename, mode_long, strerror(errno));
         return NULL;
     }
