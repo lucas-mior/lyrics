@@ -660,16 +660,16 @@ void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_COMPARE(void);
 void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_FIRST(void);
 void UNSUPPORTED_TYPE_FOR_GENERIC_ASSERT_CLOSE_SECOND(void);
 
-#define ASSERT(C) do {                                     \
-    if (!(C)) {                                            \
-        if (!DEBUGGING) {                                  \
-            UNREACHABLE();                       \
-        } else {                                           \
-            fprintf(stderr, "%s: Assertion '%s' failed at %s:%d\n", \
-                   __func__, #C, __FILE__, __LINE__);      \
-            TRAP();                                        \
-        }                                                  \
-    }                                                      \
+#define ASSERT(C) do {                                                         \
+    if (!(C)) {                                                                \
+        if (!DEBUGGING) {                                                      \
+            UNREACHABLE();                                                     \
+        } else {                                                               \
+            fprintf(stderr, "%s: Assertion '%s' failed at %s:%d\n",            \
+                   __func__, #C, __FILE__, __LINE__);                          \
+            TRAP();                                                            \
+        }                                                                      \
+    }                                                                          \
 } while (0)
 
 #define ASSERT_FILE_CONTAINS(PATH, NEEDLE) \
