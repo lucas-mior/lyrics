@@ -570,30 +570,30 @@ int
 main(void) {
     union Primitive primitive;
 
-    assert(MINOF(primitive.afloat)   == -FLT_MAX);
-    assert(MINOF(primitive.aint)     == INT_MIN);
-    assert(MINOF(primitive.allong)   == LLONG_MIN);
-    assert(MINOF(primitive.along)    == LONG_MIN);
-    assert(MINOF(primitive.aschar)   == SCHAR_MIN);
-    assert(MINOF(primitive.ashort)   == SHRT_MIN);
-    assert(MINOF(primitive.auchar)   == 0);
-    assert(MINOF(primitive.auint)    == 0u);
-    assert(MINOF(primitive.aullong)  == 0ull);
-    assert(MINOF(primitive.aulong)   == 0ul);
-    assert(MINOF(primitive.aushort)  == 0);
+    assert(MINOF(primitive.afloat)  == -FLT_MAX);
+    assert(MINOF(primitive.aint)    == INT_MIN);
+    assert(MINOF(primitive.allong)  == LLONG_MIN);
+    assert(MINOF(primitive.along)   == LONG_MIN);
+    assert(MINOF(primitive.aschar)  == SCHAR_MIN);
+    assert(MINOF(primitive.ashort)  == SHRT_MIN);
+    assert(MINOF(primitive.auchar)  == 0);
+    assert(MINOF(primitive.auint)   == 0u);
+    assert(MINOF(primitive.aullong) == 0ull);
+    assert(MINOF(primitive.aulong)  == 0ul);
+    assert(MINOF(primitive.aushort) == 0);
 
-    assert(MAXOF(primitive.afloat)   == FLT_MAX);
-    assert(MAXOF(primitive.aschar)   == SCHAR_MAX);
-    assert(MAXOF(primitive.ashort)   == SHRT_MAX);
-    assert(MAXOF(primitive.aint)     == INT_MAX);
-    assert(MAXOF(primitive.along)    == LONG_MAX);
-    assert(MAXOF(primitive.allong)   == LLONG_MAX);
-    assert(MAXOF(primitive.auchar)   == UCHAR_MAX);
-    assert(MAXOF(primitive.aushort)  == USHRT_MAX);
-    assert(MAXOF(primitive.auint)    == UINT_MAX);
-    assert(MAXOF(primitive.aulong)   == ULONG_MAX);
-    assert(MAXOF(primitive.aullong)  == ULLONG_MAX);
-    assert(MAXOF(primitive.abool)    == 1);
+    assert(MAXOF(primitive.afloat)  == FLT_MAX);
+    assert(MAXOF(primitive.aschar)  == SCHAR_MAX);
+    assert(MAXOF(primitive.ashort)  == SHRT_MAX);
+    assert(MAXOF(primitive.aint)    == INT_MAX);
+    assert(MAXOF(primitive.along)   == LONG_MAX);
+    assert(MAXOF(primitive.allong)  == LLONG_MAX);
+    assert(MAXOF(primitive.auchar)  == UCHAR_MAX);
+    assert(MAXOF(primitive.aushort) == USHRT_MAX);
+    assert(MAXOF(primitive.auint)   == UINT_MAX);
+    assert(MAXOF(primitive.aulong)  == ULONG_MAX);
+    assert(MAXOF(primitive.aullong) == ULLONG_MAX);
+    assert(MAXOF(primitive.abool)   == 1);
 
     assert(strequal(TYPENAME(primitive.avoidp),
                     typename(TYPEID(primitive.avoidp))));
