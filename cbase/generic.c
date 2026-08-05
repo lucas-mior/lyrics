@@ -178,6 +178,7 @@ check_integer_fits_in_double(llong x) {
     if (x <= -(1ll << DBL_MANT_DIG)) {
         TRAP();
     }
+    return;
 }
 static double double_from_schar  (schar x)   {
     return (double)x;
