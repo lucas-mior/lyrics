@@ -708,15 +708,15 @@ main(void) {
         FILE *fp;
         int n;
 
-        assert(!strcmp(S_(a), "i"));
-        assert(!strcmp(S_(b), "able"));
-        assert(!strcmp(S_(c), "1"));
-        assert(!strcmp(S_((uint)42), "42"));
-        assert(!strcmp(S_((long)-42), "-42"));
-        assert(!strcmp(S_((ullong)42), "42"));
-        assert(!strcmp(S_(true), "1"));
-        assert(!strcmp(S_(false), "0"));
-        assert(!strcmp(SF("0x%02x", 10), "0x0a"));
+        assert(strequal(S_(a), "i"));
+        assert(strequal(S_(b), "able"));
+        assert(strequal(S_(c), "1"));
+        assert(strequal(S_((uint)42), "42"));
+        assert(strequal(S_((long)-42), "-42"));
+        assert(strequal(S_((ullong)42), "42"));
+        assert(strequal(S_(true), "1"));
+        assert(strequal(S_(false), "0"));
+        assert(strequal(SF("0x%02x", 10), "0x0a"));
 
         n = snprint(buf, sizeof(buf),
                     "Now you can insert var" V(a) V(b) "s in situ:\n"
