@@ -184,7 +184,7 @@ _Generic((SIZE), \
 #if TESTING
   #define TRAP(...) raise(SIGILL)
 #else
-  #if defined(__GNUC__) || defined(__clang__)
+  #if CC_GCC || CC_CLANG
     #define TRAP(...) __builtin_trap()
   #elif defined(_MSC_VER)
     #define TRAP(...) __debugbreak()
