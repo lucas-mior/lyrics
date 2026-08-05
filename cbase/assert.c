@@ -143,31 +143,31 @@ assert_not_contains(char *file, int32 line, char *func,
     }
 }
 
-#define GENERATE_ASSERT_STRINGS(MODE, SYMBOL)                               \
-static void                                                                 \
-a_strings_##MODE(char *file, int32 line, char *func,                        \
-                 char *name1, char *name2,                                  \
-                 char *var1, char *var2) {                                  \
-    if (var1 == NULL) {                                                     \
-        fprintf(stderr,                                                     \
-                "\nError in assertion at %s:%d:%s\n", file, line, func);    \
-        fprintf(stderr, "%s is NULL.\n", name1);                            \
-        TRAP();                                                             \
-    }                                                                       \
-    if (var2 == NULL) {                                                     \
-        fprintf(stderr,                                                     \
-                "\nError in assertion at %s:%d:%s\n", file, line, func);    \
-        fprintf(stderr, "%s is NULL.\n", name2);                            \
-        TRAP();                                                             \
-    }                                                                       \
-    if (!(strcmp(var1, var2) SYMBOL 0)) {                                   \
-        fprintf(stderr,                                                     \
-                "\nError in assertion at %s:%d:%s\n", file, line, func);    \
-        fprintf(stderr,                                                     \
-                "%s = %s " #SYMBOL " %s = %s\n", name1, var1, var2, name2); \
-        TRAP();                                                             \
-    }                                                                       \
-    return;                                                                 \
+#define GENERATE_ASSERT_STRINGS(MODE, SYMBOL)                                  \
+static void                                                                    \
+a_strings_##MODE(char *file, int32 line, char *func,                           \
+                 char *name1, char *name2,                                     \
+                 char *var1, char *var2) {                                     \
+    if (var1 == NULL) {                                                        \
+        fprintf(stderr,                                                        \
+                "\nError in assertion at %s:%d:%s\n", file, line, func);       \
+        fprintf(stderr, "%s is NULL.\n", name1);                               \
+        TRAP();                                                                \
+    }                                                                          \
+    if (var2 == NULL) {                                                        \
+        fprintf(stderr,                                                        \
+                "\nError in assertion at %s:%d:%s\n", file, line, func);       \
+        fprintf(stderr, "%s is NULL.\n", name2);                               \
+        TRAP();                                                                \
+    }                                                                          \
+    if (!(strcmp(var1, var2) SYMBOL 0)) {                                      \
+        fprintf(stderr,                                                        \
+                "\nError in assertion at %s:%d:%s\n", file, line, func);       \
+        fprintf(stderr,                                                        \
+                "%s = %s " #SYMBOL " %s = %s\n", name1, var1, var2, name2);    \
+        TRAP();                                                                \
+    }                                                                          \
+    return;                                                                    \
 }
 
 GENERATE_ASSERT_STRINGS(less, <)
