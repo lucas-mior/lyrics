@@ -174,6 +174,8 @@ _Generic((SIZE), \
   #define UNREACHABLE() do { } while(0)
 #endif
 
+// __func__ returns const char *
+// which breaks the qualifiers when passing it around
 #define FUNC__ (char *)__func__
 #define FUNC FUNC__
 
