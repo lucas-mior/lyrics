@@ -308,8 +308,10 @@ double_get(union Primitive var, enum Type type) {
     case TYPE_INT:
         return (double)var.aint;
     case TYPE_LONG:
+        check_integer_fits_in_double(var.along);
         return (double)var.along;
     case TYPE_LLONG:
+        check_integer_fits_in_double(var.allong);
         return (double)var.allong;
     case TYPE_UCHAR:
         return (double)var.auchar;
@@ -318,8 +320,10 @@ double_get(union Primitive var, enum Type type) {
     case TYPE_UINT:
         return (double)var.auint;
     case TYPE_ULONG:
+        check_integer_fits_in_double(var.aulong);
         return (double)var.aulong;
     case TYPE_ULLONG:
+        check_integer_fits_in_double(var.aullong);
         return (double)var.aullong;
     case TYPE_FLOAT:
         return (double)var.afloat;
