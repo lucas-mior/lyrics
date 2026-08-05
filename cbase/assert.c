@@ -313,7 +313,7 @@ GENERATE_ASSERT_UNSIGNED_SIGNED(more_equal, >=)
 
 #undef GENERATE_ASSERT_UNSIGNED_SIGNED
 
-#define GENERATE_ASSERT_FP(SYMBOL, MODE)                                       \
+#define GENERATE_ASSERT_DOUBLE(SYMBOL, MODE)                                       \
 static void                                                                    \
 a_double_##MODE(char *file, int32 line, char *func,                            \
                 char *name1, char *name2,                                      \
@@ -332,14 +332,14 @@ a_double_##MODE(char *file, int32 line, char *func,                            \
     return;                                                                    \
 }
 
-GENERATE_ASSERT_FP(==, equal)
-GENERATE_ASSERT_FP(!=, not_equal)
-GENERATE_ASSERT_FP(<,  less)
-GENERATE_ASSERT_FP(>,  more)
-GENERATE_ASSERT_FP(<=, less_equal)
-GENERATE_ASSERT_FP(>=, more_equal)
+GENERATE_ASSERT_DOUBLE(==, equal)
+GENERATE_ASSERT_DOUBLE(!=, not_equal)
+GENERATE_ASSERT_DOUBLE(<,  less)
+GENERATE_ASSERT_DOUBLE(>,  more)
+GENERATE_ASSERT_DOUBLE(<=, less_equal)
+GENERATE_ASSERT_DOUBLE(>=, more_equal)
 
-#undef GENERATE_ASSERT_FP
+#undef GENERATE_ASSERT_DOUBLE
 
 static double
 assert_double_abs(double x) {
